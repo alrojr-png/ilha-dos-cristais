@@ -160,9 +160,43 @@ const fmt = n => {
 const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
-function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} }
+// Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
+// (no artifact o localStorage pode ser apagado ou bloqueado pelo navegador).
+let cloudDoc = null, cloudLast = '', cloudBusy = false;
+const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.coins || 0) + (s.bagVal || 0);
+function save(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  cloudSave();
+}
+function cloudSave(){
+  if (!cloudDoc || cloudBusy) return;
+  const j = JSON.stringify(S);
+  if (j === cloudLast) return;
+  cloudBusy = true;
+  cloudDoc.set({save: j}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
+}
 function load(){ try{ const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) merge(d); }catch(e){} }
 function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {}); }
+async function cloudInit(){
+  try{
+    if (!window.claude?.use) return;
+    const [user, db] = await Promise.all([claude.use('user'), claude.use('db')]);
+    if (!user || !db) return;
+    const id = await user.id();
+    if (!id) return;
+    const doc = db.collection('data/users/' + id).doc('ilha-save');
+    const snap = await doc.get();
+    if (snap.exists){
+      const d = JSON.parse(snap.data().save || 'null');
+      if (d && progress(d) > progress(S)){ merge(d); hud(); gateCheck(); toast('Progresso carregado!', 2500); }
+      cloudLast = snap.data().save;
+    }
+    cloudDoc = doc;
+    cloudSave();
+  }catch(e){}
+}
+addEventListener('pagehide', () => save());
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 
 // ---------- Three.js ----------
 const canvas = document.getElementById('game');
@@ -609,6 +643,7 @@ function start(data){
   if (data && data.P) Object.assign(P, data.P);
   if (P.z > maxZ()) P.z = 8;
   resize(); hud();
+  cloudInit();
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
   if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Ande por cima dos cristais para pegá-los', 3500), 1900);
   requestAnimationFrame(t => { last = t; step(t); });
