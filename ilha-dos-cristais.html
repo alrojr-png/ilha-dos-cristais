@@ -61,7 +61,11 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);user-select
 body.touch #help{display:none}
 #jump{display:none;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:84px;height:84px;border-radius:50%;font-size:16px;padding:0}
 body.touch #jump{display:block}
-#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
+#cross{position:fixed;left:50%;top:50%;z-index:4;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;display:none}
+#cross::before,#cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);border-radius:2px}
+#cross::before{left:10px;top:0;width:2px;height:22px}
+#cross::after{top:10px;left:0;height:2px;width:22px}
+body.shiftlock #cross{display:block}#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
 #stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.75)}
 .float{position:fixed;z-index:6;pointer-events:none;font-family:var(--display);font-size:22px;color:var(--gem);text-shadow:0 2px 0 rgba(0,0,0,.6);animation:rise .9s ease-out forwards;transform:translate(-50%,-50%)}
 .float.coin{color:var(--coin);font-size:30px}
@@ -143,7 +147,8 @@ body.touch #jump{display:block}
   <div><b id="gateName"></b><span id="gateInfo"></span></div>
   <button class="btn go" id="gateBtn" type="button">Desbloquear</button>
 </div>
-<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets</div>
+<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock</div>
+<div id="cross" aria-hidden="true"></div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <div id="stick"><i></i></div>
 
@@ -518,10 +523,35 @@ addEventListener('keydown', e => {
   if (e.code === 'Space'){ jumpBuf = 0.15; e.preventDefault(); }
   if (e.code === 'KeyL') toggleShop();
   if (e.code === 'KeyP') togglePets();
+  if (e.code === 'ShiftLeft' && !e.repeat && shopEl.hidden && petsEl.hidden) setShiftLock(!shiftLock);
   if (e.code === 'Escape'){ toggleShop(false); togglePets(false); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
+// Shift lock: câmera presa ao mouse, boneco olha para onde a câmera aponta
+let shiftLock = false, hadLock = false, shoulder = 0;
+function setShiftLock(on){
+  shiftLock = on;
+  document.body.classList.toggle('shiftlock', on);
+  if (on){
+    hadLock = false;
+    try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch(err){}
+    toast('Shift lock ligado');
+  } else {
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
+    toast('Shift lock desligado');
+  }
+  beep(on ? 640 : 420, .07, 'square', .04, 1.2);
+}
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === canvas) hadLock = true;
+  else if (shiftLock && hadLock){ shiftLock = false; document.body.classList.remove('shiftlock'); }
+});
+document.addEventListener('mousemove', e => {
+  if (!shiftLock || document.pointerLockElement !== canvas) return;
+  cam.yaw -= e.movementX * 0.004;
+  cam.pitch = Math.min(1.25, Math.max(0.08, cam.pitch + e.movementY * 0.003));
+});
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 canvas.addEventListener('pointerdown', e => {
   initAudio(); canvas.focus();
@@ -627,7 +657,7 @@ const shopEl = $('shop'), petsEl = $('pets');
 function toggleShop(force){
   const open = force === undefined ? shopEl.hidden : force;
   shopEl.hidden = !open;
-  if (open){ petsEl.hidden = true; renderShop(); $('closeShop').focus(); } else canvas.focus();
+  if (open){ if (shiftLock) setShiftLock(false); petsEl.hidden = true; renderShop(); $('closeShop').focus(); } else canvas.focus();
 }
 function costOf(k){ return Math.round(UPG[k].base * Math.pow(UPG[k].mult, S.lv[k])); }
 function renderShop(){
@@ -664,7 +694,7 @@ function togglePets(force){
   const open = force === undefined ? petsEl.hidden : force;
   if (open === !petsEl.hidden) return;
   petsEl.hidden = !open;
-  if (open){ shopEl.hidden = true; renderPets(); $('closePets').focus(); } else canvas.focus();
+  if (open){ if (shiftLock) setShiftLock(false); shopEl.hidden = true; renderPets(); $('closePets').focus(); } else canvas.focus();
 }
 function renderPets(){
   const full = S.pets.length >= PET_MAX;
@@ -756,6 +786,7 @@ function step(now){
     mx = dx * sp * dt; mz = dz * sp * dt;
     P.face = Math.atan2(dx, dz);
   }
+  if (shiftLock) P.face = Math.atan2(fx, fz);
   // x
   let nx = P.x + mx, c = blocked(nx, P.z, P.y);
   if (c) nx = mx > 0 ? c.minX - RAD - 0.001 : c.maxX + RAD + 0.001;
@@ -789,7 +820,8 @@ function step(now){
   updatePets(dt, t);
 
   // câmera
-  const tx = P.x, ty = P.y + 2, tz = P.z;
+  shoulder += ((shiftLock ? 1.7 : 0) - shoulder) * Math.min(1, dt * 10);
+  const tx = P.x - fz * shoulder, ty = P.y + 2, tz = P.z + fx * shoulder;
   camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, ty + Math.sin(cam.pitch) * cam.dist, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
   camera.lookAt(tx, ty, tz);
   sun.position.set(P.x + 18, 40, P.z - 12); sun.target.position.set(P.x, 0, P.z);
