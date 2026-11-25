@@ -64,7 +64,7 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);user-select
 #help{bottom:calc(16px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px));font-size:13px;font-weight:800;color:var(--muted);background:color-mix(in srgb,var(--ink) 70%,transparent);padding:8px 12px;border-radius:10px;transition:opacity 1s}
 #help kbd{font-family:var(--body);background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:0 5px;color:var(--text)}
 body.touch #help{display:none}
-#jump{display:none;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:84px;height:84px;border-radius:50%;font-size:16px;padding:0}
+#jump{display:none;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:84px;height:84px;border-radius:50%;font-size:16px;padding:0}
 body.touch #jump{display:block}
 #stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
 #stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.75)}
@@ -378,13 +378,14 @@ const maxZ = () => S.unlocked < ZONES.length ? ZONES[S.unlocked].z0 - 0.6 : 259.
 // ---------- Entrada ----------
 const keys = {};
 const stick = {id:null, ox:0, oy:0, x:0, y:0};
-let drag = null, jumpQueued = false;
+let drag = null, jumpBuf = 0, coyote = 0;
+if (matchMedia("(pointer: coarse)").matches || "ontouchstart" in window) document.body.classList.add("touch");
 const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChild;
 addEventListener('keydown', e => {
   initAudio();
   if (e.target.closest && e.target.closest('#shop') && e.code !== 'Escape') return;
   keys[e.code] = true;
-  if (e.code === 'Space'){ jumpQueued = true; e.preventDefault(); }
+  if (e.code === 'Space'){ jumpBuf = 0.15; e.preventDefault(); }
   if (e.code === 'KeyL') toggleShop();
   if (e.code === 'Escape') toggleShop(false);
   if (e.code.startsWith('Arrow')) e.preventDefault();
@@ -418,7 +419,7 @@ const endPtr = e => {
 canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
 canvas.addEventListener('wheel', e => { cam.dist = Math.min(24, Math.max(6, cam.dist + e.deltaY * 0.01)); e.preventDefault(); }, {passive:false});
 const jumpBtn = document.getElementById('jump');
-jumpBtn.addEventListener('pointerdown', e => { initAudio(); jumpQueued = true; e.preventDefault(); });
+jumpBtn.addEventListener('pointerdown', e => { initAudio(); jumpBuf = 0.15; e.preventDefault(); e.stopPropagation(); });
 
 // ---------- Som ----------
 let actx = null, soundOn = true;
@@ -556,8 +557,9 @@ function step(now){
   P.x = Math.max(-29.4, Math.min(29.4, P.x));
   P.z = Math.max(-18.4, Math.min(maxZ(), P.z));
   // y
-  if (jumpQueued && P.onGround){ P.vy = jumpVel(S.lv.jump); P.onGround = false; beep(300, .1, 'sine', .04, 2); }
-  jumpQueued = false;
+  coyote = P.onGround ? 0.1 : coyote - dt;
+  if (jumpBuf > 0 && coyote > 0){ P.vy = jumpVel(S.lv.jump); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
+  jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
   P.vy = Math.max(-40, P.vy - GRAV * dt);
   P.y += P.vy * dt;
