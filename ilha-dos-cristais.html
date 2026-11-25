@@ -177,10 +177,10 @@ body.shiftlock #cross{display:block}#stick{position:fixed;z-index:4;width:120px;
 'use strict';
 // ---------- Dados do mundo ----------
 const ZONES = [
-  {name:'Campo Verde',     cx:0,  cz:66,  r:26, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
-  {name:'Dunas Douradas',  cx:72, cz:66,  r:26, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
-  {name:'Vale Gelado',     cx:72, cz:138, r:26, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
-  {name:'Cratera de Lava', cx:0,  cz:138, r:26, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
+  {name:'Campo Verde',     cx:0,  cz:80,  r:34, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
+  {name:'Dunas Douradas',  cx:88, cz:80,  r:34, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
+  {name:'Vale Gelado',     cx:88, cz:168, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
+  {name:'Cratera de Lava', cx:0,  cz:168, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -326,7 +326,7 @@ function label(text, bg, fg, w = 512){
 
 // ---------- Oceano ----------
 const BEACH = 2.5;
-const HUB = {cx:0, cz:0, r:21};
+const HUB = {cx:0, cz:0, r:26};
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
 const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
@@ -378,15 +378,118 @@ function lockedAt(x, z){
   return false;
 }
 function palm(x, z){
-  addBlock(x, 0, z, .7, 4.2, .7, 0x8a5a3b);
-  addBlock(x, 4.2, z, 1.4, .5, 1.4, 0x3f9e3a, false);
-  [[1.5,0],[-1.5,0],[0,1.5],[0,-1.5]].forEach(([a, b]) => addBlock(x + a, 4.05, z + b, a ? 2.4 : .9, .3, b ? 2.4 : .9, 0x56b84a, false));
+  const h = 3.6 + R() * 1.4;
+  addBlock(x, 0, z, .7, h, .7, 0x8a5a3b);
+  addBlock(x, h, z, 1.4, .5, 1.4, 0x3f9e3a, false);
+  [[1.5,0],[-1.5,0],[0,1.5],[0,-1.5]].forEach(([a, b]) => addBlock(x + a, h - .15, z + b, a ? 2.4 : .9, .3, b ? 2.4 : .9, 0x56b84a, false));
+  addBlock(x + .45, h - .5, z, .4, .4, .4, 0x7a4a24, false);
 }
+// ---------- Decorações ----------
+const bobbers = [];
+const FLOWER = [0xff5a8a, 0xffd23f, 0xffffff, 0xb07cff, 0xff8a2a, 0x5cc8ff];
+function cone(r, h, color, x, y, z, seg = 6){ const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), color.isMaterial ? color : mat(color)); m.position.set(x, y + h/2, z); m.castShadow = true; scene.add(m); return m; }
+function ball(r, color, x, y, z){ const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat(color)); m.position.set(x, y, z); m.castShadow = true; scene.add(m); return m; }
+function tree(x, z){ const h = 1.8 + R() * 1.2; addBlock(x,0,z,.8,h,.8,0x8a5a3b); addBlock(x,h,z,2.8,2.4,2.8,R() < .6 ? 0x3f9e3a : 0x56b84a); if (R() < .5) addBlock(x,h+2.4,z,1.6,1,1.6,0x6cc95a,false); }
+function bush(x, z){ addBlock(x, 0, z, 1.4 + R(), .9, 1.2 + R(), 0x3f8f35, false); if (R() < .5) addBlock(x + .3, .9, z, .25, .25, .25, 0xff5a8a, false); }
+function flowers(x, z){ for (let k = 0; k < 5; k++){ const fx = x + rr(-1.5, 1.5), fz = z + rr(-1.5, 1.5); addBlock(fx, 0, fz, .08, .45, .08, 0x3f9e3a, false); addBlock(fx, .45, fz, .3, .2, .3, FLOWER[Math.floor(R() * FLOWER.length)], false); } }
+function rock(x, z, color = 0x8a8f9c, s = 1){ s *= .8 + R() * .8; addBlock(x, 0, z, 1.6*s, 1.1*s, 1.3*s, color); addBlock(x + .3*s, 1.1*s, z - .1*s, .9*s, .5*s, .8*s, color, false); }
+function mushroom(x, z){ addBlock(x, 0, z, .5, 1, .5, 0xfff1de); addBlock(x, 1, z, 1.6, .5, 1.6, 0xe8402c, false); addBlock(x + .4, 1.5, z + .3, .3, .05, .3, 0xffffff, false); addBlock(x - .4, 1.5, z - .3, .3, .05, .3, 0xffffff, false); }
+function hut(x, z, wall, roof){
+  addBlock(x, 0, z, 4, 2.8, 4, wall);
+  cone(3.4, 2.2, roof, x, 2.8, z, 4).rotation.y = Math.PI / 4;
+  addBlock(x, 0, z + 2.01, 1, 1.7, .05, 0x5a3d22, false);
+  addBlock(x - 1.1, 1.4, z + 2.01, .7, .6, .05, 0xbfe8ff, false);
+}
+function fence(x, z){ for (let k = 0; k < 4; k++) addBlock(x + k * 1.2, 0, z, .2, 1, .2, 0xc9a06a, false); addBlock(x + 1.8, .65, z, 3.8, .15, .12, 0xc9a06a, false); }
+function windmill(x, z){
+  addBlock(x, 0, z, 2.6, 6, 2.6, 0xf4ecd8); cone(2.2, 1.8, 0xc0392b, x, 6, z, 4).rotation.y = Math.PI / 4;
+  const hub = new THREE.Group(); hub.position.set(x, 5, z + 1.45); scene.add(hub);
+  for (let k = 0; k < 4; k++){ const b = new THREE.Mesh(boxGeo, mat(0x8a5a3b)); b.scale.set(.5, 3.6, .1); b.position.y = 1.8; const arm = new THREE.Group(); arm.rotation.z = k * Math.PI / 2; arm.add(b); hub.add(arm); }
+  bobbers.push({m:hub, spin:1.2});
+}
+function cactus(x, z){ const h = 2.4 + R() * 1.5; addBlock(x,0,z,0.9,h,0.9,0x3e9b52); addBlock(x+0.9,1.4,z,0.9,0.6,0.6,0x3e9b52,false); addBlock(x+1.1,1.4,z,0.6,1.4,0.6,0x3e9b52,false); if (R() < .5){ addBlock(x-.9,1.1,z,.9,.6,.6,0x3e9b52,false); addBlock(x-1.1,1.1,z,.6,1.1,.6,0x3e9b52,false); } }
+function pyramid(x, z, zi){
+  [7, 5.2, 3.4, 1.6].forEach((s, k) => addBlock(x, k * 1.1, z, s, 1.1, s, k % 2 ? 0xe0b860 : 0xd4a94e));
+  zonePlatforms[zi].push({x, z, top: 4.4});
+}
+function skull(x, z){ addBlock(x, 0, z, 1.4, .25, .3, 0xfff1de, false); addBlock(x + .3, 0, z + .4, .25, .25, .9, 0xfff1de, false); }
+function pine(x, z, snow = true){
+  addBlock(x,0,z,0.7,1.2,0.7,0x6b4a35);
+  cone(1.9, 3.6, 0x2f6f5e, x, 1.2, z); cone(1.4, 2.6, 0x2f6f5e, x, 3, z);
+  if (snow) cone(.8, 1.4, 0xffffff, x, 4.6, z);
+}
+function snowman(x, z){
+  ball(1, 0xffffff, x, .9, z); ball(.72, 0xffffff, x, 2.4, z); ball(.5, 0xffffff, x, 3.45, z);
+  cone(.12, .6, 0xff8a2a, x, 3.4, z + .7).rotation.x = Math.PI / 2;
+  addBlock(x, 3.85, z, .8, .12, .8, 0x222222, false); addBlock(x, 3.95, z, .5, .5, .5, 0x222222, false);
+  colliders.push({minX:x-.9, maxX:x+.9, minZ:z-.9, maxZ:z+.9, bottom:0, top:4.4});
+}
+const iceMat = new THREE.MeshPhongMaterial({color:0x9fd8ff, emissive:0x4aa8ff, emissiveIntensity:.25, transparent:true, opacity:.8, shininess:120, flatShading:true});
+function iceSpike(x, z){ const h = 3 + R() * 3; cone(.9, h, iceMat, x, 0, z, 5); cone(.5, h * .6, iceMat, x + .9, 0, z + .4, 5); colliders.push({minX:x-.7, maxX:x+.7, minZ:z-.7, maxZ:z+.7, bottom:0, top:h}); }
+function igloo(x, z){
+  const d = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4f8ff)); d.position.set(x, 0, z); d.castShadow = true; scene.add(d);
+  addBlock(x, 0, z + 2.2, 1.3, 1.4, 1.2, 0xf4f8ff, false); addBlock(x, 0, z + 2.82, .8, 1, .05, 0x2a3a55, false);
+  colliders.push({minX:x-2, maxX:x+2, minZ:z-2, maxZ:z+2, bottom:0, top:2.4});
+}
+const lavaMat = new THREE.MeshBasicMaterial({color:0xff6a1a});
+function lavaPool(x, z){ const p = addBlock(x, -0.95, z, rr(2.5,4), 1, rr(2.5,4), 0, false, lavaMat); p.castShadow = false; }
+function obsidian(x, z){ const h = rr(1.5, 4.5); addBlock(x,0,z,rr(1.5,2.6),h,rr(1.5,2.6),0x221a26); if (R() < .5) addBlock(x, h, z, .5, .5, .5, 0xff2f6d, false, gemMats0()); }
+let _gm = null; const gemMats0 = () => _gm || (_gm = new THREE.MeshBasicMaterial({color:0xff2f6d}));
+function volcano(x, z){
+  const v = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 8, 9, 10), mat(0x3a2a2e)); v.position.set(x, 4.5, z); v.castShadow = true; scene.add(v);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, .3, 10), lavaMat); top.position.set(x, 8.95, z); scene.add(top);
+  for (let k = 0; k < 5; k++){ const a = k * 1.3; const s = new THREE.Mesh(boxGeo, lavaMat); s.scale.set(.6, 4, .3); s.position.set(x + Math.cos(a) * 4.6, 5.5, z + Math.sin(a) * 4.6); s.lookAt(x, 5.5, z); s.rotation.x += .55; scene.add(s); }
+  colliders.push({minX:x-5.5, maxX:x+5.5, minZ:z-5.5, maxZ:z+5.5, bottom:0, top:9});
+  const smoke = []; for (let k = 0; k < 4; k++){ const b = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 8), new THREE.MeshLambertMaterial({color:0x666066, transparent:true, opacity:.6})); scene.add(b); smoke.push(b); }
+  bobbers.push({smoke, x, z, y:9.5});
+}
+function umbrella(x, z, color){
+  addBlock(x, 0, z, .18, 2.8, .18, 0xffffff);
+  const u = cone(1.8, .7, color, x, 2.6, z, 8);
+  addBlock(x + 1.2, 0, z + .3, 1, .2, 2.2, 0xffffff, false);
+}
+function lighthouse(x, z){
+  [[2.4, 0xffffff], [2.2, 0xe8402c], [2.0, 0xffffff], [1.8, 0xe8402c]].forEach(([r, c], k) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r - .2, r, 2.5, 12), mat(c)); m.position.set(x, k * 2.5 + 1.25, z); m.castShadow = true; scene.add(m);
+  });
+  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 1.4, 10), new THREE.MeshBasicMaterial({color:0xffe27a})); lamp.position.set(x, 10.7, z); scene.add(lamp);
+  cone(1.6, 1.4, 0xe8402c, x, 11.4, z, 10);
+  colliders.push({minX:x-2.2, maxX:x+2.2, minZ:z-2.2, maxZ:z+2.2, bottom:0, top:12.8});
+  bobbers.push({glow:lamp});
+}
+function fountain(x, z){
+  addBlock(x, 0, z, 5, .8, 5, 0xc9bfe6);
+  const w = addBlock(x, .1, z, 4.2, .72, 4.2, 0, false, new THREE.MeshPhongMaterial({color:0x5cc8ff, shininess:90})); w.castShadow = false;
+  addBlock(x, .8, z, .8, 1.8, .8, 0xc9bfe6, false);
+  const spout = ball(.45, 0x9fe6ff, x, 2.9, z); bobbers.push({spout, y:2.9});
+}
+function bench(x, z, rotY = 0){ const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  part(2.4, .15, .8, 0x9a6b3f, 0, .6, 0, g); part(2.4, .6, .12, 0x9a6b3f, 0, 1.05, -.36, g); part(.15, .6, .7, 0x5a3d22, -1, .3, 0, g); part(.15, .6, .7, 0x5a3d22, 1, .3, 0, g); }
+function seaRock(x, z){ const s = .8 + R() * 1.6; addBlock(x, -1.5, z, 2*s, 1.8*s, 1.7*s, 0x6b7280, false); if (R() < .5) addBlock(x + .4*s, -1.5 + 1.8*s, z, .9*s, .6*s, .9*s, 0x7d8594, false); }
+function buoy(x, z, color){ const g = new THREE.Group(); g.position.set(x, -0.5, z); scene.add(g);
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(.5, .7, 1.2, 10), mat(color)); b.position.y = .3; g.add(b);
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, 1.2, 6), mat(0xffffff)); t.position.y = 1.4; g.add(t);
+  bobbers.push({m:g, base:-0.5, ph:R() * 6}); }
+function boat(x, z, rotY){ const g = new THREE.Group(); g.position.set(x, -0.5, z); g.rotation.y = rotY; scene.add(g);
+  part(2.2, .9, 5, 0x9a6b3f, 0, .2, 0, g); part(2.4, .25, 5.2, 0xffffff, 0, .7, 0, g); part(1.4, .9, 1.4, 0x8a5a3b, 0, .45, -2.6, g);
+  part(.18, 5, .18, 0x5a3d22, 0, 3, .3, g);
+  const sail = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,5.3,.45), new THREE.Vector3(0,1.2,.45), new THREE.Vector3(0,1.2,2.6)]), new THREE.MeshLambertMaterial({color:0xfff8ec, side:THREE.DoubleSide}));
+  sail.geometry.computeVertexNormals(); g.add(sail);
+  bobbers.push({m:g, base:-0.5, ph:R() * 6, rock:1}); }
 
 // Ilha Central
 islandBase(HUB, 0x9d8bd6, 0xf3dfa2);
 for (let i = -2; i <= 2; i++) addBlock(i*7, -0.98, -5, 4, 1, 4, 0xa592d6, false);
-[[-15,10],[15,10],[-16,-8],[16,-8],[-8,-17],[8,-17]].forEach(([x, z]) => palm(x, z));
+fountain(0, -1.5);
+for (let a = 0; a < 360; a += 30){
+  if ((a > 60 && a < 120) || a === 210 || a === 240) continue; // ponte para o norte e farol
+  const rad = a * Math.PI / 180, r = 22 + (a % 60 ? 0 : 1.2);
+  palm(Math.cos(rad) * r, Math.sin(rad) * r);
+}
+lighthouse(-17, -14);
+bench(-9, -4.5, 0); bench(9, -4.5, 0); bench(-14, 4, Math.PI / 2); bench(14, 4, -Math.PI / 2);
+[[-5,14],[5,14],[-18,2],[18,2],[12,-16],[-4,-19]].forEach(([x, z]) => flowers(x, z));
+umbrella(24.1, -6.5, 0xff5a8a); umbrella(-24.1, 6.5, 0x5cc8ff); umbrella(24.1, 6.5, 0xffd23f);
 const PAD_STYLE = {
   sell: {color:0x3ddc84, text:'VENDER', bg:'#3ddc84', fg:'#0d2a1a'},
   shop: {color:0xffcc33, text:'LOJA',   bg:'#ffcc33', fg:'#3a2a00'},
@@ -426,18 +529,28 @@ ZONES.forEach((Z, i) => {
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
-  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8;
-  const spot = (m = 4) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, 2.2)) return [x, z]; } return null; };
-  // decoração
-  for (let k = 0; k < 12; k++){
-    const s = spot(); if (!s) continue; const [x, z] = s;
-    if (i === 0){ addBlock(x,0,z,0.8,2.2,0.8,0x8a5a3b); addBlock(x,2.2,z,2.8,2.4,2.8,k%3?0x3f9e3a:0x56b84a); }
-    if (i === 1){ if (k % 3){ addBlock(x,0,z,0.9,3.2,0.9,0x3e9b52); addBlock(x+0.9,1.4,z,0.9,0.6,0.6,0x3e9b52,false); addBlock(x+1.1,1.4,z,0.6,1.4,0.6,0x3e9b52,false); } else palm(x, z); }
-    if (i === 2){ addBlock(x,0,z,0.7,1.2,0.7,0x6b4a35);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(1.8, 4, 6), mat(0x2f6f5e)); cone.position.set(x, 3.1, z); cone.castShadow = true; scene.add(cone);
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.6, 6), mat(0xffffff)); cap.position.set(x, 4.6, z); scene.add(cap); }
-    if (i === 3){ const h = rr(1.5, 4.5); addBlock(x,0,z,rr(1.5,2.6),h,rr(1.5,2.6),0x221a26);
-      const pool = addBlock(x+rr(-3,3),-0.95,z+rr(-3,3),rr(2.5,4),1,rr(2.5,4),0, false, new THREE.MeshBasicMaterial({color:0xff6a1a})); pool.castShadow = false; }
+  const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
+  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8);
+  const spot = (m = 4, pad = 2.2) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, pad)) return [x, z]; } return null; };
+  if (i === 3) volcano(Z.cx, Z.cz);
+  if (i === 0){ const s = spot(8, 3.5); if (s) windmill(s[0], s[1]); }
+  const KINDS = [
+    [[tree,12],[bush,10],[flowers,14],[mushroom,6],[rock,4],[hut,2],[fence,4]],
+    [[cactus,11],[palm,6],[pyramid,2],[rock,6],[skull,5],[hut,1],[bush,3]],
+    [[pine,14],[snowman,4],[iceSpike,8],[igloo,2],[rock,5]],
+    [[obsidian,14],[lavaPool,10],[rock,7],[skull,4]],
+  ][i];
+  for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
+    const big = fn === hut || fn === igloo || fn === pyramid;
+    const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
+    if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e][i]);
+    else if (fn === pyramid) pyramid(x, z, i);
+    else fn(x, z);
+  }
+  if (i < 2) for (let k = 0, n = 0; k < 40 && n < 3; k++){
+    const a = R() * Math.PI * 2, x = Z.cx + Math.cos(a) * (Z.r + .8), z = Z.cz + Math.sin(a) * (Z.r + .8);
+    if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
   const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a][i];
@@ -455,6 +568,14 @@ ZONES.forEach((Z, i) => {
     gateMeshes[i] = [wall, l];
   }
 });
+
+// Coisas no mar
+for (let k = 0, n = 0; k < 600 && n < 40; k++){
+  const x = rr(-90, 190), z = rr(-80, 260);
+  if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
+  n++;
+  if (n <= 26) seaRock(x, z); else if (n <= 36) buoy(x, z, n % 2 ? 0xe8402c : 0xffd23f); else boat(x, z, R() * 6);
+}
 
 // ---------- Cristais ----------
 const gemGeo = new THREE.OctahedronGeometry(0.5, 0);
@@ -477,7 +598,7 @@ function placeGem(g){
   g.mesh.position.set(g.x, g.baseY, g.z);
   g.mesh.visible = true; g.active = true; g.flying = false;
 }
-ZONES.forEach((Z, zi) => { for (let k = 0; k < 30; k++){
+ZONES.forEach((Z, zi) => { for (let k = 0; k < 42; k++){
   const m = new THREE.Mesh(gemGeo, gemMats[zi]); m.castShadow = true; scene.add(m);
   const g = {mesh:m, zone:zi, phase:Math.random()*6, active:true}; placeGem(g); gems.push(g);
 }});
@@ -906,6 +1027,13 @@ function step(now){
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
+  for (const b of bobbers){
+    if (b.spin) b.m.rotation.z += dt * b.spin;
+    else if (b.smoke) b.smoke.forEach((s, k) => { const p = (t * .25 + k / b.smoke.length) % 1; s.position.set(b.x + Math.sin(k * 2 + t * .3) * p * 2, b.y + p * 8, b.z); s.scale.setScalar(.6 + p * 1.6); s.material.opacity = .6 * (1 - p); });
+    else if (b.glow) b.glow.material.color.setHSL(.13, 1, .62 + Math.sin(t * 3) * .12);
+    else if (b.spout) b.spout.position.y = b.y + Math.sin(t * 5) * .15;
+    else { b.m.position.y = b.base + Math.sin(t * 1.5 + b.ph) * .12; if (b.rock) b.m.rotation.z = Math.sin(t * 1.1 + b.ph) * .06; }
+  }
 
   // cristais
   const cap = bagCap(S.lv.bag), mag2 = magnetOf(S.lv.magnet), mult = gemMult();
