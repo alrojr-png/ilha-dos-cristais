@@ -68,7 +68,21 @@ body.touch #jump{display:block}
 body.shiftlock #cross{display:block}
 #dive{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .45s;background:radial-gradient(ellipse at center,rgba(40,140,220,0) 45%,rgba(4,30,60,.75) 100%)}
 body.under #dive{opacity:1}
-#dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
+#dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}
+#talk{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
+@keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
+.talkhead{display:flex;align-items:center;gap:10px}
+#talkFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:var(--ink);border:2px solid rgba(0,0,0,.3);flex:none}
+#talkName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
+#talkTxt{margin:8px 0 12px;font-size:17px;font-weight:800;line-height:1.4;min-height:2.8em}
+.talkopts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.talkopts .btn{font-size:16px;padding:9px 8px}
+.btn.pet{background:#ff7ac8;border-color:#c4478f;color:#3a0b2a}
+#talk small{display:block;margin-top:8px;text-align:right;font-size:11px;font-weight:800;color:var(--muted)}
+body.touch #talk small{display:none}
+@media (max-width:560px){.talkopts{grid-template-columns:repeat(2,1fr)}#talkTxt{font-size:15px}}
+#talkBtn{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));font-size:18px;padding:10px 18px}
+#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
 #stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.75)}
 .float{position:fixed;z-index:6;pointer-events:none;font-family:var(--display);font-size:22px;color:var(--gem);text-shadow:0 2px 0 rgba(0,0,0,.6);animation:rise .9s ease-out forwards;transform:translate(-50%,-50%)}
 .float.coin{color:var(--coin);font-size:30px}
@@ -150,9 +164,21 @@ body.under #dive{opacity:1}
   <div><b id="gateName"></b><span id="gateInfo"></span></div>
   <button class="btn go" id="gateBtn" type="button">Desbloquear</button>
 </div>
-<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock</div>
+<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock · <kbd>E</kbd> conversar</div>
 <div id="cross" aria-hidden="true"></div>
 <div id="dive" aria-hidden="true"></div>
+<button class="btn go" id="talkBtn" type="button" hidden>Conversar</button>
+<div id="talk" hidden role="dialog" aria-labelledby="talkName">
+  <div class="talkhead"><span id="talkFace"></span><b id="talkName"></b></div>
+  <p id="talkTxt" aria-live="polite"></p>
+  <div class="talkopts">
+    <button class="btn go" id="talkSell" type="button" data-act="sell">Vender cristais</button>
+    <button class="btn buy" type="button" data-act="shop">Comprar melhorias</button>
+    <button class="btn pet" type="button" data-act="pets">Pets</button>
+    <button class="btn" type="button" data-act="bye">Tchau</button>
+  </div>
+  <small>Teclas 1 · 2 · 3 · 4</small>
+</div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <div id="stick"><i></i></div>
 
@@ -500,28 +526,77 @@ lighthouse(-17, -14);
 bench(-9, -4.5, 0); bench(9, -4.5, 0); bench(-14, 4, Math.PI / 2); bench(14, 4, -Math.PI / 2);
 [[-5,14],[5,14],[-18,2],[18,2],[12,-16],[-4,-19]].forEach(([x, z]) => flowers(x, z));
 umbrella(24.1, -6.5, 0xff5a8a); umbrella(-24.1, 6.5, 0x5cc8ff); umbrella(24.1, 6.5, 0xffd23f);
-const PAD_STYLE = {
-  sell: {color:0x3ddc84, text:'VENDER', bg:'#3ddc84', fg:'#0d2a1a'},
-  shop: {color:0xffcc33, text:'LOJA',   bg:'#ffcc33', fg:'#3a2a00'},
-  eggs: {color:0xff7ac8, text:'OVOS',   bg:'#ff7ac8', fg:'#3a0b2a'},
-};
-const pads = [];
-function addPad(kind, x, z){
-  const st = PAD_STYLE[kind];
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.12, 32), new THREE.MeshLambertMaterial({color:st.color, emissive:st.color, emissiveIntensity:.35}));
-  ring.position.set(x, 0.06, z); ring.receiveShadow = true; scene.add(ring);
-  const l = label(st.text, st.bg, st.fg, 384); l.position.set(x, 4.2, z); scene.add(l);
-  pads.push({kind, x, z, ring, inside:false});
-}
-addPad('sell', -9, 2); addPad('shop', 9, 2); addPad('eggs', 0, -9);
-
-{ // ovo gigante atrás do círculo OVOS
-  const egg = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 16), new THREE.MeshLambertMaterial({color:0xfff1de}));
-  egg.scale.set(1, 1.3, 1); egg.position.set(0, 1.95, -13.5); egg.castShadow = true; scene.add(egg);
-  [[0.5, 2.6, 1.2, 0xff7ac8], [-0.8, 1.6, 1.1, 0x4aa8ff], [0.9, 1.2, 1.05, 0xffcc33]].forEach(([x, y, z, c]) => {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), mat(c)); dot.position.set(x, y, -13.5 + z * 0.95); dot.scale.set(1, 1, 0.4); scene.add(dot);
+// ---------- Barracas de feira com vendedores ----------
+const NPCS = [
+  {name:'Dona Cida',     color:0xff7ac8, css:'#ff7ac8', shirt:0xff9ac0, apron:0xffffff, skin:0xffcf9e, hair:0xc9c9c9, hat:'bun',
+   hello:'Olá, meu bem! Bem-vindo à minha barraca. O que você quer fazer hoje?'},
+  {name:'Seu Tonico',    color:0x3ddc84, css:'#3ddc84', shirt:0x4f9a35, apron:0xc9a06a, skin:0xe8b48a, hair:0x6b4a2b, hat:'straw', stache:1,
+   hello:'Ô de casa! Tem cristal verdinho aí pra vender? Ou vai querer outra coisa?'},
+  {name:'Zuleica',       color:0xff8a2a, css:'#ff8a2a', shirt:0xffcc33, skin:0xc68a5a, hair:0x2a1c1c, hat:'turban', hatC:0xff8a2a,
+   hello:'Que calor, hein! Chegue mais perto da sombra. Em que posso ajudar?'},
+  {name:'Pingo',         color:0x4aa8ff, css:'#4aa8ff', shirt:0x2b4c7e, apron:0xff5a8a, skin:0xffdcc0, hair:0x8a5a3b, hat:'beanie', hatC:0x4aa8ff,
+   hello:'Brrr! Tá frio, né? Vamos fazer negócio pra esquentar. O que vai ser?'},
+  {name:'Brasa',         color:0xff2f6d, css:'#ff2f6d', shirt:0x8a2a2a, apron:0x3a2a20, skin:0xb57a50, hair:0x1d1630, hat:'helmet', stache:1,
+   hello:'Cuidado com a lava! Aqui na minha barraca é seguro. Quer vender ou comprar?'},
+  {name:'Capitão Coral', color:0x9a6bff, css:'#9a6bff', shirt:0x2b4c7e, apron:0xd8cfb8, skin:0xffcf9e, hair:0xffffff, hat:'pirate', stache:1,
+   hello:'Ahoy, marujo! Bem-vindo ao fundo do mar. O que deseja deste velho capitão?'},
+];
+const stalls = [];
+function addStall(x, z, fx, fz, N){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = Math.atan2(fx, fz); scene.add(g);
+  const W = 0x9a6b3f, DW = 0x6b4a2b;
+  part(5, 1.1, 1.4, W, 0, .55, 0, g);
+  part(5.4, .14, 1.7, DW, 0, 1.17, 0, g);
+  part(5, .32, .05, N.color, 0, .75, .72, g);
+  [[-2.55, .75], [2.55, .75], [-2.55, -2.4], [2.55, -2.4]].forEach(([px, pz]) => part(.22, 3.5, .22, DW, px, 1.75, pz, g));
+  for (let k = 0; k < 7; k++){
+    const s = part(.8, .12, 3.9, k % 2 ? 0xffffff : N.color, -2.4 + k * .8, 3.55, -.8, g); s.rotation.x = -.13;
+    part(.8, .3, .1, k % 2 ? 0xffffff : N.color, -2.4 + k * .8, 3.2, 1.2, g);
+  }
+  part(5, .12, .6, DW, 0, 1.9, -2.35, g);
+  [[-1.8, 0xff7ac8], [-1, 0x4aa8ff], [1.2, 0xffcc33], [1.9, 0x34f0b0]].forEach(([px, c]) => part(.38, .5, .38, c, px, 2.21, -2.35, g));
+  part(1.1, .4, .8, W, -1.5, 1.44, .15, g);
+  [[-1.75, 0x34f0b0], [-1.5, 0xff8a2a], [-1.25, 0x4aa8ff]].forEach(([px, c]) => { const m = new THREE.Mesh(new THREE.OctahedronGeometry(.22, 0), mat(c)); m.position.set(px, 1.82, .15); g.add(m); });
+  for (let k = 0; k < 3; k++){ const c = new THREE.Mesh(new THREE.CylinderGeometry(.25, .25, .1, 14), mat(0xffcc33)); c.position.set(1.6, 1.3 + k * .11, .25); g.add(c); }
+  const l = label(N.name, N.css, '#1d1630', 512); l.position.set(0, 4.5, .4); g.add(l);
+  // vendedor sentado atrás do balcão
+  const npc = new THREE.Group(); npc.position.set(0, 0, -1.25); g.add(npc);
+  part(1.05, .95, .55, N.shirt, 0, 1.55, 0, npc);
+  if (N.apron) part(.85, .75, .05, N.apron, 0, 1.45, .29, npc);
+  const head = new THREE.Group(); head.position.set(0, 2.05, 0); npc.add(head);
+  part(.78, .74, .74, N.skin, 0, .37, 0, head);
+  part(.12, .16, .05, 0x1d1630, -.17, .41, .38, head); part(.12, .16, .05, 0x1d1630, .17, .41, .38, head);
+  part(.3, .06, .05, 0xb5524a, 0, .2, .38, head);
+  if (N.stache) part(.46, .1, .06, N.hair, 0, .28, .39, head);
+  if (N.hat === 'bun'){ part(.84, .22, .8, N.hair, 0, .78, -.02, head); part(.42, .36, .4, N.hair, 0, .95, -.32, head); }
+  if (N.hat === 'straw'){ part(1.5, .1, 1.5, 0xe8c86a, 0, .78, 0, head); part(.85, .38, .85, 0xe8c86a, 0, .98, 0, head); part(.87, .1, .87, 0xc0392b, 0, .86, 0, head); }
+  if (N.hat === 'turban'){ part(.94, .5, .9, N.hatC, 0, .9, 0, head); const gm = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), mat(0x34f0b0)); gm.position.set(0, .92, .47); head.add(gm); }
+  if (N.hat === 'beanie'){ part(.86, .42, .84, N.hatC, 0, .86, 0, head); part(.88, .12, .86, 0xffffff, 0, .7, 0, head); const pom = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), mat(0xffffff)); pom.position.set(0, 1.15, 0); head.add(pom); }
+  if (N.hat === 'helmet'){ part(.94, .36, .94, 0xffb000, 0, .86, 0, head); part(1.1, .06, 1.1, 0xffb000, 0, .7, .05, head); part(.22, .18, .1, 0xfff1a0, 0, .86, .48, head); }
+  if (N.hat === 'pirate'){ part(1.3, .12, .9, 0x1d1630, 0, .8, 0, head); part(.9, .45, .78, 0x1d1630, 0, 1.06, 0, head); part(.16, .16, .05, 0xffffff, 0, 1.08, .4, head); part(.84, .14, .8, N.hair, 0, .7, -.05, head); }
+  const arms = [];
+  [-1, 1].forEach(sd => {
+    const pv = new THREE.Group(); pv.position.set(sd * .7, 1.95, 0); npc.add(pv);
+    part(.36, .45, .42, N.shirt, 0, -.22, 0, pv); part(.34, .5, .38, N.skin, 0, -.68, 0, pv);
+    pv.rotation.x = -1.1; arms.push(pv);
   });
-  colliders.push({minX:-1.4, maxX:1.4, minZ:-14.9, maxZ:-12.1, bottom:0, top:3.8});
+  // colisão (a barraca sempre fica alinhada aos eixos)
+  const c = Math.round(Math.cos(g.rotation.y)), s = Math.round(Math.sin(g.rotation.y));
+  const xs = [], zs = [];
+  [[-2.8, -2.6], [2.8, -2.6], [-2.8, .9], [2.8, .9]].forEach(([lx, lz]) => { xs.push(x + lx * c + lz * s); zs.push(z - lx * s + lz * c); });
+  colliders.push({minX:Math.min(...xs), maxX:Math.max(...xs), minZ:Math.min(...zs), maxZ:Math.max(...zs), bottom:0, top:3.6});
+  stalls.push({N, g, npc, head, arms, tx:x + fx * 2.4, tz:z + fz * 2.4, inside:false, ph:R() * 6});
+}
+addStall(0, -10, 0, 1, NPCS[0]);
+
+{ // ovo gigante ao lado da barraca
+  const EX = 7.5, EZ = -12;
+  const egg = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 16), new THREE.MeshLambertMaterial({color:0xfff1de}));
+  egg.scale.set(1, 1.3, 1); egg.position.set(EX, 1.95, EZ); egg.castShadow = true; scene.add(egg);
+  [[0.5, 2.6, 1.2, 0xff7ac8], [-0.8, 1.6, 1.1, 0x4aa8ff], [0.9, 1.2, 1.05, 0xffcc33]].forEach(([x, y, z, c]) => {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), mat(c)); dot.position.set(EX + x, y, EZ + z * 0.95); dot.scale.set(1, 1, 0.4); scene.add(dot);
+  });
+  colliders.push({minX:EX-1.4, maxX:EX+1.4, minZ:EZ-1.4, maxZ:EZ+1.4, bottom:0, top:3.8});
 }
 
 // ---------- Reino Submerso (fundo do mar) ----------
@@ -650,14 +725,14 @@ ZONES.forEach((Z, i) => {
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
-  addPad('sell', px, pz);
+  addStall(px, pz, -dx, -dz, NPCS[i + 1]);
   Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
   if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
   const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
-  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
+  const clear = (x, z) => Math.hypot(x - px, z - pz) > 7 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
   const spot = (m = 4, pad = 2.2) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, pad)) return [x, z]; } return null; };
   if (i === 3) volcano(Z.cx, Z.cz);
   if (Z.sub){ const s = spot(14, 7.5); if (s) ship(s[0], s[1], i); }
@@ -868,12 +943,18 @@ if (matchMedia("(pointer: coarse)").matches || "ontouchstart" in window) documen
 const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChild;
 addEventListener('keydown', e => {
   initAudio();
+  if (!talkEl.hidden){
+    const n = {Digit1:'sell', Digit2:'shop', Digit3:'pets', Digit4:'bye', Numpad1:'sell', Numpad2:'shop', Numpad3:'pets', Numpad4:'bye', Escape:'bye'}[e.code];
+    if (n){ e.preventDefault(); talkAct(n); }
+    return;
+  }
   if (e.target.closest && e.target.closest('#shop,#pets,#hatch') && e.code !== 'Escape') return;
   if (!document.getElementById('hatch').hidden) return;
   keys[e.code] = true;
   if (e.code === 'Space'){ jumpBuf = 0.15; e.preventDefault(); }
   if (e.code === 'KeyL') toggleShop();
   if (e.code === 'KeyP') togglePets();
+  if (e.code === 'KeyE' && nearStall && shopEl.hidden && petsEl.hidden) openTalk(nearStall);
   if (e.code === 'ShiftLeft' && !e.repeat && shopEl.hidden && petsEl.hidden) setShiftLock(!shiftLock);
   if (e.code === 'Escape'){ toggleShop(false); togglePets(false); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
@@ -1114,6 +1195,49 @@ $('petsBtn').addEventListener('click', () => { initAudio(); togglePets(); });
 $('closePets').addEventListener('click', () => togglePets(false));
 petsEl.addEventListener('pointerdown', e => { if (e.target === petsEl) togglePets(false); });
 
+// Conversa com o vendedor da barraca
+const talkEl = $('talk'), talkBtn = $('talkBtn');
+let talkStall = null, nearStall = null, typeT = 0;
+function say(txt){
+  const el = $('talkTxt'); clearInterval(typeT);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent = txt; return; }
+  let i = 0; el.textContent = '';
+  typeT = setInterval(() => {
+    i += 2; el.textContent = txt.slice(0, i);
+    if (i % 6 === 0) beep(380 + Math.random() * 160, .03, 'square', .02, 1.1);
+    if (i >= txt.length) clearInterval(typeT);
+  }, 22);
+}
+function openTalk(st){
+  if (!shopEl.hidden || !petsEl.hidden || !$('hatch').hidden) return;
+  if (shiftLock) setShiftLock(false);
+  talkStall = st;
+  $('talkName').textContent = st.N.name;
+  $('talkFace').style.background = st.N.css;
+  $('talkFace').textContent = st.N.name.split(' ').pop()[0];
+  $('talkSell').textContent = S.bag > 0 ? `Vender cristais (${fmt(S.bag)})` : 'Vender cristais';
+  talkEl.hidden = false;
+  say(st.N.hello);
+  $('talkSell').focus();
+}
+function closeTalk(){ if (talkEl.hidden) return; clearInterval(typeT); talkEl.hidden = true; canvas.focus(); }
+function talkAct(act){
+  if (act === 'sell'){
+    if (S.bag > 0){
+      const v = S.bagVal, n = S.bag; S.coins += v; S.bag = 0; S.bagVal = 0; save(); hud(); pulseCoins();
+      floatText('+' + fmt(v), P.x, P.y + 3.4, P.z, 'coin');
+      beep(660, .08, 'triangle', .07, 1.3); setTimeout(() => beep(990, .14, 'triangle', .07, 1.3), 90);
+      $('talkSell').textContent = 'Vender cristais';
+      say(`Negócio fechado! ${fmt(n)} cristais por ${fmt(v)} moedas. Quer mais alguma coisa?`);
+    } else say('Hmm, sua mochila está vazia! Vá pegar uns cristais e volte aqui.');
+  }
+  if (act === 'shop'){ closeTalk(); toggleShop(true); }
+  if (act === 'pets'){ closeTalk(); togglePets(true); }
+  if (act === 'bye'){ closeTalk(); toast(`${talkStall.N.name}: Até mais!`); }
+}
+talkEl.addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (b){ initAudio(); talkAct(b.dataset.act); } });
+talkBtn.addEventListener('click', () => { initAudio(); if (nearStall) openTalk(nearStall); });
+
 // ---------- Laço do jogo ----------
 let last = performance.now(), saveT = 0, fullWarn = 0, combo = 0, comboT = 0, zoneNow = -1, gemSoundT = 0;
 function step(now){
@@ -1130,7 +1254,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && talkEl.hidden){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -1225,7 +1349,7 @@ function step(now){
       m.position.y = g.baseY + Math.sin(t * 2.4 + g.phase) * 0.18;
       if (d < mag2 + 0.6){
         if (S.bag < cap) g.flying = true;
-        else if (now > fullWarn){ fullWarn = now + 2500; toast('Mochila cheia! Pise no VENDER desta ilha'); beep(160, .15, 'square', .04, .7); }
+        else if (now > fullWarn){ fullWarn = now + 2500; toast('Mochila cheia! Fale com o vendedor da barraca desta ilha'); beep(160, .15, 'square', .04, .7); }
       }
     } else {
       const k = Math.min(1, dt * 14);
@@ -1243,23 +1367,25 @@ function step(now){
     }
   }
 
-  // pads
-  for (const p of pads){ const k = p.kind;
-    const on = Math.hypot(P.x - p.x, P.z - p.z) < 2.6 && P.y < 0.6;
-    p.ring.position.y = 0.06 + (on ? 0.04 : 0);
-    if (on && !p.inside){
-      if (k === 'sell'){
-        if (S.bag > 0){
-          const v = S.bagVal; S.coins += v; S.bag = 0; S.bagVal = 0; save(); hud(); pulseCoins();
-          floatText('+' + fmt(v), P.x, P.y + 3.4, P.z, 'coin');
-          beep(660, .08, 'triangle', .07, 1.3); setTimeout(() => beep(990, .14, 'triangle', .07, 1.3), 90);
-        } else toast('Sua mochila está vazia. Vá pegar cristais!');
-      }
-      if (k === 'shop') toggleShop(true);
-      if (k === 'eggs') togglePets(true);
-    }
-    p.inside = on;
+  // barracas
+  nearStall = null;
+  for (const st of stalls){
+    const d = Math.hypot(P.x - st.tx, P.z - st.tz), on = d < 2.6 && P.y < 1.5;
+    if (on) nearStall = st;
+    if (on && !st.inside) openTalk(st);
+    st.inside = on;
+    if (Math.abs(st.g.position.x - P.x) > 70 || Math.abs(st.g.position.z - P.z) > 70) continue;
+    const close = d < 9;
+    st.npc.position.y = Math.sin(t * 2 + st.ph) * .03;
+    // vira a cabeça para o jogador
+    const lp = st.g.worldToLocal(v3.set(P.x, 0, P.z)), want = close ? Math.max(-1, Math.min(1, Math.atan2(lp.x, lp.z + 1.25))) : Math.sin(t * .5 + st.ph) * .3;
+    st.head.rotation.y += (want - st.head.rotation.y) * Math.min(1, dt * 5);
+    st.arms[1].rotation.x = close && talkStall !== st ? -2.7 : -1.1;
+    st.arms[1].rotation.z = close && talkStall !== st ? Math.sin(t * 9) * .35 - .2 : 0;
   }
+  if (!nearStall && !talkEl.hidden) closeTalk();
+  if (talkEl.hidden) talkStall = null;
+  talkBtn.hidden = !nearStall || !talkEl.hidden || !shopEl.hidden || !petsEl.hidden;
 
   gateCheck();
   if (now > saveT){ saveT = now + 3000; save(); }
@@ -1278,7 +1404,7 @@ function start(data){
   resize(); hud();
   cloudInit();
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
-  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Atravesse a ponte e pegue os cristais da ilha', 3500), 1900);
+  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Pegue cristais e venda para o vendedor da barraca', 3500), 1900);
   requestAnimationFrame(t => { last = t; step(t); });
 }
 window.claude?.hot?.snapshot?.(() => ({S, P:{x:P.x, y:P.y, z:P.z}}));
