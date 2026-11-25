@@ -177,10 +177,10 @@ body.shiftlock #cross{display:block}#stick{position:fixed;z-index:4;width:120px;
 'use strict';
 // ---------- Dados do mundo ----------
 const ZONES = [
-  {name:'Campo Verde',     z0:20,  z1:80,  ground:0x7cc94f, edge:0x4f9a35, gem:0x34f0b0, value:1,   price:0},
-  {name:'Dunas Douradas',  z0:80,  z1:140, ground:0xf0cf7a, edge:0xc9a04c, gem:0xff8a2a, value:6,   price:150},
-  {name:'Vale Gelado',     z0:140, z1:200, ground:0xeaf4ff, edge:0xa9c8ea, gem:0x4aa8ff, value:40,  price:2500},
-  {name:'Cratera de Lava', z0:200, z1:260, ground:0x4a3434, edge:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
+  {name:'Campo Verde',     cx:0,  cz:66,  r:26, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
+  {name:'Dunas Douradas',  cx:72, cz:66,  r:26, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
+  {name:'Vale Gelado',     cx:72, cz:138, r:26, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
+  {name:'Cratera de Lava', cx:0,  cz:138, r:26, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -280,7 +280,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8fd6ff);
-scene.fog = new THREE.Fog(0x8fd6ff, 60, 140);
+scene.fog = new THREE.Fog(0x8fd6ff, 90, 260);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x6a5a8a, 0.75));
@@ -324,21 +324,83 @@ function label(text, bg, fg, w = 512){
   return sp;
 }
 
-// Praça inicial
-addBlock(0, -1, 0, 60, 1, 40, 0xb9a8e0, false);
-for (let i = -2; i <= 2; i++) addBlock(i*10, -0.98, -5, 4, 1, 4, 0xa592d6, false);
-addBlock(0, 0, -19.5, 60, 2, 1, 0x7d6bb3);
-const pads = {
-  sell: {x:-9, z:2, color:0x3ddc84, text:'VENDER', bg:'#3ddc84', fg:'#0d2a1a', inside:false},
-  shop: {x: 9, z:2, color:0xffcc33, text:'LOJA',   bg:'#ffcc33', fg:'#3a2a00', inside:false},
-  eggs: {x: 0, z:-9, color:0xff7ac8, text:'OVOS',   bg:'#ff7ac8', fg:'#3a0b2a', inside:false},
-};
-for (const p of Object.values(pads)){
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.12, 32), new THREE.MeshLambertMaterial({color:p.color, emissive:p.color, emissiveIntensity:.35}));
-  ring.position.set(p.x, 0.06, p.z); ring.receiveShadow = true; scene.add(ring);
-  const l = label(p.text, p.bg, p.fg, 384); l.position.set(p.x, 4.2, p.z); scene.add(l);
-  p.ring = ring;
+// ---------- Oceano ----------
+const BEACH = 2.5;
+const HUB = {cx:0, cz:0, r:21};
+const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
+water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
+const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
+seabed.rotation.x = -Math.PI / 2; seabed.position.y = -6; scene.add(seabed);
+const foams = [];
+function islandBase(I, top, beach){
+  const sand = new THREE.Mesh(new THREE.CylinderGeometry(I.r + BEACH, I.r + BEACH + 3, 4, 56), mat(beach));
+  sand.position.set(I.cx, -2.03, I.cz); sand.receiveShadow = true; scene.add(sand);
+  const g = new THREE.Mesh(new THREE.CylinderGeometry(I.r, I.r, 0.2, 56), mat(top));
+  g.position.set(I.cx, -0.09, I.cz); g.receiveShadow = true; scene.add(g);
+  const foam = new THREE.Mesh(new THREE.RingGeometry(I.r + BEACH + 0.6, I.r + BEACH + 2.2, 56), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.45, depthWrite:false}));
+  foam.rotation.x = -Math.PI / 2; foam.position.set(I.cx, -0.46, I.cz); scene.add(foam); foams.push(foam);
 }
+// Pontes de madeira (sempre retas, no eixo x ou z)
+const bridges = [];
+function bridge(x1, z1, x2, z2){
+  const W = 6, alongX = Math.abs(z1 - z2) < 0.01;
+  const minX = Math.min(x1, x2), maxX = Math.max(x1, x2), minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+  const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2, len = alongX ? maxX - minX : maxZ - minZ;
+  addBlock(cx, -0.35, cz, alongX ? len : W, 0.35, alongX ? W : len, 0x9a6b3f, false);
+  for (let s = 0.8; s < len; s += 1.6) addBlock(alongX ? minX + s : cx, -0.33, alongX ? cz : minZ + s, alongX ? .22 : W, .35, alongX ? W : .22, 0x7a5230, false);
+  for (const side of [-1, 1]){
+    const rx = alongX ? cx : cx + side * (W/2 - .15), rz = alongX ? cz + side * (W/2 - .15) : cz;
+    addBlock(rx, 0, rz, alongX ? len - 4 : .3, 1.1, alongX ? .3 : len - 4, 0x6b4a2b);
+    for (let s = 2; s <= len - 2; s += 4){ const px = alongX ? minX + s : rx, pz = alongX ? rz : minZ + s; addBlock(px, -4, pz, .5, 4, .5, 0x5a3d22, false); }
+  }
+  bridges.push(alongX ? {minX, maxX, minZ:cz - W/2, maxZ:cz + W/2} : {minX:cx - W/2, maxX:cx + W/2, minZ, maxZ});
+}
+function link(a, b){
+  const dx = Math.sign(b.cx - a.cx), dz = Math.sign(b.cz - a.cz);
+  const ea = a.r + BEACH - 2, eb = b.r + BEACH - 2;
+  bridge(a.cx + dx * ea, a.cz + dz * ea, b.cx - dx * eb, b.cz - dz * eb);
+}
+const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
+function landAt(x, z){
+  if (inIsle(HUB, x, z)) return true;
+  for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
+  for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
+  return false;
+}
+function islandAt(x, z){
+  if (inIsle(HUB, x, z)) return -1;
+  for (let i = 0; i < ZONES.length; i++) if (inIsle(ZONES[i], x, z)) return i;
+  return null;
+}
+// Ilha trancada = campo de força em volta
+function lockedAt(x, z){
+  for (let i = S.unlocked; i < ZONES.length; i++) if (inIsle(ZONES[i], x, z, 1.2 + RAD)) return true;
+  return false;
+}
+function palm(x, z){
+  addBlock(x, 0, z, .7, 4.2, .7, 0x8a5a3b);
+  addBlock(x, 4.2, z, 1.4, .5, 1.4, 0x3f9e3a, false);
+  [[1.5,0],[-1.5,0],[0,1.5],[0,-1.5]].forEach(([a, b]) => addBlock(x + a, 4.05, z + b, a ? 2.4 : .9, .3, b ? 2.4 : .9, 0x56b84a, false));
+}
+
+// Ilha Central
+islandBase(HUB, 0x9d8bd6, 0xf3dfa2);
+for (let i = -2; i <= 2; i++) addBlock(i*7, -0.98, -5, 4, 1, 4, 0xa592d6, false);
+[[-15,10],[15,10],[-16,-8],[16,-8],[-8,-17],[8,-17]].forEach(([x, z]) => palm(x, z));
+const PAD_STYLE = {
+  sell: {color:0x3ddc84, text:'VENDER', bg:'#3ddc84', fg:'#0d2a1a'},
+  shop: {color:0xffcc33, text:'LOJA',   bg:'#ffcc33', fg:'#3a2a00'},
+  eggs: {color:0xff7ac8, text:'OVOS',   bg:'#ff7ac8', fg:'#3a0b2a'},
+};
+const pads = [];
+function addPad(kind, x, z){
+  const st = PAD_STYLE[kind];
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.12, 32), new THREE.MeshLambertMaterial({color:st.color, emissive:st.color, emissiveIntensity:.35}));
+  ring.position.set(x, 0.06, z); ring.receiveShadow = true; scene.add(ring);
+  const l = label(st.text, st.bg, st.fg, 384); l.position.set(x, 4.2, z); scene.add(l);
+  pads.push({kind, x, z, ring, inside:false});
+}
+addPad('sell', -9, 2); addPad('shop', 9, 2); addPad('eggs', 0, -9);
 
 { // ovo gigante atrás do círculo OVOS
   const egg = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 16), new THREE.MeshLambertMaterial({color:0xfff1de}));
@@ -349,44 +411,50 @@ for (const p of Object.values(pads)){
   colliders.push({minX:-1.4, maxX:1.4, minZ:-14.9, maxZ:-12.1, bottom:0, top:3.8});
 }
 
-// Zonas
+// Ilhas das fases
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
-  const len = Z.z1 - Z.z0, cz = (Z.z0 + Z.z1) / 2;
-  addBlock(0, -1, cz, 60, 1, len, Z.ground, false);
-  for (let k = 0; k < 18; k++) addBlock(rr(-28,28), -0.97, rr(Z.z0+2, Z.z1-2), rr(2,5), 1, rr(2,5), Z.edge, false);
-  addBlock(-30.5, 0, cz, 1, 1.4, len, Z.edge);
-  addBlock( 30.5, 0, cz, 1, 1.4, len, Z.edge);
-  const spot = () => { for (let t = 0; t < 40; t++){ const x = rr(-26,26), z = rr(Z.z0+5, Z.z1-4); if (Math.abs(x) > 3.5 && !occupied(x, z, 2.2)) return [x, z]; } return null; };
+  const prev = i ? ZONES[i-1] : HUB;
+  islandBase(Z, Z.ground, Z.beach);
+  link(prev, Z);
+  const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
+  // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
+  const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
+  addPad('sell', px, pz);
+  Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
+  const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
+  const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
+  for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
+  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8;
+  const spot = (m = 4) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, 2.2)) return [x, z]; } return null; };
   // decoração
-  for (let k = 0; k < 13; k++){
+  for (let k = 0; k < 12; k++){
     const s = spot(); if (!s) continue; const [x, z] = s;
     if (i === 0){ addBlock(x,0,z,0.8,2.2,0.8,0x8a5a3b); addBlock(x,2.2,z,2.8,2.4,2.8,k%3?0x3f9e3a:0x56b84a); }
-    if (i === 1){ addBlock(x,0,z,0.9,3.2,0.9,0x3e9b52); addBlock(x+0.9,1.4,z,0.9,0.6,0.6,0x3e9b52,false); addBlock(x+1.1,1.4,z,0.6,1.4,0.6,0x3e9b52,false); }
+    if (i === 1){ if (k % 3){ addBlock(x,0,z,0.9,3.2,0.9,0x3e9b52); addBlock(x+0.9,1.4,z,0.9,0.6,0.6,0x3e9b52,false); addBlock(x+1.1,1.4,z,0.6,1.4,0.6,0x3e9b52,false); } else palm(x, z); }
     if (i === 2){ addBlock(x,0,z,0.7,1.2,0.7,0x6b4a35);
       const cone = new THREE.Mesh(new THREE.ConeGeometry(1.8, 4, 6), mat(0x2f6f5e)); cone.position.set(x, 3.1, z); cone.castShadow = true; scene.add(cone);
       const cap = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.6, 6), mat(0xffffff)); cap.position.set(x, 4.6, z); scene.add(cap); }
     if (i === 3){ const h = rr(1.5, 4.5); addBlock(x,0,z,rr(1.5,2.6),h,rr(1.5,2.6),0x221a26);
-      const pool = addBlock(x+rr(-4,4),-0.95,z+rr(-4,4),rr(3,5),1,rr(3,5),0, false, new THREE.MeshBasicMaterial({color:0xff6a1a})); pool.castShadow = false; }
+      const pool = addBlock(x+rr(-3,3),-0.95,z+rr(-3,3),rr(2.5,4),1,rr(2.5,4),0, false, new THREE.MeshBasicMaterial({color:0xff6a1a})); pool.castShadow = false; }
   }
   // escadinhas com cristais no topo
   const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a][i];
   for (let k = 0; k < 4; k++){
-    const s = spot(); if (!s) continue; const [x, z] = s;
-    const n = 3 + (k % 2), dir = R() < .5 ? 1 : -1;
+    const s = spot(13); if (!s) continue; const [x, z] = s;
+    const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
     for (let st = 0; st < n; st++) addBlock(x + st*2.2*dir, 0, z, 2.2, (st+1)*1.2, 2.2, stepColor);
     zonePlatforms[i].push({x: x + (n-1)*2.2*dir, z, top: n*1.2});
   }
   if (i > 0){
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(60, 10, 0.4), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.28, depthWrite:false}));
-    wall.position.set(0, 5, Z.z0); scene.add(wall);
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(Z.r + BEACH + 1.2, Z.r + BEACH + 1.2, 13, 56, 1, true), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.22, depthWrite:false, side:THREE.DoubleSide}));
+    wall.position.set(Z.cx, 6, Z.cz); scene.add(wall);
     const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
-    l.position.set(0, 6.5, Z.z0 - 0.5); scene.add(l);
+    l.position.set(Z.cx - dx * (Z.r + BEACH + 3), 6.5, Z.cz - dz * (Z.r + BEACH + 3)); scene.add(l);
     gateMeshes[i] = [wall, l];
   }
 });
-addBlock(0, 0, 260.5, 60, 3, 1, 0x2a1c1c);
 
 // ---------- Cristais ----------
 const gemGeo = new THREE.OctahedronGeometry(0.5, 0);
@@ -403,7 +471,7 @@ function placeGem(g){
     const p = plats[Math.floor(Math.random()*plats.length)];
     g.x = p.x; g.z = p.z; g.baseY = p.top + 0.9;
   } else {
-    for (let t = 0; t < 30; t++){ g.x = rr(-27,27); g.z = rr(Z.z0+2, Z.z1-2); if (!occupied(g.x, g.z, 0.7)) break; }
+    for (let t = 0; t < 30; t++){ const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (Z.r - 1.5); g.x = Z.cx + Math.cos(a) * d; g.z = Z.cz + Math.sin(a) * d; if (!occupied(g.x, g.z, 0.7)) break; }
     g.baseY = 0.9;
   }
   g.mesh.position.set(g.x, g.baseY, g.z);
@@ -503,11 +571,16 @@ function blocked(x, z, y){
   return null;
 }
 function support(x, z, limit){
-  let h = 0; const r = RAD * 0.8;
+  let h = landAt(x, z) ? 0 : -50; const r = RAD * 0.8;
   for (const c of colliders) if (c.top <= limit && x+r > c.minX && x-r < c.maxX && z+r > c.minZ && z-r < c.maxZ && c.top > h) h = c.top;
   return h;
 }
-const maxZ = () => S.unlocked < ZONES.length ? ZONES[S.unlocked].z0 - 0.6 : 259.4;
+let lastIsland = -1;
+function splash(){
+  const sp = lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
+  Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0});
+  toast('Tchibum! Você caiu no mar'); beep(220, .35, 'sine', .07, .35);
+}
 
 // ---------- Entrada ----------
 const keys = {};
@@ -635,7 +708,7 @@ function updateGates(){
 const gateEl = $('gate');
 function gateCheck(){
   const i = S.unlocked;
-  const near = i < ZONES.length && P.z > ZONES[i].z0 - 5;
+  const near = i < ZONES.length && inIsle(ZONES[i], P.x, P.z, 10);
   if (near){
     const Z = ZONES[i];
     $('gateName').textContent = Z.name;
@@ -790,12 +863,10 @@ function step(now){
   // x
   let nx = P.x + mx, c = blocked(nx, P.z, P.y);
   if (c) nx = mx > 0 ? c.minX - RAD - 0.001 : c.maxX + RAD + 0.001;
-  if (!blocked(nx, P.z, P.y)) P.x = nx;
+  if (!blocked(nx, P.z, P.y) && !lockedAt(nx, P.z)) P.x = nx;
   let nz = P.z + mz; c = blocked(P.x, nz, P.y);
   if (c) nz = mz > 0 ? c.minZ - RAD - 0.001 : c.maxZ + RAD + 0.001;
-  if (!blocked(P.x, nz, P.y)) P.z = nz;
-  P.x = Math.max(-29.4, Math.min(29.4, P.x));
-  P.z = Math.max(-18.4, Math.min(maxZ(), P.z));
+  if (!blocked(P.x, nz, P.y) && !lockedAt(P.x, nz)) P.z = nz;
   // y
   coyote = P.onGround ? 0.1 : coyote - dt;
   if (jumpBuf > 0 && coyote > 0){ P.vy = jumpVel(S.lv.jump); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
@@ -805,6 +876,7 @@ function step(now){
   P.y += P.vy * dt;
   const sup = support(P.x, P.z, Math.max(prevY + 0.05, P.onGround ? P.y + STEP : P.y + 0.05));
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
+  if (P.y < -1.8) splash();
 
   // boneco
   player.position.set(P.x, P.y, P.z);
@@ -827,15 +899,20 @@ function step(now){
   sun.position.set(P.x + 18, 40, P.z - 12); sun.target.position.set(P.x, 0, P.z);
 
   // zona atual
-  let zi = -1; ZONES.forEach((Z, i) => { if (P.z >= Z.z0 && P.z < Z.z1) zi = i; });
-  if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Praça Central' : ZONES[zi].name, zi < 0 ? 'Voltou para a' : 'Você entrou em'); if (zi >= 0) packGem.material = gemMats[zi]; }
+  const zi = islandAt(P.x, P.z);
+  if (zi !== null){
+    lastIsland = zi;
+    if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Ilha Central' : 'Ilha ' + ZONES[zi].name, zi < 0 ? 'Voltou para a' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+  }
+  water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
+  for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
 
   // cristais
   const cap = bagCap(S.lv.bag), mag2 = magnetOf(S.lv.magnet), mult = gemMult();
   if (now > comboT) combo = 0;
   for (const g of gems){
     if (!g.active){ if (now > g.respawnAt) placeGem(g); continue; }
-    if (Math.abs(g.z - P.z) > 70){ continue; }
+    if (Math.abs(g.z - P.z) > 80 || Math.abs(g.x - P.x) > 80) continue;
     const m = g.mesh;
     m.rotation.y += dt * 2.2;
     const dx = P.x - m.position.x, dy = (P.y + 1.3) - m.position.y, dz = P.z - m.position.z;
@@ -844,7 +921,7 @@ function step(now){
       m.position.y = g.baseY + Math.sin(t * 2.4 + g.phase) * 0.18;
       if (d < mag2 + 0.6){
         if (S.bag < cap) g.flying = true;
-        else if (now > fullWarn){ fullWarn = now + 2500; toast('Mochila cheia! Volte para a Praça e pise no VENDER'); beep(160, .15, 'square', .04, .7); }
+        else if (now > fullWarn){ fullWarn = now + 2500; toast('Mochila cheia! Pise no VENDER desta ilha'); beep(160, .15, 'square', .04, .7); }
       }
     } else {
       const k = Math.min(1, dt * 14);
@@ -863,7 +940,7 @@ function step(now){
   }
 
   // pads
-  for (const [k, p] of Object.entries(pads)){
+  for (const p of pads){ const k = p.kind;
     const on = Math.hypot(P.x - p.x, P.z - p.z) < 2.6 && P.y < 0.6;
     p.ring.position.y = 0.06 + (on ? 0.04 : 0);
     if (on && !p.inside){
@@ -892,11 +969,11 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (P.z > maxZ()) P.z = 8;
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   resize(); hud();
   cloudInit();
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
-  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Ande por cima dos cristais para pegá-los', 3500), 1900);
+  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Atravesse a ponte e pegue os cristais da ilha', 3500), 1900);
   requestAnimationFrame(t => { last = t; step(t); });
 }
 window.claude?.hot?.snapshot?.(() => ({S, P:{x:P.x, y:P.y, z:P.z}}));
