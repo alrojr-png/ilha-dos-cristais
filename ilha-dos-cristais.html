@@ -65,7 +65,10 @@ body.touch #jump{display:block}
 #cross::before,#cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);border-radius:2px}
 #cross::before{left:10px;top:0;width:2px;height:22px}
 #cross::after{top:10px;left:0;height:2px;width:22px}
-body.shiftlock #cross{display:block}#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
+body.shiftlock #cross{display:block}
+#dive{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .45s;background:radial-gradient(ellipse at center,rgba(40,140,220,0) 45%,rgba(4,30,60,.75) 100%)}
+body.under #dive{opacity:1}
+#dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}#stick{position:fixed;z-index:4;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);pointer-events:none;display:none}
 #stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.75)}
 .float{position:fixed;z-index:6;pointer-events:none;font-family:var(--display);font-size:22px;color:var(--gem);text-shadow:0 2px 0 rgba(0,0,0,.6);animation:rise .9s ease-out forwards;transform:translate(-50%,-50%)}
 .float.coin{color:var(--coin);font-size:30px}
@@ -149,6 +152,7 @@ body.shiftlock #cross{display:block}#stick{position:fixed;z-index:4;width:120px;
 </div>
 <div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock</div>
 <div id="cross" aria-hidden="true"></div>
+<div id="dive" aria-hidden="true"></div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <div id="stick"><i></i></div>
 
@@ -181,6 +185,7 @@ const ZONES = [
   {name:'Dunas Douradas',  cx:88, cz:80,  r:34, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
   {name:'Vale Gelado',     cx:88, cz:168, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
   {name:'Cratera de Lava', cx:0,  cz:168, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
+  {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -283,7 +288,7 @@ scene.background = new THREE.Color(0x8fd6ff);
 scene.fog = new THREE.Fog(0x8fd6ff, 90, 260);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x6a5a8a, 0.75));
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6a5a8a, 0.75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 0.85);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
@@ -374,7 +379,12 @@ function islandAt(x, z){
 }
 // Ilha trancada = campo de força em volta
 function lockedAt(x, z){
-  for (let i = S.unlocked; i < ZONES.length; i++) if (inIsle(ZONES[i], x, z, 1.2 + RAD)) return true;
+  for (let i = S.unlocked; i < ZONES.length; i++){
+    const Z = ZONES[i];
+    if (inIsle(Z, x, z, 1.2 + RAD)) return true;
+    if (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 6.5) return true;
+  }
+  if (under && !inIsle(SUB, x, z, -0.5)) return true;
   return false;
 }
 function palm(x, z){
@@ -514,37 +524,156 @@ addPad('sell', -9, 2); addPad('shop', 9, 2); addPad('eggs', 0, -9);
   colliders.push({minX:-1.4, maxX:1.4, minZ:-14.9, maxZ:-12.1, bottom:0, top:3.8});
 }
 
+// ---------- Reino Submerso (fundo do mar) ----------
+const SUB = ZONES.find(Z => Z.sub), SUB_I = ZONES.indexOf(SUB);
+const whirls = [];
+function whirlpool(x, z){
+  const g = new THREE.Group(); g.position.set(x, -0.42, z); scene.add(g);
+  [0x0b3d6b, 0x15629a, 0x2d8fdc, 0x7fd0ff, 0xdff6ff].forEach((c, k) => {
+    const r0 = k * 1.15;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r0 + .05, r0 + 1.3, 40, 1, 0, Math.PI * 1.6), new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:.9 - k * .1, side:THREE.DoubleSide, depthWrite:false}));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = k * .02;
+    const piv = new THREE.Group(); piv.add(ring); piv.rotation.y = k; g.add(piv);
+    whirls.push({m:piv, sp:3.4 - k * .5});
+  });
+  const funnel = new THREE.Mesh(new THREE.ConeGeometry(2, 3, 20, 1, true), new THREE.MeshBasicMaterial({color:0x06243f, side:THREE.DoubleSide}));
+  funnel.rotation.x = Math.PI; funnel.position.y = -1.5; g.add(funnel);
+}
+// Pier saindo da Cratera de Lava até o redemoinho
+function buildDive(L, Z){
+  const e = L.cz + L.r + BEACH;
+  bridge(L.cx, e - 2, L.cx, e + 7);
+  Z.gate = {x:L.cx, z:e + 11.5};
+  Z.back = {x:L.cx + 3, z:e - 7};
+  whirlpool(Z.gate.x, Z.gate.z);
+}
+const realmFx = {rays:[]};
+function buildRealm(Z){
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(Z.r + BEACH + 3, Z.r + BEACH + 9, 18, 40, 1, true), new THREE.MeshLambertMaterial({color:0x2a4a5e, side:THREE.DoubleSide}));
+  wall.position.set(Z.cx, 8.5, Z.cz); scene.add(wall);
+  for (let k = 0; k < 40; k++){
+    const a = k / 40 * Math.PI * 2 + R() * .1, d = Z.r + BEACH + 1.5 + R() * 2;
+    addBlock(Z.cx + Math.cos(a) * d, 0, Z.cz + Math.sin(a) * d, rr(3,6), rr(3,11), rr(3,6), R() < .5 ? 0x34566b : 0x3d6378, false);
+  }
+  const surf = new THREE.Mesh(new THREE.CircleGeometry(Z.r + 40, 48), new THREE.MeshBasicMaterial({color:0x7fd0ff, transparent:true, opacity:.5, side:THREE.DoubleSide, depthWrite:false}));
+  surf.rotation.x = -Math.PI / 2; surf.position.set(Z.cx, 26, Z.cz); scene.add(surf); realmFx.surf = surf;
+  for (let k = 0; k < 10; k++){
+    const a = R() * Math.PI * 2, d = R() * (Z.r - 6);
+    const ray = new THREE.Mesh(new THREE.CylinderGeometry(1, 3.2, 28, 8, 1, true), new THREE.MeshBasicMaterial({color:0xbfe8ff, transparent:true, opacity:.07, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending}));
+    ray.position.set(Z.cx + Math.cos(a) * d, 12, Z.cz + Math.sin(a) * d); ray.rotation.z = .22; scene.add(ray); realmFx.rays.push(ray);
+  }
+}
+function portalUp(x, z){
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, .14, 28), new THREE.MeshBasicMaterial({color:0x7fe8ff}));
+  ring.position.set(x, .07, z); scene.add(ring);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 26, 20, 1, true), new THREE.MeshBasicMaterial({color:0xbff4ff, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false}));
+  col.position.set(x, 13, z); scene.add(col);
+  const l = label('SUBIR', '#7fe8ff', '#06243f', 384); l.position.set(x, 4.4, z); scene.add(l);
+}
+const CORAL = [0xff6f91, 0xff9a4d, 0xb07cff, 0xffd23f, 0x4ae0c8];
+function coral(x, z){
+  const c = CORAL[Math.floor(R() * CORAL.length)];
+  addBlock(x, 0, z, 1.3, .7, 1.3, c);
+  for (let k = 0; k < 4; k++){ const bx = x + rr(-.6,.6), bz = z + rr(-.6,.6), h = rr(1, 2.8); addBlock(bx, .7, bz, .3, h, .3, c, false); addBlock(bx + rr(-.3,.3), .7 + h, bz, .55, .3, .55, c, false); }
+}
+function seaweed(x, z){
+  const h = 3 + R() * 4, g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  for (let k = 0; k < 4; k++){ const s = new THREE.Mesh(boxGeo, mat(k % 2 ? 0x2f9e5a : 0x3fbf6a)); s.scale.set(.35, h / 4, .2); s.position.y = k * h / 4 + h / 8; g.add(s); }
+  bobbers.push({sway:g, ph:R() * 6});
+}
+function starfish(x, z){ const c = R() < .5 ? 0xff8a2a : 0xff5a8a; for (let k = 0; k < 3; k++){ const m = new THREE.Mesh(boxGeo, mat(c)); m.scale.set(1.4, .12, .3); m.position.set(x, .07, z); m.rotation.y = k * Math.PI / 3; scene.add(m); } }
+function clam(x, z){
+  const sh = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xc9a8e0));
+  sh.rotation.x = Math.PI; sh.position.set(x, .9, z); scene.add(sh);
+  const top = new THREE.Mesh(sh.geometry, mat(0xb894d6)); top.position.set(x, 1, z - .7); top.rotation.x = -.9; scene.add(top);
+  const pearl = new THREE.Mesh(new THREE.SphereGeometry(.38, 14, 10), new THREE.MeshPhongMaterial({color:0xffffff, emissive:0x9fdcff, emissiveIntensity:.4, shininess:120})); pearl.position.set(x, 1.05, z); scene.add(pearl);
+  colliders.push({minX:x-1, maxX:x+1, minZ:z-1, maxZ:z+1, bottom:0, top:1.2});
+}
+function chest(x, z){
+  addBlock(x, 0, z, 1.8, 1, 1.2, 0x8a5a3b);
+  addBlock(x, 1, z - .65, 1.8, 1, .2, 0x6b4430, false);
+  addBlock(x, 1, z, 1.5, .3, .9, 0xffd23f, false);
+  addBlock(x, 0, z + .61, .3, 1, .03, 0xffcc33, false);
+  for (let k = 0; k < 5; k++){ const c = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .06, 12), mat(0xffcc33)); c.position.set(x + rr(-1.6,1.6), .04, z + rr(.8,1.8)); scene.add(c); }
+}
+function anchor(x, z){
+  addBlock(x, 0, z, .35, 3.4, .35, 0x56606b); addBlock(x, 2.6, z, 1.6, .25, .3, 0x56606b, false);
+  addBlock(x, 0, z, 2.4, .3, .35, 0x56606b, false); addBlock(x - 1.1, .3, z, .3, .6, .35, 0x56606b, false); addBlock(x + 1.1, .3, z, .3, .6, .35, 0x56606b, false);
+  const r = new THREE.Mesh(new THREE.TorusGeometry(.35, .08, 6, 14), mat(0x56606b)); r.position.set(x, 3.7, z); scene.add(r);
+}
+function jelly(x, z){
+  const y = rr(4, 11), g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  const m = new THREE.MeshPhongMaterial({color:0xff8ad8, emissive:0xb03a8a, emissiveIntensity:.5, transparent:true, opacity:.75});
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(.8, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), m));
+  for (let k = 0; k < 4; k++){ const tt = new THREE.Mesh(boxGeo, m); tt.scale.set(.08, 1.4, .08); tt.position.set(Math.cos(k * 1.57) * .4, -.7, Math.sin(k * 1.57) * .4); g.add(tt); }
+  bobbers.push({m:g, base:y, ph:R() * 6, amp:.9});
+}
+const FISHC = [0xffcc33, 0xff6b35, 0x4aa8ff, 0xff7ac8, 0x34f0b0, 0xffffff];
+function fishSchool(x, z){
+  const g = new THREE.Group(); scene.add(g); const c = FISHC[Math.floor(R() * FISHC.length)];
+  for (let k = 0; k < 6; k++){
+    const f = new THREE.Group();
+    const body = new THREE.Mesh(boxGeo, mat(c)); body.scale.set(.3, .45, .8); f.add(body);
+    const tail = new THREE.Mesh(boxGeo, mat(c)); tail.scale.set(.08, .5, .35); tail.position.z = -.55; f.add(tail);
+    const eye = new THREE.Mesh(boxGeo, mat(0x1d1630)); eye.scale.set(.32, .1, .1); eye.position.set(0, .08, .25); f.add(eye);
+    f.position.set(rr(-1.5,1.5), rr(-1,1), rr(-1.5,1.5)); g.add(f);
+  }
+  bobbers.push({fish:g, x, z, r:rr(5, 12), y:rr(2.5, 8), sp:rr(.25, .5) * (R() < .5 ? 1 : -1), ph:R() * 6});
+}
+function ship(x, z, zi){
+  addBlock(x, 0, z, 4.5, 2.4, 13, 0x5a3d22);
+  addBlock(x, 2.4, z - 4.5, 4, 1.8, 3.5, 0x6b4a2b);
+  addBlock(x, -.3, z + 7.2, 2.6, 2.2, 1.6, 0x5a3d22, false);
+  addBlock(x, 2.4, z + 1, .4, 6, .4, 0x4a3020, false);
+  addBlock(x + 1, 6.6, z + 1, 2.8, .3, .3, 0x4a3020, false);
+  const sail = new THREE.Mesh(boxGeo, new THREE.MeshLambertMaterial({color:0xd8cfb8, transparent:true, opacity:.8})); sail.scale.set(2.4, 2.6, .05); sail.position.set(x + 1, 5.2, z + 1.1); sail.rotation.z = .15; scene.add(sail);
+  addBlock(x + 2.26, .8, z + 2, .05, .9, 1.3, 0x1d1630, false); addBlock(x - 2.26, 1.2, z - 1, .05, .7, 1, 0x1d1630, false);
+  addBlock(x + 3.4, 0, z + 3, 2.2, 1.2, 2.2, 0x3d6378); // pedra-degrau para subir no navio
+  zonePlatforms[zi].push({x, z:z + 2, top:2.4}, {x, z:z - 4.5, top:4.2});
+}
+// Bolhas
+const bubbleGeo = new THREE.SphereGeometry(.14, 8, 6), bubbleMat = new THREE.MeshBasicMaterial({color:0xdff6ff, transparent:true, opacity:.7});
+const bubbles = [];
+function spawnBubble(x, y, z){
+  let b = bubbles.find(q => q.life <= 0);
+  if (!b){ if (bubbles.length > 80) return; b = {m:new THREE.Mesh(bubbleGeo, bubbleMat)}; scene.add(b.m); bubbles.push(b); }
+  b.m.position.set(x, y, z); b.m.visible = true; b.life = 2.6; b.m.scale.setScalar(.6 + Math.random() * .9); b.ph = Math.random() * 6;
+}
+
 // Ilhas das fases
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
   const prev = i ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
   addPad('sell', px, pz);
   Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
+  if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
   const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
-  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8);
+  const clear = (x, z) => Math.hypot(x - px, z - pz) > 5 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
   const spot = (m = 4, pad = 2.2) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, pad)) return [x, z]; } return null; };
   if (i === 3) volcano(Z.cx, Z.cz);
+  if (Z.sub){ const s = spot(14, 7.5); if (s) ship(s[0], s[1], i); }
   if (i === 0){ const s = spot(8, 3.5); if (s) windmill(s[0], s[1]); }
   const KINDS = [
     [[tree,12],[bush,10],[flowers,14],[mushroom,6],[rock,4],[hut,2],[fence,4]],
     [[cactus,11],[palm,6],[pyramid,2],[rock,6],[skull,5],[hut,1],[bush,3]],
     [[pine,14],[snowman,4],[iceSpike,8],[igloo,2],[rock,5]],
     [[obsidian,14],[lavaPool,10],[rock,7],[skull,4]],
+    [[coral,24],[seaweed,34],[starfish,12],[clam,4],[chest,4],[rock,8],[anchor,2],[jelly,10],[fishSchool,8]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
     const big = fn === hut || fn === igloo || fn === pyramid;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -553,14 +682,20 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a][i];
   for (let k = 0; k < 4; k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
     for (let st = 0; st < n; st++) addBlock(x + st*2.2*dir, 0, z, 2.2, (st+1)*1.2, 2.2, stepColor);
     zonePlatforms[i].push({x: x + (n-1)*2.2*dir, z, top: n*1.2});
   }
-  if (i > 0){
+  if (Z.sub){
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(6.5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide}));
+    dome.position.set(Z.gate.x, -0.5, Z.gate.z); scene.add(dome);
+    const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
+    l.position.set(Z.gate.x, 8, Z.gate.z); scene.add(l);
+    gateMeshes[i] = [dome, l];
+  } else if (i > 0){
     const wall = new THREE.Mesh(new THREE.CylinderGeometry(Z.r + BEACH + 1.2, Z.r + BEACH + 1.2, 13, 56, 1, true), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.22, depthWrite:false, side:THREE.DoubleSide}));
     wall.position.set(Z.cx, 6, Z.cz); scene.add(wall);
     const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
@@ -572,7 +707,7 @@ ZONES.forEach((Z, i) => {
 // Coisas no mar
 for (let k = 0, n = 0; k < 600 && n < 40; k++){
   const x = rr(-90, 190), z = rr(-80, 260);
-  if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
+  if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8) || (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 14)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
   n++;
   if (n <= 26) seaRock(x, z); else if (n <= 36) buoy(x, z, n % 2 ? 0xe8402c : 0xffd23f); else boat(x, z, R() * 6);
 }
@@ -696,7 +831,29 @@ function support(x, z, limit){
   for (const c of colliders) if (c.top <= limit && x+r > c.minX && x-r < c.maxX && z+r > c.minZ && z-r < c.maxZ && c.top > h) h = c.top;
   return h;
 }
-let lastIsland = -1;
+let lastIsland = -1, under = false, diving = false, bubbleT = 0;
+function setUnder(on){
+  under = on;
+  scene.background.set(on ? 0x0b4a78 : 0x8fd6ff);
+  scene.fog.color.set(on ? 0x0b4a78 : 0x8fd6ff); scene.fog.near = on ? 6 : 90; scene.fog.far = on ? 75 : 260;
+  hemi.color.set(on ? 0x9fdcff : 0xffffff); hemi.groundColor.set(on ? 0x1b5a8a : 0x6a5a8a);
+  sun.color.set(on ? 0x9fe6ff : 0xfff1d6); sun.intensity = on ? .6 : .85;
+  document.body.classList.toggle('under', on);
+}
+function dive(down){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('flash');
+  beep(down ? 520 : 220, .7, 'sine', .08, down ? .3 : 3);
+  setTimeout(() => {
+    const to = down ? SUB.spawn : SUB.back;
+    Object.assign(P, {x:to.x, y:down ? 4 : 0, z:to.z, vy:0});
+    cam.yaw = down ? Math.PI : 0;
+    lastIsland = down ? SUB_I : SUB_I - 1;
+    setUnder(down);
+    if (!down) banner('Cratera de Lava', 'Você voltou para a superfície');
+    fx.classList.remove('flash'); diving = false;
+  }, 500);
+}
 function splash(){
   const sp = lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
   Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0});
@@ -829,7 +986,7 @@ function updateGates(){
 const gateEl = $('gate');
 function gateCheck(){
   const i = S.unlocked;
-  const near = i < ZONES.length && inIsle(ZONES[i], P.x, P.z, 10);
+  const near = i < ZONES.length && (ZONES[i].gate ? Math.hypot(P.x - ZONES[i].gate.x, P.z - ZONES[i].gate.z) < 16 : inIsle(ZONES[i], P.x, P.z, 10));
   if (near){
     const Z = ZONES[i];
     $('gateName').textContent = Z.name;
@@ -990,14 +1147,16 @@ function step(now){
   if (!blocked(P.x, nz, P.y) && !lockedAt(P.x, nz)) P.z = nz;
   // y
   coyote = P.onGround ? 0.1 : coyote - dt;
-  if (jumpBuf > 0 && coyote > 0){ P.vy = jumpVel(S.lv.jump); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
+  if (jumpBuf > 0 && coyote > 0){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
   jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
-  P.vy = Math.max(-40, P.vy - GRAV * dt);
+  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : 1) * dt);
   P.y += P.vy * dt;
   const sup = support(P.x, P.z, Math.max(prevY + 0.05, P.onGround ? P.y + STEP : P.y + 0.05));
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
-  if (P.y < -1.8) splash();
+  if (SUB && !under && !diving && S.unlocked > SUB_I && P.y < -0.2 && Math.hypot(P.x - SUB.gate.x, P.z - SUB.gate.z) < 6) dive(true);
+  if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
+  if (P.y < -1.8 && !diving) splash();
 
   // boneco
   player.position.set(P.x, P.y, P.z);
@@ -1023,16 +1182,33 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Ilha Central' : 'Ilha ' + ZONES[zi].name, zi < 0 ? 'Voltou para a' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Ilha Central' : (ZONES[zi].sub ? '' : 'Ilha ') + ZONES[zi].name, zi < 0 ? 'Voltou para a' : ZONES[zi].sub ? 'Você mergulhou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
+  for (const w of whirls) w.m.rotation.y -= dt * w.sp;
+  if (under){
+    realmFx.surf.material.opacity = .45 + Math.sin(t * 1.3) * .08;
+    realmFx.rays.forEach((r, k) => r.material.opacity = .05 + Math.sin(t * .8 + k) * .03);
+    bubbleT -= dt;
+    if (bubbleT <= 0){
+      bubbleT = .09;
+      if (Math.random() < .5) spawnBubble(P.x + (Math.random() - .5) * .6, P.y + 2.5, P.z + (Math.random() - .5) * .6);
+      const a = Math.random() * 6.28; spawnBubble(SUB.portal.x + Math.cos(a) * 1.6, .3, SUB.portal.z + Math.sin(a) * 1.6);
+    }
+  }
+  for (const b of bubbles) if (b.life > 0){
+    b.life -= dt; b.m.position.y += dt * 2.4; b.m.position.x += Math.sin(t * 4 + b.ph) * dt * .5;
+    if (b.life <= 0 || !under) { b.life = 0; b.m.visible = false; }
+  }
   for (const b of bobbers){
+    if (b.fish){ const a = t * b.sp + b.ph; b.fish.position.set(b.x + Math.cos(a) * b.r, b.y + Math.sin(t * .7 + b.ph) * .6, b.z + Math.sin(a) * b.r); b.fish.rotation.y = Math.atan2(-Math.sin(a) * b.sp, Math.cos(a) * b.sp); continue; }
+    if (b.sway){ b.sway.rotation.z = Math.sin(t * 1.3 + b.ph) * .15; b.sway.rotation.x = Math.sin(t * 1.1 + b.ph * 2) * .1; continue; }
     if (b.spin) b.m.rotation.z += dt * b.spin;
     else if (b.smoke) b.smoke.forEach((s, k) => { const p = (t * .25 + k / b.smoke.length) % 1; s.position.set(b.x + Math.sin(k * 2 + t * .3) * p * 2, b.y + p * 8, b.z); s.scale.setScalar(.6 + p * 1.6); s.material.opacity = .6 * (1 - p); });
     else if (b.glow) b.glow.material.color.setHSL(.13, 1, .62 + Math.sin(t * 3) * .12);
     else if (b.spout) b.spout.position.y = b.y + Math.sin(t * 5) * .15;
-    else { b.m.position.y = b.base + Math.sin(t * 1.5 + b.ph) * .12; if (b.rock) b.m.rotation.z = Math.sin(t * 1.1 + b.ph) * .06; }
+    else { b.m.position.y = b.base + Math.sin(t * 1.5 + b.ph) * (b.amp || .12); if (b.rock) b.m.rotation.z = Math.sin(t * 1.1 + b.ph) * .06; }
   }
 
   // cristais
@@ -1098,6 +1274,7 @@ function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
   if (!landAt(P.x, P.z) || lockedAt(P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   resize(); hud();
   cloudInit();
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
