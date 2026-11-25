@@ -37,7 +37,8 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);user-select
 #bag.full .bar i{background:var(--bad)}
 #bag.full b{color:var(--bad)}
 #mult{font-size:13px;font-weight:900;color:var(--hot);padding:4px 12px}
-#mult[hidden]{display:none!important}
+#mult[hidden],#petChip[hidden]{display:none!important}
+#petChip{font-size:13px;font-weight:900;color:var(--gem);padding:4px 12px}
 #topright{top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));display:flex;gap:8px}
 .btn{font-family:var(--display);font-size:18px;letter-spacing:.5px;color:var(--text);background:var(--panel-2);border:2px solid var(--line);border-radius:12px;padding:8px 14px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.4);transition:transform .08s}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
@@ -66,7 +67,7 @@ body.touch #jump{display:block}
 .float.coin{color:var(--coin);font-size:30px}
 @keyframes rise{to{transform:translate(-50%,-160%);opacity:0}}
 /* Loja */
-#shop{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+#shop,#pets{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .sheet{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 10px 0 rgba(0,0,0,.4);padding:18px}
 .sheet header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .sheet h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0;letter-spacing:.5px}
@@ -82,8 +83,37 @@ body.touch #jump{display:block}
 .up .btn{font-size:15px;padding:7px 10px;min-width:96px}
 .reb{padding:12px;border-radius:14px;border:2px dashed var(--hot);font-size:14px;font-weight:700;color:var(--muted);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .reb strong{color:var(--text)}
-@media (max-width:480px){.chip b{font-size:20px}.bar{width:110px}.btn{font-size:16px;padding:7px 11px}}
-@media (prefers-reduced-motion:reduce){.float{animation-duration:.01s}#coins.pulse{animation:none}}
+.eggs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.egg{background:var(--panel-2);border-radius:14px;padding:10px 8px;text-align:center;display:grid;gap:6px;justify-items:center;align-content:start}
+.egg .shape{width:42px;height:54px}
+.shape{display:block;border-radius:50% 50% 46% 46%/60% 60% 40% 40%;border:3px solid rgba(0,0,0,.3)}
+.egg b{font-size:14px;font-weight:900}
+.egg p{margin:0;font-size:11px;color:var(--muted);font-weight:700;line-height:1.4}
+.egg .btn{font-size:15px;padding:6px 8px;width:100%;margin-top:auto}
+.petbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:18px 0 8px}
+.petbar h3{margin:0;font-size:18px}
+.petbar .btn{font-size:14px;padding:6px 10px}
+.petgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.pet{background:var(--panel-2);border-radius:12px;padding:8px 10px;border:2px solid transparent;display:grid;gap:3px}
+.pet.on{border-color:var(--gem)}
+.pet b{font-size:15px;font-weight:900}
+.pet small{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.pet span{font-size:13px;font-weight:800;color:var(--gem)}
+.pet .row{display:flex;gap:6px;margin-top:4px}
+.pet .btn{font-size:13px;padding:5px 6px;flex:1}
+.empty{color:var(--muted);font-weight:700;font-size:14px;margin:4px 0}
+#hatch{position:fixed;inset:0;z-index:12;display:grid;place-items:center;background:rgba(10,6,24,.85);text-align:center;padding:16px}
+#hatch .shape{width:110px;height:140px;margin:0 auto;border-width:4px;animation:wob .16s ease-in-out infinite alternate}
+#hatch.open .shape{display:none}
+@keyframes wob{from{transform:rotate(-12deg)}to{transform:rotate(12deg)}}
+#hatchRes{display:none}
+#hatch.open #hatchRes{display:block;animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+#hatchRes small{display:block;font-weight:900;letter-spacing:.2em;text-transform:uppercase;font-size:14px}
+#hatchRes b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,56px);text-shadow:0 4px 0 rgba(0,0,0,.4)}
+#hatchRes p{font-weight:800;color:var(--gem);font-size:18px;margin:6px 0 16px}
+@media (max-width:480px){.egg p{font-size:10px}.chip b{font-size:20px}.bar{width:110px}.btn{font-size:16px;padding:7px 11px}}
+@media (prefers-reduced-motion:reduce){#hatch .shape{animation:none}.float{animation-duration:.01s}#coins.pulse{animation:none}}
 </style>
 
 <canvas id="game" tabindex="0" aria-label="Mundo do jogo"></canvas>
@@ -98,9 +128,11 @@ body.touch #jump{display:block}
     <div><small>Mochila</small><b id="bagTxt">0/10</b><div class="bar"><i id="bagBar"></i></div></div>
   </div>
   <div class="chip" id="mult" hidden>Renascimentos: <span id="multTxt"></span></div>
+  <div class="chip" id="petChip" hidden>Pets: <span id="petTxt"></span></div>
 </div>
 
 <div class="hud" id="topright">
+  <button class="btn" id="petsBtn" type="button">Pets</button>
   <button class="btn buy" id="shopBtn" type="button">Loja</button>
   <button class="btn" id="soundBtn" type="button" aria-pressed="true">Som: ligado</button>
 </div>
@@ -111,7 +143,7 @@ body.touch #jump{display:block}
   <div><b id="gateName"></b><span id="gateInfo"></span></div>
   <button class="btn go" id="gateBtn" type="button">Desbloquear</button>
 </div>
-<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja</div>
+<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets</div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <div id="stick"><i></i></div>
 
@@ -123,6 +155,16 @@ body.touch #jump{display:block}
     <div class="reb"><span id="rebTxt"></span><button class="btn" id="rebBtn" type="button">Renascer</button></div>
   </div>
 </div>
+
+<div id="pets" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="petsTitle">
+    <header><h2 id="petsTitle">Ovos e Pets</h2><button class="btn" id="closePets" type="button">Fechar</button></header>
+    <div class="eggs" id="eggs"></div>
+    <div class="petbar"><h3 id="petCount">Meus pets</h3><button class="btn go" id="bestBtn" type="button">Levar os melhores</button></div>
+    <div class="petgrid" id="petList"></div>
+  </div>
+</div>
+<div id="hatch" hidden><div><span class="shape" id="hatchEgg"></span><div id="hatchRes"><small id="hatchRar"></small><b id="hatchName"></b><p id="hatchBonus"></p><button class="btn go" id="hatchOk" type="button">Legal!</button></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -141,6 +183,30 @@ const UPG = {
   jump:  {name:'Mola no pé',     color:'#5cc8ff', letter:'P', base:40, mult:2.3,  max:8,  eff:l=>`Pulo de ${jumpHeight(l).toFixed(1)} blocos`},
   magnet:{name:'Ímã de cristal', color:'#34f0b0', letter:'Í', base:60, mult:2.45, max:8,  eff:l=>`Puxa cristais a ${magnetOf(l).toFixed(1)} m`},
 };
+const RARITY = {c:{name:'Comum',color:'#c9bfe6'}, r:{name:'Raro',color:'#4aa8ff'}, e:{name:'Épico',color:'#b07cff'}, l:{name:'Lendário',color:'#ffcc33'}};
+const PETS = {
+  pinto:    {name:'Pintinho',        rar:'c', bonus:.10, body:0xffe14d, acc:0xffe14d, beak:0xff8a2a, legC:0xff8a2a, wings:1, wingC:0xffd21f, size:.75},
+  coelho:   {name:'Coelho',          rar:'c', bonus:.15, body:0xf4f0ff, acc:0xffa3c4, ears:'long'},
+  gato:     {name:'Gato',            rar:'r', bonus:.25, body:0xff9a4d, acc:0xffe2c4, ears:'point', tail:1},
+  raposa:   {name:'Raposa',          rar:'e', bonus:.45, body:0xe8602c, acc:0xffffff, ears:'point', tail:1, legC:0x3a2a20},
+  pinguim:  {name:'Pinguim',         rar:'c', bonus:.40, body:0x2a2f45, acc:0xffffff, belly:1, beak:0xff8a2a, legC:0xff8a2a},
+  panda:    {name:'Panda',           rar:'r', bonus:.70, body:0xffffff, acc:0x222222, ears:'round', legC:0x222222},
+  coruja:   {name:'Coruja',          rar:'e', bonus:1.1, body:0x8a5a3b, acc:0xffe7b0, belly:1, beak:0xffb000, ears:'point', wings:1, wingC:0x6b4430, fly:1},
+  dragelo:  {name:'Dragão de Gelo',  rar:'l', bonus:2,   body:0x7fd0ff, acc:0xffffff, horns:1, wings:1, wingC:0xcfeeff, fly:1, tail:1},
+  unicornio:{name:'Unicórnio',       rar:'r', bonus:2.5, body:0xffffff, acc:0xffcc33, horn:1, ears:'point', tail:1, tailC:0xff7ac8, crest:1, crestC:0xff7ac8},
+  golem:    {name:'Golem de Cristal',rar:'e', bonus:4,   body:0x6b7a8f, acc:0x34f0b0, gem:1, size:1.15},
+  fenix:    {name:'Fênix',           rar:'l', bonus:7,   body:0xff5a1f, head:0xff8a2a, acc:0xffcc33, beak:0xffcc33, wings:1, wingC:0xffb000, fly:1, tail:1, tailC:0xffcc33, crest:1},
+  dourado:  {name:'Dragão Dourado',  rar:'l', bonus:12,  body:0xffcc33, acc:0xfff1de, horns:1, wings:1, wingC:0xffb000, fly:1, tail:1, size:1.15},
+};
+const EGGS = [
+  {name:'Ovo Comum',  price:120,    color:'#f4ecd8', pool:[['pinto',50],['coelho',30],['gato',15],['raposa',5]]},
+  {name:'Ovo Gelado', price:5000,   color:'#9fd8ff', pool:[['pinguim',50],['panda',30],['coruja',16],['dragelo',4]]},
+  {name:'Ovo de Lava',price:150000, color:'#ff6a3a', pool:[['unicornio',50],['golem',32],['fenix',14],['dourado',4]]},
+];
+const PET_SLOTS = 3, PET_MAX = 60;
+const pct = b => Math.round(b * 100) + '%';
+const petMult = () => 1 + S.equip.reduce((a, id) => { const p = S.pets.find(q => q.id === id); return a + (p ? PETS[p.k].bonus : 0); }, 0);
+const gemMult = () => multOf(S.rebirths) * petMult();
 const bagCap = l => Math.round(10 * Math.pow(1.85, l));
 const speedOf = l => 8 + l * 1.4;
 const jumpVel = l => 10 + l * 1.3;
@@ -157,13 +223,13 @@ const fmt = n => {
   return (n/1e9).toFixed(1).replace('.', ',') + ' bi';
 };
 
-const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0});
+const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
 // Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
 // (no artifact o localStorage pode ser apagado ou bloqueado pelo navegador).
 let cloudDoc = null, cloudLast = '', cloudBusy = false;
-const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.coins || 0) + (s.bagVal || 0);
+const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.pets ? s.pets.length : 0) * 1e7 + (s.coins || 0) + (s.bagVal || 0);
 function save(){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   cloudSave();
@@ -176,7 +242,10 @@ function cloudSave(){
   cloudDoc.set({save: j}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
 }
 function load(){ try{ const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) merge(d); }catch(e){} }
-function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {}); }
+function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {});
+  S.pets = Array.isArray(d.pets) ? d.pets.filter(p => p && PETS[p.k]) : [];
+  S.equip = (Array.isArray(d.equip) ? d.equip : []).filter(id => S.pets.some(p => p.id === id)).slice(0, PET_SLOTS);
+  S.nid = Math.max(d.nid || 1, ...S.pets.map(p => p.id + 1)); }
 async function cloudInit(){
   try{
     if (!window.claude?.use) return;
@@ -257,12 +326,22 @@ addBlock(0, 0, -19.5, 60, 2, 1, 0x7d6bb3);
 const pads = {
   sell: {x:-9, z:2, color:0x3ddc84, text:'VENDER', bg:'#3ddc84', fg:'#0d2a1a', inside:false},
   shop: {x: 9, z:2, color:0xffcc33, text:'LOJA',   bg:'#ffcc33', fg:'#3a2a00', inside:false},
+  eggs: {x: 0, z:-9, color:0xff7ac8, text:'OVOS',   bg:'#ff7ac8', fg:'#3a0b2a', inside:false},
 };
 for (const p of Object.values(pads)){
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.12, 32), new THREE.MeshLambertMaterial({color:p.color, emissive:p.color, emissiveIntensity:.35}));
   ring.position.set(p.x, 0.06, p.z); ring.receiveShadow = true; scene.add(ring);
   const l = label(p.text, p.bg, p.fg, 384); l.position.set(p.x, 4.2, p.z); scene.add(l);
   p.ring = ring;
+}
+
+{ // ovo gigante atrás do círculo OVOS
+  const egg = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 16), new THREE.MeshLambertMaterial({color:0xfff1de}));
+  egg.scale.set(1, 1.3, 1); egg.position.set(0, 1.95, -13.5); egg.castShadow = true; scene.add(egg);
+  [[0.5, 2.6, 1.2, 0xff7ac8], [-0.8, 1.6, 1.1, 0x4aa8ff], [0.9, 1.2, 1.05, 0xffcc33]].forEach(([x, y, z, c]) => {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), mat(c)); dot.position.set(x, y, -13.5 + z * 0.95); dot.scale.set(1, 1, 0.4); scene.add(dot);
+  });
+  colliders.push({minX:-1.4, maxX:1.4, minZ:-14.9, maxZ:-12.1, bottom:0, top:3.8});
 }
 
 // Zonas
@@ -355,6 +434,62 @@ const P = {x:0, y:0, z:8, vy:0, onGround:true, face:0, walk:0};
 const RAD = 0.45, HEIGHT = 2.75, STEP = 0.55;
 const cam = {yaw:Math.PI, pitch:0.42, dist:13};
 
+// ---------- Pets 3D ----------
+function buildPet(k){
+  const d = PETS[k], g = new THREE.Group(), body = d.body, head = d.head ?? d.body, acc = d.acc;
+  const b = (w, h, dd, c, x, y, z, par = g) => { const m = new THREE.Mesh(boxGeo, mat(c)); m.scale.set(w, h, dd); m.position.set(x, y, z); m.castShadow = true; par.add(m); return m; };
+  const by = 0.5;
+  b(.72, .56, .8, body, 0, by, -.05);
+  if (d.belly) b(.52, .42, .04, acc, 0, by, .36);
+  b(.62, .56, .56, head, 0, by + .5, .22);
+  b(.1, .13, .04, 0x1d1630, -.15, by + .56, .51); b(.1, .13, .04, 0x1d1630, .15, by + .56, .51);
+  if (d.beak) b(.2, .12, .16, d.beak, 0, by + .43, .56); else b(.14, .08, .05, acc, 0, by + .42, .51);
+  if (d.ears === 'long'){ b(.13, .5, .1, head, -.16, by + 1.0, .18); b(.13, .5, .1, head, .16, by + 1.0, .18); }
+  if (d.ears === 'point'){ b(.17, .22, .1, head, -.19, by + .86, .18); b(.17, .22, .1, head, .19, by + .86, .18); }
+  if (d.ears === 'round'){ b(.2, .2, .1, acc, -.24, by + .82, .18); b(.2, .2, .1, acc, .24, by + .82, .18); }
+  if (d.horn) b(.1, .38, .1, acc, 0, by + .95, .38);
+  if (d.horns){ b(.09, .26, .09, acc, -.17, by + .88, .12); b(.09, .26, .09, acc, .17, by + .88, .12); }
+  if (d.crest) b(.1, .3, .34, d.crestC ?? acc, 0, by + .88, .12);
+  if (d.tail) b(.16, .16, .5, d.tailC ?? body, 0, by + .12, -.6);
+  if (d.gem){ const m = new THREE.Mesh(new THREE.OctahedronGeometry(.24, 0), gemMats[0]); m.position.set(0, by + 1.0, .22); g.add(m); }
+  if (!d.fly) [[-.22, .2], [.22, .2], [-.22, -.28], [.22, -.28]].forEach(([x, z]) => b(.17, .24, .17, d.legC ?? body, x, .12, z));
+  const wings = [];
+  if (d.wings) [-1, 1].forEach(s => { const p = new THREE.Group(); p.position.set(s * .36, by + .15, -.05); g.add(p); b(.5, .07, .45, d.wingC ?? acc, s * .25, 0, 0, p); wings.push({p, s}); });
+  g.scale.setScalar(d.size || 1);
+  return {g, wings};
+}
+const petGroup = new THREE.Group(); scene.add(petGroup);
+let petObjs = [], petKey = null;
+function syncPets(){
+  const key = S.equip.map(id => id + ':' + (S.pets.find(p => p.id === id) || {}).k).join(',');
+  if (key === petKey) return; petKey = key;
+  const old = new Map(petObjs.map(o => [o.id, o]));
+  petGroup.clear();
+  petObjs = S.equip.map(id => {
+    const p = S.pets.find(q => q.id === id); if (!p) return null;
+    const prev = old.get(id), {g, wings} = buildPet(p.k);
+    if (prev) g.position.copy(prev.g.position); else g.position.set(P.x, P.y, P.z - 1.5);
+    petGroup.add(g);
+    return {id, g, wings, fly: !!PETS[p.k].fly, y: prev ? prev.y : P.y};
+  }).filter(Boolean);
+}
+function updatePets(dt, t){
+  const n = petObjs.length;
+  petObjs.forEach((o, i) => {
+    const ang = player.rotation.y + Math.PI + (i - (n - 1) / 2) * 0.75, g = o.g;
+    const tx = P.x + Math.sin(ang) * 2.3, tz = P.z + Math.cos(ang) * 2.3;
+    if (Math.hypot(g.position.x - P.x, g.position.z - P.z) > 25){ g.position.set(tx, P.y, tz); o.y = P.y; }
+    const k = Math.min(1, dt * 7), vx = (tx - g.position.x) * k, vz = (tz - g.position.z) * k;
+    g.position.x += vx; g.position.z += vz;
+    const sp = Math.hypot(vx, vz) / Math.max(dt, 1e-4);
+    o.y += ((o.fly ? P.y + 1.2 : P.y) - o.y) * Math.min(1, dt * 8);
+    g.position.y = o.y + (o.fly ? Math.sin(t * 3 + i) * 0.2 : (sp > 1 ? Math.abs(Math.sin(t * 12 + i)) * 0.3 : 0));
+    const want = sp > 0.6 ? Math.atan2(vx, vz) : Math.atan2(P.x - g.position.x, P.z - g.position.z);
+    let a = want - g.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a)); g.rotation.y += a * Math.min(1, dt * 10);
+    o.wings.forEach(w => { w.p.rotation.z = w.s * (0.2 + Math.sin(t * (o.fly ? 12 : 18) + i) * 0.5); });
+  });
+}
+
 // ---------- Física simples ----------
 function blocked(x, z, y){
   for (const c of colliders){
@@ -377,11 +512,13 @@ if (matchMedia("(pointer: coarse)").matches || "ontouchstart" in window) documen
 const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChild;
 addEventListener('keydown', e => {
   initAudio();
-  if (e.target.closest && e.target.closest('#shop') && e.code !== 'Escape') return;
+  if (e.target.closest && e.target.closest('#shop,#pets,#hatch') && e.code !== 'Escape') return;
+  if (!document.getElementById('hatch').hidden) return;
   keys[e.code] = true;
   if (e.code === 'Space'){ jumpBuf = 0.15; e.preventDefault(); }
   if (e.code === 'KeyL') toggleShop();
-  if (e.code === 'Escape') toggleShop(false);
+  if (e.code === 'KeyP') togglePets();
+  if (e.code === 'Escape'){ toggleShop(false); togglePets(false); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -438,10 +575,14 @@ function hud(){
   $('bag').classList.toggle('full', S.bag >= cap);
   $('mult').hidden = S.rebirths === 0;
   $('multTxt').textContent = `${S.rebirths} (cristais valem ${multOf(S.rebirths)}x)`;
+  $('petChip').hidden = !S.equip.length;
+  $('petTxt').textContent = '+' + pct(petMult() - 1) + ' nos cristais';
+  syncPets();
   backpack.scale.set(0.8 + S.lv.bag*0.04, 0.8 + S.lv.bag*0.04, 0.36 + S.lv.bag*0.02);
   packGem.visible = S.bag > 0;
   updateGates();
   if (!$('shop').hidden) renderShop();
+  if (!$('pets').hidden) renderPets();
 }
 let toastT = 0;
 function toast(msg, ms = 1800){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
@@ -468,7 +609,7 @@ function gateCheck(){
   if (near){
     const Z = ZONES[i];
     $('gateName').textContent = Z.name;
-    $('gateInfo').textContent = `Custa ${fmt(Z.price)} moedas · cristais valem ${fmt(Z.value * multOf(S.rebirths))} cada`;
+    $('gateInfo').textContent = `Custa ${fmt(Z.price)} moedas · cristais valem ${fmt(Z.value * gemMult())} cada`;
     $('gateBtn').disabled = S.coins < Z.price;
     $('gateBtn').textContent = S.coins < Z.price ? `Faltam ${fmt(Z.price - S.coins)}` : 'Desbloquear';
   }
@@ -482,11 +623,11 @@ $('gateBtn').addEventListener('click', () => {
 });
 
 // Loja
-const shopEl = $('shop');
+const shopEl = $('shop'), petsEl = $('pets');
 function toggleShop(force){
   const open = force === undefined ? shopEl.hidden : force;
   shopEl.hidden = !open;
-  if (open){ renderShop(); $('closeShop').focus(); } else canvas.focus();
+  if (open){ petsEl.hidden = true; renderShop(); $('closeShop').focus(); } else canvas.focus();
 }
 function costOf(k){ return Math.round(UPG[k].base * Math.pow(UPG[k].mult, S.lv[k])); }
 function renderShop(){
@@ -498,7 +639,7 @@ function renderShop(){
       <button class="btn buy" type="button" data-k="${k}" ${maxed || S.coins < c ? 'disabled' : ''}>${maxed ? 'Máximo' : fmt(c)}</button></div>`;
   }).join('');
   const rc = rebirthCost(S.rebirths), canR = S.coins >= rc && S.unlocked >= ZONES.length;
-  $('rebTxt').innerHTML = `Recomece do zero com cristais valendo <strong>${multOf(S.rebirths+1)}x</strong>. Precisa abrir todas as áreas e ter <strong>${fmt(rc)}</strong> moedas.`;
+  $('rebTxt').innerHTML = `Recomece do zero com cristais valendo <strong>${multOf(S.rebirths+1)}x</strong>. Precisa abrir todas as áreas e ter <strong>${fmt(rc)}</strong> moedas. Seus pets ficam com você.`;
   $('rebBtn').disabled = !canR;
 }
 $('ups').addEventListener('click', e => {
@@ -510,13 +651,87 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1; S = fresh(); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
 $('shopBtn').addEventListener('click', () => { initAudio(); toggleShop(); });
 $('closeShop').addEventListener('click', () => toggleShop(false));
 shopEl.addEventListener('pointerdown', e => { if (e.target === shopEl) toggleShop(false); });
+
+// Ovos e pets
+function togglePets(force){
+  const open = force === undefined ? petsEl.hidden : force;
+  if (open === !petsEl.hidden) return;
+  petsEl.hidden = !open;
+  if (open){ shopEl.hidden = true; renderPets(); $('closePets').focus(); } else canvas.focus();
+}
+function renderPets(){
+  const full = S.pets.length >= PET_MAX;
+  $('eggs').innerHTML = EGGS.map((e, i) => {
+    const tot = e.pool.reduce((a, p) => a + p[1], 0);
+    const odds = e.pool.map(([k, w]) => `${PETS[k].name} ${Math.round(w / tot * 100)}%`).join('<br>');
+    return `<div class="egg"><span class="shape" style="background:${e.color}"></span><b>${e.name}</b><p>${odds}</p>
+      <button class="btn buy" type="button" data-egg="${i}" ${S.coins < e.price || full ? 'disabled' : ''}>${fmt(e.price)}</button></div>`;
+  }).join('');
+  const sorted = [...S.pets].sort((a, b) => (S.equip.includes(b.id) - S.equip.includes(a.id)) || (PETS[b.k].bonus - PETS[a.k].bonus));
+  $('petCount').textContent = `Meus pets: ${S.pets.length}/${PET_MAX} · levando ${S.equip.length}/${PET_SLOTS}`;
+  $('petList').innerHTML = sorted.length ? sorted.map(p => {
+    const d = PETS[p.k], on = S.equip.includes(p.id), R = RARITY[d.rar];
+    return `<div class="pet ${on ? 'on' : ''}"><small style="color:${R.color}">${R.name}</small><b>${d.name}</b><span>+${pct(d.bonus)} cristais</span>
+      <div class="row"><button class="btn ${on ? '' : 'go'}" type="button" data-eq="${p.id}">${on ? 'Guardar' : 'Levar'}</button>${on ? '' : `<button class="btn" type="button" data-rel="${p.id}">Soltar</button>`}</div></div>`;
+  }).join('') : '<p class="empty">Você ainda não tem pets. Compre um ovo!</p>';
+  $('bestBtn').disabled = !S.pets.length;
+}
+let hatching = false;
+function hatchEgg(i){
+  const e = EGGS[i];
+  if (hatching || S.coins < e.price) return;
+  if (S.pets.length >= PET_MAX){ toast('Pets demais! Solte alguns primeiro.'); return; }
+  const tot = e.pool.reduce((a, p) => a + p[1], 0);
+  let r = Math.random() * tot, k = e.pool[0][0];
+  for (const [pk, w] of e.pool){ if ((r -= w) < 0){ k = pk; break; } }
+  S.coins -= e.price;
+  const id = S.nid++; S.pets.push({id, k});
+  if (S.equip.length < PET_SLOTS) S.equip.push(id);
+  save(); hud(); pulseCoins();
+  hatching = true;
+  const d = PETS[k], R = RARITY[d.rar], h = $('hatch');
+  $('hatchEgg').style.background = e.color;
+  $('hatchRar').textContent = R.name; $('hatchRar').style.color = R.color;
+  $('hatchName').textContent = d.name; $('hatchName').style.color = R.color;
+  $('hatchBonus').textContent = `+${pct(d.bonus)} no valor dos cristais` + (S.equip.includes(id) ? '' : ' (guardado na lista)');
+  h.classList.remove('open'); h.hidden = false;
+  [0, 300, 600, 900].forEach(ms => setTimeout(() => beep(200 + ms / 4, .06, 'square', .04, 1.2), ms));
+  setTimeout(() => {
+    h.classList.add('open'); $('hatchOk').focus();
+    const notes = {c:[523], r:[523, 659], e:[523, 659, 784], l:[523, 659, 784, 1047]}[d.rar];
+    notes.forEach((f, j) => setTimeout(() => beep(f, .18, 'triangle', .08, 1.3), j * 110));
+  }, 1300);
+}
+$('hatchOk').addEventListener('click', () => { $('hatch').hidden = true; hatching = false; renderPets(); $('closePets').focus(); });
+$('eggs').addEventListener('click', e => { const b = e.target.closest('button[data-egg]'); if (b) hatchEgg(+b.dataset.egg); });
+$('petList').addEventListener('click', e => {
+  const eq = e.target.closest('button[data-eq]'), rel = e.target.closest('button[data-rel]');
+  if (eq){
+    const id = +eq.dataset.eq;
+    if (S.equip.includes(id)) S.equip = S.equip.filter(x => x !== id);
+    else if (S.equip.length >= PET_SLOTS){ toast(`Você só pode levar ${PET_SLOTS} pets. Guarde um primeiro.`); return; }
+    else S.equip.push(id);
+    save(); hud(); beep(600, .07, 'sine', .05, 1.3);
+  }
+  if (rel){
+    if (!rel.dataset.sure){ rel.dataset.sure = '1'; rel.textContent = 'Certeza?'; return; }
+    const id = +rel.dataset.rel; S.pets = S.pets.filter(p => p.id !== id); save(); hud();
+  }
+});
+$('bestBtn').addEventListener('click', () => {
+  S.equip = [...S.pets].sort((a, b) => PETS[b.k].bonus - PETS[a.k].bonus).slice(0, PET_SLOTS).map(p => p.id);
+  save(); hud(); toast('Melhores pets com você!');
+});
+$('petsBtn').addEventListener('click', () => { initAudio(); togglePets(); });
+$('closePets').addEventListener('click', () => togglePets(false));
+petsEl.addEventListener('pointerdown', e => { if (e.target === petsEl) togglePets(false); });
 
 // ---------- Laço do jogo ----------
 let last = performance.now(), saveT = 0, fullWarn = 0, combo = 0, comboT = 0, zoneNow = -1, gemSoundT = 0;
@@ -534,7 +749,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -571,6 +786,7 @@ function step(now){
   limbs.legL.rotation.x = -sw * (P.onGround ? 1 : 0.4); limbs.legR.rotation.x = sw * (P.onGround ? 1 : -0.4);
   if (!moving && P.onGround){ limbs.armL.rotation.x *= 0.8; }
   packGem.rotation.y += dt * 3;
+  updatePets(dt, t);
 
   // câmera
   const tx = P.x, ty = P.y + 2, tz = P.z;
@@ -583,7 +799,7 @@ function step(now){
   if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Praça Central' : ZONES[zi].name, zi < 0 ? 'Voltou para a' : 'Você entrou em'); if (zi >= 0) packGem.material = gemMats[zi]; }
 
   // cristais
-  const cap = bagCap(S.lv.bag), mag2 = magnetOf(S.lv.magnet), mult = multOf(S.rebirths);
+  const cap = bagCap(S.lv.bag), mag2 = magnetOf(S.lv.magnet), mult = gemMult();
   if (now > comboT) combo = 0;
   for (const g of gems){
     if (!g.active){ if (now > g.respawnAt) placeGem(g); continue; }
@@ -627,6 +843,7 @@ function step(now){
         } else toast('Sua mochila está vazia. Vá pegar cristais!');
       }
       if (k === 'shop') toggleShop(true);
+      if (k === 'eggs') togglePets(true);
     }
     p.inside = on;
   }
