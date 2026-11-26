@@ -541,6 +541,9 @@ let inElf = false;
 const SNOW = {cx:-640, cz:640, r:50};
 let inSnow = false;
 const RESTO = {cx:380, cz:-320, r:40};
+// Ilha dos Portais: não tem ponte, só dá para chegar de barco
+const PORT = {cx:-130, cz:40, r:26, name:'Ilha dos Portais'};
+PORT.spawn = {x:PORT.cx + 18, z:PORT.cz};
 let inResto = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
@@ -577,13 +580,14 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(PORT, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
 }
 function islandAt(x, z){
   if (inIsle(HUB, x, z)) return -1;
+  if (inIsle(PORT, x, z)) return -2;
   for (let i = 0; i < ZONES.length; i++) if (inIsle(ZONES[i], x, z)) return i;
   return null;
 }
@@ -705,6 +709,17 @@ function boat(x, z, rotY){ const g = new THREE.Group(); g.position.set(x, -0.5, 
 
 // Ilha Central
 islandBase(HUB, 0x9d8bd6, 0xf3dfa2);
+islandBase(PORT, 0x7fc4d6, 0xf3dfa2);
+{
+  // caminho de pedra em cruz ligando os portais, palmeiras na beira e a placa da ilha
+  const X = d => PORT.cx + d, Z = d => PORT.cz + d;
+  addBlock(X(0), -.03, Z(0), 34, .06, 3, 0xd8d0c0, false); addBlock(X(0), -.03, Z(0), 3, .06, 30, 0xd8d0c0, false);
+  addBlock(X(0), -.03, Z(0), 8, .07, 8, 0xc9bfa8, false);
+  [[.35, 21], [1.2, 21], [2, 21], [2.6, 20.5], [3.6, 21], [4.4, 21], [5.1, 21], [5.9, 20.5]].forEach(([a, d]) => palm(X(Math.cos(a) * d), Z(Math.sin(a) * d)));
+  [[8, 8], [-8, 8], [8, -8], [-8, -8], [14, 10], [14, -10]].forEach(([a, b]) => flowers(X(a), Z(b)));
+  addBlock(X(21), 0, Z(-5), .3, 3, .3, 0x5a3d22, false);
+  const l = label('ILHA DOS PORTAIS', '#7fe8ff', '#06243f', 1024); l.position.set(X(21), 3.7, Z(-5)); scene.add(l);
+}
 for (let i = -2; i <= 2; i++) addBlock(i*7, -0.98, -5, 4, 1, 4, 0xa592d6, false);
 fountain(0, -1.5);
 for (let a = 0; a < 360; a += 30){
@@ -1204,10 +1219,7 @@ const STAD = ZONES.find(Z => Z.stadium), STAD_I = ZONES.indexOf(STAD);
 const pk = a => a[Math.floor(R() * a.length)];
 const stad = {fans:[], keepers:[], ball:null, bx:0, by:.55, bz:0, vx:0, vy:0, vz:0, kick:0, goalT:0, party:0, goals:0, HW:13, HL:20};
 function buildStadiumGate(Z){
-  const C = ZONES[0], d = C.r - 7;
-  let gx = C.cx + Math.cos(Math.PI * .75) * d, gz = C.cz + Math.sin(Math.PI * .75) * d;
-  for (let a = 1; a < 60 && occupied(gx, gz, 3.5); a++){ const ang = Math.PI * .75 + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07; gx = C.cx + Math.cos(ang) * d; gz = C.cz + Math.sin(ang) * d; }
-  const ux = (C.cx - gx) / d, uz = (C.cz - gz) / d;
+  const gx = PORT.cx, gz = PORT.cz + 13, ux = 0, uz = -1;
   Z.gate = {x:gx, z:gz}; Z.back = {x:gx + ux * 5, z:gz + uz * 5, face:Math.atan2(ux, uz)};
   portalUp(gx, gz, 'ESTÁDIO DE FUTEBOL', 0xffe14d, '#ffe14d', '#0d2a1a', 0xfff6c8);
   // golzinho e bola gigante ao lado do portal
@@ -1325,7 +1337,7 @@ function goStadium(on){
     const to = on ? STAD.spawn : STAD.back;
     Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
     P.face = on ? -Math.PI / 2 : to.face; cam.yaw = P.face + Math.PI;
-    lastIsland = on ? STAD_I : 0;
+    lastIsland = on ? STAD_I : -2;
     if (on){ scoreBoard(); setTimeout(() => toast('Chute a bola no gol: é só correr até ela!', 4000), 1800); }
     fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('stadf'), 450); diving = false;
   }, 500);
@@ -2171,8 +2183,8 @@ function sizeMachine(x, z, txt, css, c){
   const l = label(txt, css, '#1d1630', 1024); l.position.set(x, 6.6, z); scene.add(l);
   return {x, z};
 }
-const SHRINK = sizeMachine(16, -5, 'MÁQUINA DE ENCOLHER', '#b07cff', 0xb07cff);
-SHRINK.back = {x:12.5, z:-5};
+const SHRINK = sizeMachine(PORT.cx + 2, PORT.cz, 'MÁQUINA DE ENCOLHER', '#b07cff', 0xb07cff);
+SHRINK.back = {x:PORT.cx - 1.5, z:PORT.cz};
 {
   const M = MINI, X = (dx) => M.cx + dx, Z = (dz) => M.cz + dz;
   islandBase(M, 0x5fbf3a, 0x8a6a45);
@@ -2265,8 +2277,8 @@ function goMini(on){
     Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
     cam.yaw = on ? 0 : Math.PI / 2; P.face = on ? Math.PI : -Math.PI / 2;
     player.scale.setScalar(1); miniAnim = null;
-    inMini = on; lastIsland = -1;
-    banner(on ? 'Mini Mundo' : 'Ilha Central', on ? 'Você encolheu! Bem-vindo ao' : 'Você cresceu de novo! Voltou para a');
+    inMini = on; lastIsland = on ? -1 : -2;
+    banner(on ? 'Mini Mundo' : 'Ilha dos Portais', on ? 'Você encolheu! Bem-vindo ao' : 'Você cresceu de novo! Voltou para a');
     if (on) toast('Pule nos cogumelos e pegue as moedas gigantes!', 3500);
     $('dive').classList.remove('flash'); setTimeout(() => $('dive').classList.remove('minif'), 450);
     diving = false;
@@ -2453,8 +2465,7 @@ function iceArch(x, z, txt){
 // portal de gelo na Ilha Central (lado oeste)
 let SNOW_GATE;
 {
-  let gx = -19, gz = -3;
-  for (let a = 1; a < 60 && occupied(gx, gz, 3.2); a++){ const ang = Math.PI + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07; gx = Math.cos(ang) * 19; gz = Math.sin(ang) * 19; }
+  const gx = PORT.cx - 14, gz = PORT.cz;
   SNOW_GATE = iceArch(gx, gz, 'MONTANHA DE NEVE');
   SNOW_GATE.back = {x:gx + 3.7, z:gz};
 }
@@ -2588,9 +2599,7 @@ function stove(x, z){
   for (let k = 0; k < 4; k++){ const st = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.5, depthWrite:false})); scene.add(st); restoFx.steam.push({m:st, x:x - .5, z:z - .3, ph:k / 4}); }
 }
 function buildRestoGate(){
-  let gx = 19, gz = -3;
-  for (let a = 1; a < 80 && occupied(gx, gz, 3); a++){ const ang = (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07 - .16; gx = Math.cos(ang) * 19; gz = Math.sin(ang) * 19; }
-  const ux = -gx / 19, uz = -gz / 19;
+  const gx = PORT.cx, gz = PORT.cz - 13, ux = 0, uz = 1;
   RESTO.gate = {x:gx, z:gz}; RESTO.back = {x:gx + ux * 4.5, z:gz + uz * 4.5, face:Math.atan2(ux, uz)};
   portalUp(gx, gz, 'RESTAURANTE', 0xffb347, '#ffb347', '#3a1a00', 0xffe0b0);
   // garfo e colher gigantes do lado
@@ -2673,9 +2682,9 @@ function goResto(on){
     const to = on ? RESTO.spawn : RESTO.back;
     Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
     P.face = on ? Math.PI : to.face; cam.yaw = P.face + Math.PI;
-    lastIsland = -1; inResto = on;
+    lastIsland = on ? -1 : -2; inResto = on;
     if (on){ banner('Restaurante', 'Bem-vindo ao'); toast('É grátis! Encoste nas comidas para comer e suba no telhado pela escada.', 4500); }
-    else banner('Ilha Central', 'Voltou para a');
+    else banner('Ilha dos Portais', 'Voltou para a');
     fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('restof'), 450); diving = false;
   }, 500);
 }
@@ -2778,12 +2787,12 @@ const QUESTS = {
   gold:  {n:3,   txt:n => `Pegue ${n} cristais dourados`},
   sell:  {n:3,   txt:n => `Venda cristais ${n} vezes`},
   foes:  {n:12,  txt:n => `Derrote ${n} inimigos na Arena`},
-  food:  {n:4,   txt:n => `Prove ${n} comidas no Restaurante`},
-  mini:  {n:3,   txt:n => `Pegue ${n} moedas gigantes no Mini Mundo`},
-  sled:  {n:2,   txt:n => `Desça o tobogã da Montanha de Neve ${n} vezes`},
+  food:  {n:4,   txt:n => `Prove ${n} comidas no Restaurante`, ok:() => S.level >= BOAT_LV},
+  mini:  {n:3,   txt:n => `Pegue ${n} moedas gigantes no Mini Mundo`, ok:() => S.level >= BOAT_LV},
+  sled:  {n:2,   txt:n => `Desça o tobogã da Montanha de Neve ${n} vezes`, ok:() => S.level >= BOAT_LV},
   emote: {n:5,   txt:n => `Faça ${n} emotes`},
   egg:   {n:1,   txt:n => `Choque ${n} ovo de pet`},
-  goal:  {n:2,   txt:n => `Faça ${n} gols no Estádio`, ok:() => S.unlocked > STAD_I},
+  goal:  {n:2,   txt:n => `Faça ${n} gols no Estádio`, ok:() => S.unlocked > STAD_I && S.level >= BOAT_LV},
   boat:  {n:500, txt:n => `Navegue ${n} metros com seu barco`, ok:() => S.level >= BOAT_LV},
 };
 const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
@@ -2795,6 +2804,13 @@ function ensureDaily(){
     const pool = Object.keys(QUESTS).filter(id => !QUESTS[id].ok || QUESTS[id].ok()), q = [];
     while (q.length < 3 && pool.length) q.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
     S.daily = {day, q:q.map(id => ({id, n:0, got:false}))};
+  }
+  // missão que ficou impossível (ex.: precisa do barco)? troca por outra
+  for (const q of S.daily.q){
+    const Q = QUESTS[q.id];
+    if (q.got || !Q.ok || Q.ok()) continue;
+    const free = Object.keys(QUESTS).filter(id => (!QUESTS[id].ok || QUESTS[id].ok()) && !S.daily.q.some(o => o.id === id));
+    if (free.length){ q.id = free[Math.floor(Math.random() * free.length)]; q.n = 0; }
   }
   return S.daily;
 }
@@ -2854,7 +2870,10 @@ const myBoat = (() => {
   }
   if (!post){ const dx = Math.sin(a), dz = Math.cos(a); post = {x:dx * (HUB.r + .5), z:dz * (HUB.r + .5)}; }
   const dx = Math.sin(a), dz = Math.cos(a), R0 = HUB.r + BEACH + 5;
-  return {post, home:{x:dx * R0, z:dz * R0, h:a + Math.PI / 2}, x:dx * R0, z:dz * R0, h:a + Math.PI / 2, v:0, steer:0, dist:0, wakeT:0};
+  const home = {x:dx * R0, z:dz * R0, h:a + Math.PI / 2};
+  // parada 2: lado leste da Ilha dos Portais (virado para a Ilha Central)
+  const stops = [{post, home}, {post:{x:PORT.cx + PORT.r + .5, z:PORT.cz + 4}, home:{x:PORT.cx + PORT.r + BEACH + 5, z:PORT.cz, h:Math.PI}}];
+  return {post, home, stops, x:home.x, z:home.z, h:home.h, v:0, steer:0, dist:0, wakeT:0};
 })();
 let driving = false, nearBoat = false, boatTip = false, boatLockT = 0, boatEdgeT = 0, boatCam = 0;
 function buildMyBoat(){
@@ -2878,6 +2897,7 @@ boatM.g.position.set(myBoat.x, -.5, myBoat.z); boatM.g.rotation.y = myBoat.h;
 addBlock(myBoat.post.x, 0, myBoat.post.z, .3, 3, .3, 0x5a3d22, false);
 const boatSignOpen = label('SEU BARCO', '#4aa8ff', '#06243f', 640), boatSignLock = label('BARCO: NÍVEL ' + BOAT_LV, '#5b4a7a', '#ffffff', 768);
 [boatSignOpen, boatSignLock].forEach(l => { l.position.set(myBoat.post.x, 3.7, myBoat.post.z); scene.add(l); });
+{ const q = myBoat.stops[1].post; addBlock(q.x, 0, q.z, .3, 3, .3, 0x5a3d22, false); const l = label('CHAMAR BARCO', '#4aa8ff', '#06243f', 768); l.position.set(q.x, 3.7, q.z); scene.add(l); }
 function refreshBoatSign(){ const ok = S.level >= BOAT_LV; boatSignOpen.visible = ok; boatSignLock.visible = !ok; }
 const wakes = [];
 for (let k = 0; k < 28; k++){
@@ -2960,11 +2980,15 @@ function updateMyBoat(dt, t){
   boatM.g.rotation.set(-spd * .004 + Math.sin(t * 1.1) * .02, B0.h, (driving ? -B0.steer * Math.min(1, spd / 10) * .14 : 0) + Math.sin(t * .9) * .025, 'YXZ');
   for (const w of wakes) if (w.life > 0){ w.life -= dt; w.m.scale.setScalar(.6 + (1.2 - w.life) * 1.6); w.m.material.opacity = Math.max(0, w.life / 1.2) * .55; if (w.life <= 0) w.m.visible = false; }
   boatCam += ((driving ? 6 : 0) - boatCam) * Math.min(1, dt * 3);
-  // barco longe? volta para a Ilha Central quando você chega na plaquinha
-  if (!driving && Math.hypot(B0.x - B0.home.x, B0.z - B0.home.z) > 15 && Math.hypot(P.x - B0.post.x, P.z - B0.post.z) < 4 && P.y < 1.5){
-    Object.assign(B0, {x:B0.home.x, z:B0.home.z, h:B0.home.h, v:0}); toast('Seu barco voltou para a Ilha Central!', 2200);
+  // barco longe? ele vem quando você chega numa plaquinha (Ilha Central ou Ilha dos Portais)
+  if (!driving && P.y < 1.5) for (let k = 0; k < B0.stops.length; k++){
+    const st = B0.stops[k];
+    if (Math.hypot(P.x - st.post.x, P.z - st.post.z) < 4 && Math.hypot(B0.x - st.home.x, B0.z - st.home.z) > 15){
+      if (S.level < BOAT_LV){ if (performance.now() > boatLockT){ boatLockT = performance.now() + 6000; toast(`O barco libera no nível ${BOAT_LV}!`, 2400); } break; }
+      Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0}); toast(k ? 'Seu barco chegou na Ilha dos Portais!' : 'Seu barco voltou para a Ilha Central!', 2200);
+    }
   }
-  const can = !driving && !sail && !diving && !under && !inSky && P.y < 1.5 && Math.hypot(P.x - B0.x, P.z - B0.z) < 8.5;
+  const can = !driving && !sail && !diving && !under && !inSky && P.y < 1.5 && Math.hypot(P.x - B0.x, P.z - B0.z) < 9;
   if (can && !nearBoat && S.level < BOAT_LV && performance.now() > boatLockT){ boatLockT = performance.now() + 6000; toast(`Este barco é seu quando chegar ao nível ${BOAT_LV}!`, 2400); }
   nearBoat = can;
   const btn = $('boatBtn'), touch = document.body.classList.contains('touch');
@@ -2985,9 +3009,9 @@ function goSnow(on){
     const to = on ? SNOW.spawn : SNOW_GATE.back;
     Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
     cam.yaw = on ? 0 : -Math.PI / 2; P.face = on ? Math.PI : Math.PI / 2;
-    lastIsland = -1; setSnow(on);
+    lastIsland = on ? -1 : -2; setSnow(on);
     if (on){ banner('Montanha de Neve', 'Bem-vindo à'); toast('É grátis! Suba até o topo, desça de tobogã e patine no lago.', 4500); }
-    else banner('Ilha Central', 'Voltou para a');
+    else banner('Ilha dos Portais', 'Voltou para a');
     fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('snowf'), 450); diving = false;
   }, 500);
 }
@@ -3228,7 +3252,7 @@ function fly(up){
   }, 500);
 }
 function splash(){
-  const sp = lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
+  const sp = lastIsland === -2 ? PORT.spawn : lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
   Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0});
   if (inSky){ toast('Ops! Você caiu das nuvens'); beep(500, .5, 'sine', .07, .3); }
   else { toast('Tchibum! Você caiu no mar'); beep(220, .35, 'sine', .07, .35); }
@@ -3901,7 +3925,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; if (zi === -2) banner('Ilha dos Portais', 'Você chegou na'); else banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
