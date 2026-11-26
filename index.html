@@ -422,7 +422,9 @@ const rebirthCost = r => 100000 * Math.pow(4, r);
 const multOf = r => 1 + r;
 // Níveis: 1 a 10.000. XP só vem das missões do Rei Cristóvão. Cada nível = +1% no valor dos cristais e moedas.
 const LV_MAX = 10000;
-const xpNeed = l => 10 + l * 2;
+// 3 missões por dia = 12 XP = 5 níveis por dia (2,4 XP por nível)
+const xpNeed = l => 2.4;
+const fmtXP = n => (Math.round(n * 10) / 10).toLocaleString("pt-BR");
 const lvMult = () => 1 + (S.level - 1) * .01;
 const xpMult = () => 1 + S.rebirths;
 
@@ -3372,7 +3374,7 @@ function hudLvl(){
   const max = S.level >= LV_MAX, need = xpNeed(S.level);
   $('lvlTxt').textContent = fmt(S.level) + (max ? ' (MÁX)' : '');
   $('lvlBar').style.width = (max ? 100 : Math.min(100, S.xp / need * 100)) + '%';
-  $('xpTxt').textContent = max ? 'Nível máximo! Cristais +' + fmt((LV_MAX - 1)) + '%' : `${fmt(S.xp)}/${fmt(need)} XP · cristais +${fmt(S.level - 1)}%`;
+  $('xpTxt').textContent = max ? 'Nível máximo! Cristais +' + fmt((LV_MAX - 1)) + '%' : `${fmtXP(S.xp)}/${fmtXP(need)} XP · cristais +${fmt(S.level - 1)}%`;
   $('lvl').classList.toggle('max', max);
 }
 let lvlupT = 0, xpFloatT = 0;
@@ -3381,7 +3383,7 @@ function gainXP(n, at, raw){
   n = raw ? n : Math.max(1, Math.round(n * xpMult()));
   S.xp += n;
   const from = S.level;
-  while (S.level < LV_MAX && S.xp >= xpNeed(S.level)){ S.xp -= xpNeed(S.level); S.level++; }
+  while (S.level < LV_MAX && S.xp >= xpNeed(S.level)){ S.xp = Math.round((S.xp - xpNeed(S.level)) * 1000) / 1000; S.level++; }
   if (S.level >= LV_MAX) S.xp = 0;
   if (at && performance.now() > xpFloatT){ xpFloatT = performance.now() + 250; floatText('+' + fmt(n) + ' XP', at[0], at[1], at[2], 'xp'); }
   if (S.level > from) levelUp(from);
