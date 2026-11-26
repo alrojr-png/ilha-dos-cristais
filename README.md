@@ -15,7 +15,7 @@ Jogo 3D de simulador no navegador: pegue cristais, venda para os vendedores das 
   - Reino Submerso, no fundo do mar (entra pelo redemoinho)
   - Reino das Nuvens, no céu (sobe pelo pé de feijão gigante)
   - Floresta Mítica gigante (portal mágico no Reino das Nuvens, 4 milhões de moedas)
-- Arena de Batalha grátis (portal de pedra na Ilha Central): ondas de Gelecas, Goblins, Ogros e o chefão Rei Ogro, com espada, barra de vida e moedas de prêmio
+- Arena de Batalha grátis (portal de pedra na Ilha Central): ondas de Gelecas, Goblins, Ogros e o chefão Rei Ogro, com espada, 4 poderes (bola de fogo, raio, congelar e cura), barra de vida e moedas de prêmio
 - Máquina de Encolher na Ilha Central: leva ao Mini Mundo, um jardim gigante com cogumelos que pulam alto, escada de bloquinhos, lata de refrigerante, lápis, formigas, joaninha e moedas gigantes
 - Barracas de feira com vendedores para vender cristais, comprar melhorias, pets e skins
 - Moradores andando por todas as ilhas, com roupas do lugar, que acenam e dizem oi
