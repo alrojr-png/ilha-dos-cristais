@@ -103,15 +103,33 @@ body.touch #intro small{display:none}
 @keyframes float{50%{transform:translateY(-10px) rotate(6deg)}}
 @keyframes beat{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){#intro .logo,#playBtn{animation:none}}
-#talk,#ship{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
+#talk,#ship,#quest{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
 #shipFace{background:#4aa8ff}
+#questFace{background:#ffcc33}
+#quest p{margin:8px 0 10px;font-size:16px;font-weight:800;line-height:1.4}
+#questList{display:grid;gap:8px}
+.qrow{display:flex;align-items:center;gap:12px;background:var(--panel-2);border:2px solid var(--line);border-radius:14px;padding:8px 10px}
+.qrow .qtxt{flex:1;min-width:0}
+.qrow .qtxt b{display:block;font-size:15px;font-weight:900}
+.qrow .bar{width:100%;margin-top:5px}
+.qrow .bar i{background:#ffcc33}
+.qrow small{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-top:3px}
+.qrow .btn{font-size:15px;padding:8px 12px;flex:none}
+.qrow.got{opacity:.65}
+.qrow.got .bar i{background:var(--gem)}
+.qok{font-weight:900;color:var(--gem);flex:none;padding:0 6px}
+.qfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}
+.qfoot small{font-size:12px;font-weight:800;color:var(--muted)}
+#boatBtn{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(205px + env(safe-area-inset-bottom,0px));font-size:18px;padding:10px 18px;background:#4aa8ff;border-color:#1f6fb8;color:#06243f}
+#boatBtn:disabled{background:var(--panel-2);border-color:var(--line);color:var(--muted);opacity:1}
+#boatBtn[hidden],#quest[hidden]{display:none!important}
 #ship p{margin:8px 0 12px;font-size:17px;font-weight:800;line-height:1.4}
 #ship small{display:block;margin-top:8px;text-align:right;font-size:11px;font-weight:800;color:var(--muted)}
 body.touch #ship small{display:none}
-#talkFace,#shipFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:var(--ink);border:2px solid rgba(0,0,0,.3);flex:none}
-#talkName,#shipName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
+#talkFace,#shipFace,#questFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:var(--ink);border:2px solid rgba(0,0,0,.3);flex:none}
+#talkName,#shipName,#questName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
 #talkTxt{margin:8px 0 12px;font-size:17px;font-weight:800;line-height:1.4;min-height:2.8em}
 .talkopts{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .talkopts .btn{font-size:16px;padding:9px 8px}
@@ -297,6 +315,13 @@ body.touch .pw b{display:none}
   </div>
   <small>Teclas 1 · 2 · 3 · 4 · 5</small>
 </div>
+<button class="btn" id="boatBtn" type="button" hidden>Pilotar barco</button>
+<div id="quest" hidden role="dialog" aria-labelledby="questName">
+  <div class="talkhead"><span id="questFace">👑</span><b id="questName">Rei Cristóvão</b></div>
+  <p id="questTxt"></p>
+  <div id="questList"></div>
+  <div class="qfoot"><small id="questTime"></small><button class="btn" id="questClose" type="button">Fechar</button></div>
+</div>
 <div id="ship" hidden role="dialog" aria-labelledby="shipName">
   <div class="talkhead"><span id="shipFace">⚓</span><b id="shipName">Marujo Bento</b></div>
   <p>Ahoy! Meu navio leva você para qualquer ilha. Para onde vamos?</p>
@@ -408,7 +433,7 @@ const fmt = n => {
   return (n/1e9).toFixed(1).replace('.', ',') + ' bi';
 };
 
-const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0});
+const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
 // Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
@@ -433,7 +458,8 @@ function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.ass
   S.nid = Math.max(d.nid || 1, ...S.pets.map(p => p.id + 1));
   S.skins = (Array.isArray(d.skins) ? d.skins : []).filter(id => SKINS.some(k => k.id === id)); if (!S.skins.includes('classico')) S.skins.unshift('classico');
   if (!S.skins.includes(S.skin)) S.skin = 'classico';
-  S.level = Math.max(1, Math.min(LV_MAX, Math.floor(+d.level || 1))); S.xp = Math.max(0, +d.xp || 0); }
+  S.level = Math.max(1, Math.min(LV_MAX, Math.floor(+d.level || 1))); S.xp = Math.max(0, +d.xp || 0);
+  const dd = d.daily; S.daily = dd && typeof dd.day === 'string' && Array.isArray(dd.q) ? {day:dd.day, q:dd.q.filter(q => q && QUESTS[q.id]).map(q => ({id:q.id, n:Math.max(0, +q.n || 0), got:!!q.got}))} : null; }
 async function cloudInit(){
   try{
     if (!window.claude?.use) return;
@@ -445,7 +471,7 @@ async function cloudInit(){
     const snap = await doc.get();
     if (snap.exists){
       const d = JSON.parse(snap.data().save || 'null');
-      if (d && progress(d) > progress(S)){ merge(d); hud(); gateCheck(); toast('Progresso carregado!', 2500); }
+      if (d && progress(d) > progress(S)){ merge(d); hud(); gateCheck(); refreshBoatSign(); toast('Progresso carregado!', 2500); }
       cloudLast = snap.data().save;
     }
     cloudDoc = doc;
@@ -1352,7 +1378,7 @@ function updateStadium(dt, t){
   if (stad.goalT <= 0 && Math.abs(stad.bz) > HL + R0 && inMouth){
     stad.goals++; scoreBoard(); stad.goalT = 2.6; stad.party = 3.5;
     const rew = Math.round(10 * STAD.value * gemMult());
-    S.coins += rew; gainXP(50); hud(); pulseCoins(); save();
+    S.coins += rew; gainXP(50); quest('goal'); hud(); pulseCoins(); save();
     banner('GOOOOL!', '+' + fmt(rew) + ' moedas');
     floatText('+' + fmt(rew), stad.cx + stad.bx, 3, stad.cz + stad.bz, 'coin');
     [523, 659, 784, 1047, 1319].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .08, 1.2), j * 90));
@@ -1933,7 +1959,7 @@ function hitFoe(e, dmg, fx, fz, push){
   if (e.hp <= 0){
     e.dying = .35;
     const rew = Math.round(e.T.rew * coinScale());
-    S.coins += rew; pulseCoins(); hud(); gainXP(e.T.rew / 2);
+    S.coins += rew; pulseCoins(); hud(); gainXP(e.T.rew / 2); quest('foes');
     floatText('+' + fmt(rew), e.x, 3.2 * e.T.s, e.z, 'coin');
     [523, 784].forEach((f, j) => setTimeout(() => beep(f, .1, 'triangle', .06, 1.3), j * 70));
     arenaFx.cheer = 1.4;
@@ -2271,7 +2297,7 @@ function updateMini(dt, t){
     c.m.rotation.z += dt * 2.5; c.m.position.y = c.y + Math.sin(t * 2 + c.x) * .2;
     if (Math.hypot(P.x - c.x, P.z - c.z) < 1.6 && Math.abs(P.y + 1.2 - c.y) < 2){
       const rew = Math.round(100 * coinScale());
-      S.coins += rew; gainXP(15); hud(); pulseCoins(); save();
+      S.coins += rew; gainXP(15); quest('mini'); hud(); pulseCoins(); save();
       floatText('+' + fmt(rew), c.x, c.y + 1.5, c.z, 'coin');
       [659, 880, 1175].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
       c.m.visible = false; c.back = 45;
@@ -2669,7 +2695,7 @@ function updateResto(dt, t){
     if (f.back > 0){ f.back -= dt; if (f.back <= 0) f.ms.forEach(m => m.visible = true); continue; }
     if (Math.hypot(P.x - f.x, P.z - f.z) < 1.3 && Math.abs(P.y + 1 - f.y) < 1.8){
       f.ms.forEach(m => m.visible = false); f.back = 20;
-      floatText('Nham! ' + f.name, f.x, f.y + 1.2, f.z, 'heal');
+      floatText('Nham! ' + f.name, f.x, f.y + 1.2, f.z, 'heal'); quest('food');
       [523, 392, 659].forEach((q, j) => setTimeout(() => beep(q, .08, 'square', .05, 1.4), j * 70));
     }
   }
@@ -2744,10 +2770,214 @@ function updateKings(dt, t){
     kg.arms[1].rotation.x = near ? -2.4 + Math.sin(t * 6) * .35 : -.5 + Math.sin(t * 1.2 + kg.ph) * .08;
     kg.arms[0].rotation.x = Math.sin(t * 1.2 + kg.ph) * .06;
     kg.head.rotation.z = Math.sin(t * .9 + kg.ph) * .05;
-    if (near && !kg.greeted){ kg.greeted = true; toast(kg.K.name + ': ' + kg.K.hello, 4200); floatText('👑', kg.x, 5.4, kg.z, 'emo2'); [392, 523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .06, 1.2), j * 110)); }
+    if (near && !kg.greeted && !driving){ kg.greeted = true; openQuest(kg); floatText('👑', kg.x, 5.4, kg.z, 'emo2'); [392, 523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .06, 1.2), j * 110)); }
     if (d > 12) kg.greeted = false;
+    if (questKing === kg && d > 9) closeQuest();
   }
 }
+// ---------- Missões diárias do Rei Cristóvão ----------
+const QUEST_XP = 4;
+const QUESTS = {
+  gems:  {n:60,  txt:n => `Pegue ${fmt(n)} cristais`},
+  gold:  {n:3,   txt:n => `Pegue ${n} cristais dourados`},
+  sell:  {n:3,   txt:n => `Venda cristais ${n} vezes`},
+  foes:  {n:12,  txt:n => `Derrote ${n} inimigos na Arena`},
+  food:  {n:4,   txt:n => `Prove ${n} comidas no Restaurante`},
+  mini:  {n:3,   txt:n => `Pegue ${n} moedas gigantes no Mini Mundo`},
+  sled:  {n:2,   txt:n => `Desça o tobogã da Montanha de Neve ${n} vezes`},
+  emote: {n:5,   txt:n => `Faça ${n} emotes`},
+  egg:   {n:1,   txt:n => `Choque ${n} ovo de pet`},
+  goal:  {n:2,   txt:n => `Faça ${n} gols no Estádio`, ok:() => S.unlocked > STAD_I},
+  boat:  {n:500, txt:n => `Navegue ${n} metros com seu barco`, ok:() => S.level >= BOAT_LV},
+};
+const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+function ensureDaily(){
+  const day = dayKey();
+  if (!S.daily || S.daily.day !== day){
+    let h = 7; for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const rnd = () => (h = (Math.imul(h, 1103515245) + 12345) >>> 0) / 4294967296;
+    const pool = Object.keys(QUESTS).filter(id => !QUESTS[id].ok || QUESTS[id].ok()), q = [];
+    while (q.length < 3 && pool.length) q.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    S.daily = {day, q:q.map(id => ({id, n:0, got:false}))};
+  }
+  return S.daily;
+}
+function quest(id, amt = 1){
+  const q = ensureDaily().q.find(o => o.id === id);
+  if (!q || q.got) return;
+  const N = QUESTS[id].n; if (q.n >= N) return;
+  q.n = Math.min(N, q.n + amt);
+  if (q.n >= N){
+    toast(`👑 Missão completa: ${QUESTS[id].txt(N)}! Volte ao Rei Cristóvão para pegar +${QUEST_XP} XP.`, 3800);
+    [659, 784, 988].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .06, 1.2), j * 90));
+  }
+  if (!questEl.hidden) renderQuest();
+}
+const questEl = document.getElementById('quest');
+let questKing = null;
+function renderQuest(){
+  const D = ensureDaily(), all = D.q.every(q => q.got), ready = D.q.some(q => !q.got && q.n >= QUESTS[q.id].n);
+  $('questTxt').textContent = all ? 'Você fez todas as missões de hoje! Muito bem, aventureiro. Volte amanhã que eu tenho mais!'
+    : ready ? 'Ótimo trabalho! Pegue sua recompensa aqui embaixo.'
+    : 'Bem-vindo à Ilha Central! Tenho 3 missões para você hoje. Cada uma vale ' + QUEST_XP + ' XP:';
+  $('questList').innerHTML = D.q.map((q, i) => {
+    const Q = QUESTS[q.id], N = Q.n, done = q.n >= N;
+    return `<div class="qrow ${q.got ? 'got' : ''}"><div class="qtxt"><b>${Q.txt(N)}</b><div class="bar"><i style="width:${Math.min(100, q.n / N * 100)}%"></i></div><small>${fmt(q.n)} de ${fmt(N)}</small></div>`
+      + (q.got ? '<span class="qok">✔ Feita</span>' : `<button class="btn ${done ? 'go' : ''}" type="button" data-q="${i}" ${done ? '' : 'disabled'}>${done ? 'Pegar ' : ''}+${QUEST_XP} XP</button>`) + '</div>';
+  }).join('');
+  const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1), m = Math.max(1, Math.ceil((mid - now) / 60000));
+  $('questTime').textContent = `Novas missões em ${Math.floor(m / 60)}h ${m % 60}min`;
+}
+function openQuest(kg){
+  if (!shopEl.hidden || !petsEl.hidden || !skinsEl.hidden || !talkEl.hidden || !shipEl.hidden) return;
+  questKing = kg; renderQuest(); questEl.hidden = false;
+}
+function closeQuest(){ if (questEl.hidden) return; questEl.hidden = true; questKing = null; canvas.focus(); }
+questEl.addEventListener('click', e => {
+  initAudio();
+  if (e.target.closest('#questClose')){ closeQuest(); return; }
+  const b = e.target.closest('button[data-q]'); if (!b) return;
+  const q = ensureDaily().q[+b.dataset.q];
+  if (!q || q.got || q.n < QUESTS[q.id].n) return;
+  q.got = true; gainXP(QUEST_XP, null, true);
+  floatText('+' + QUEST_XP + ' XP', P.x, P.y + 3.4, P.z, 'xp');
+  [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .07, 1.2), j * 90));
+  save(); renderQuest();
+  const nb = questEl.querySelector('button[data-q]:not([disabled])') || $('questClose'); nb.focus();
+});
+
+// ---------- Barco que você pilota (libera no nível 10) ----------
+const BOAT_LV = 10, BOAT_C = {x:44, z:84, r:240};
+const myBoat = (() => {
+  let a = -Math.PI * .75, post = null;
+  for (let k = 0; k < 24; k++){
+    const ang = a + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .14, dx = Math.sin(ang), dz = Math.cos(ang);
+    const px = dx * (HUB.r + .5), pz = dz * (HUB.r + .5);
+    if (occupied(px, pz, 2.2) || Math.hypot(px - SNOW_GATE.x, pz - SNOW_GATE.z) < 8 || (Math.abs(px) < 6 && pz < 0)) continue;
+    a = ang; post = {x:px, z:pz}; break;
+  }
+  if (!post){ const dx = Math.sin(a), dz = Math.cos(a); post = {x:dx * (HUB.r + .5), z:dz * (HUB.r + .5)}; }
+  const dx = Math.sin(a), dz = Math.cos(a), R0 = HUB.r + BEACH + 5;
+  return {post, home:{x:dx * R0, z:dz * R0, h:a + Math.PI / 2}, x:dx * R0, z:dz * R0, h:a + Math.PI / 2, v:0, steer:0, dist:0, wakeT:0};
+})();
+let driving = false, nearBoat = false, boatTip = false, boatLockT = 0, boatEdgeT = 0, boatCam = 0;
+function buildMyBoat(){
+  const g = new THREE.Group(), RED = 0xe8402c, WH = 0xffffff;
+  part(2.6, 1.2, 5.4, RED, 0, .3, 0, g); part(2.64, .2, 5.44, WH, 0, .62, 0, g);
+  part(2, 1.05, 1.1, RED, 0, .38, 3.2, g); part(1.2, .9, .8, RED, 0, .45, 4, g); part(.5, .75, .5, RED, 0, .5, 4.5, g);
+  part(2.4, .1, 5.2, 0xc9a06a, 0, .92, 0, g); part(1.8, .1, 1, 0xc9a06a, 0, .92, 3.2, g);
+  [-1, 1].forEach(sd => { part(.12, .38, 5, WH, sd * 1.25, 1.15, -.1, g); part(.12, .38, 1.2, WH, sd * .95, 1.15, 3.1, g); });
+  part(1, .8, .55, WH, 0, 1.35, 1.1, g);
+  const glass = new THREE.Mesh(boxGeo, new THREE.MeshPhongMaterial({color:0x9fdcff, transparent:true, opacity:.55, shininess:100}));
+  glass.scale.set(2.2, .7, .08); glass.position.set(0, 1.75, 1.45); glass.rotation.x = -.35; g.add(glass);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(.32, .06, 8, 18), mat(0x3a2a20)); wheel.position.set(0, 1.85, .78); wheel.rotation.x = -.5; g.add(wheel);
+  part(.08, .08, .4, 0x3a2a20, 0, 1.75, .9, g);
+  part(1.8, .45, .7, 0x2b4c7e, 0, 1.18, -1.6, g); part(1.8, .7, .2, 0x2b4c7e, 0, 1.5, -1.95, g);
+  part(.7, 1.1, .7, 0x2a2f45, 0, .75, -3, g); part(.5, .3, .5, 0x9aa3b5, 0, 1.4, -3, g);
+  part(.08, 1.8, .08, WH, .9, 1.9, -2.3, g); part(.7, .45, .04, 0xffd23f, 1.25, 2.55, -2.3, g);
+  return {g, wheel};
+}
+const boatM = buildMyBoat(); scene.add(boatM.g);
+boatM.g.position.set(myBoat.x, -.5, myBoat.z); boatM.g.rotation.y = myBoat.h;
+addBlock(myBoat.post.x, 0, myBoat.post.z, .3, 3, .3, 0x5a3d22, false);
+const boatSignOpen = label('SEU BARCO', '#4aa8ff', '#06243f', 640), boatSignLock = label('BARCO: NÍVEL ' + BOAT_LV, '#5b4a7a', '#ffffff', 768);
+[boatSignOpen, boatSignLock].forEach(l => { l.position.set(myBoat.post.x, 3.7, myBoat.post.z); scene.add(l); });
+function refreshBoatSign(){ const ok = S.level >= BOAT_LV; boatSignOpen.visible = ok; boatSignLock.visible = !ok; }
+const wakes = [];
+for (let k = 0; k < 28; k++){
+  const m = new THREE.Mesh(new THREE.CircleGeometry(.7, 14), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0, depthWrite:false}));
+  m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); wakes.push({m, life:0});
+}
+function spawnWake(x, z){ const w = wakes.find(o => o.life <= 0) || wakes[0]; w.life = 1.2; w.m.visible = true; w.m.position.set(x, -.44, z); w.m.scale.setScalar(.6); }
+function boatHit(x, z, h){
+  const sh = Math.sin(h), ch = Math.cos(h);
+  for (const [lx, lz] of [[0, 4.7], [-1, 3], [1, 3], [-1.3, 0], [1.3, 0], [-1.3, -2.6], [1.3, -2.6], [0, -3.3]]){
+    const wx = x + sh * lz + ch * lx, wz = z + ch * lz - sh * lx;
+    if (landAt(wx, wz)) return 'land';
+    if (Math.hypot(wx - BOAT_C.x, wz - BOAT_C.z) > BOAT_C.r) return 'edge';
+  }
+  return null;
+}
+function boardBoat(){
+  if (driving) return;
+  if (S.level < BOAT_LV){ toast(`O barco libera no nível ${BOAT_LV}. Você está no nível ${fmt(S.level)}!`, 2600); beep(200, .15, 'square', .04, .8); return; }
+  if (shiftLock) setShiftLock(false);
+  closeTalk(); closeShipMenu(); closeQuest(); stopEmote();
+  driving = true; myBoat.v = 0; myBoat.steer = 0;
+  cam.yaw = myBoat.h + Math.PI; cam.pitch = Math.max(cam.pitch, .45);
+  [196, 247, 294].forEach((f, j) => setTimeout(() => beep(f, .25, 'sawtooth', .04, 1.3), j * 120));
+  if (!boatTip){ boatTip = true; toast(document.body.classList.contains('touch') ? 'Joystick: para cima acelera, para os lados vira. Botão DESCER perto de uma ilha.' : 'W acelera · S freia/ré · A e D viram · Espaço buzina · E desce perto de uma ilha', 5200); }
+}
+function leaveBoat(){
+  if (!driving) return;
+  let best = null, bd = 1e9;
+  for (let d = 2.5; d <= 10; d += .75) for (let k = 0; k < 24; k++){
+    const a = k / 24 * Math.PI * 2, x = myBoat.x + Math.sin(a) * d, z = myBoat.z + Math.cos(a) * d;
+    if (!landAt(x, z) || lockedAt(x, z) || blocked(x, z, 0)) continue;
+    if (d < bd){ bd = d; best = {x, z}; }
+  }
+  if (!best){ toast('Chegue mais perto de uma ilha ou ponte para descer.', 2200); beep(200, .12, 'square', .04, .8); return; }
+  driving = false; myBoat.v = 0;
+  Object.assign(P, {x:best.x, z:best.z, y:support(best.x, best.z, 3), vy:0, onGround:true});
+  beep(330, .1, 'triangle', .05, 1.4);
+}
+// chamada no laço do jogo enquanto você pilota
+function updateDrive(dt, ix, iz, t){
+  const B0 = myBoat, thr = Math.max(-1, Math.min(1, iz)), st = Math.max(-1, Math.min(1, ix)), MAXV = 20;
+  if (thr > .1) B0.v += 15 * thr * dt; else if (thr < -.1) B0.v += 14 * thr * dt;
+  B0.v -= B0.v * (Math.abs(thr) > .1 ? .12 : .7) * dt;
+  B0.v = Math.max(-6, Math.min(MAXV, B0.v));
+  B0.steer += (st - B0.steer) * Math.min(1, dt * 6);
+  const spd = Math.abs(B0.v), turn = B0.steer * (.45 + 1.25 * Math.min(1, spd / 7)) * (B0.v < -.2 ? -1 : 1);
+  const nh = B0.h - turn * dt;
+  if (!boatHit(B0.x, B0.z, nh)) B0.h = nh;
+  const nx = B0.x + Math.sin(B0.h) * B0.v * dt, nz = B0.z + Math.cos(B0.h) * B0.v * dt;
+  const hit = boatHit(nx, nz, B0.h);
+  if (!hit){ B0.dist += Math.hypot(nx - B0.x, nz - B0.z); B0.x = nx; B0.z = nz; }
+  else if (!boatHit(nx, B0.z, B0.h)){ B0.x = nx; B0.v *= .96; }
+  else if (!boatHit(B0.x, nz, B0.h)){ B0.z = nz; B0.v *= .96; }
+  else {
+    if (spd > 4) beep(110, .18, 'square', .06, .6);
+    B0.v = -B0.v * .25;
+    if (hit === 'edge' && performance.now() > boatEdgeT){ boatEdgeT = performance.now() + 4000; toast('Aqui acaba o mar aberto! Volte para perto das ilhas.', 2600); }
+  }
+  if (B0.dist >= 1){ quest('boat', Math.floor(B0.dist)); B0.dist -= Math.floor(B0.dist); }
+  if (jumpBuf > 0){ jumpBuf = 0; beep(330, .35, 'square', .06, 1); setTimeout(() => beep(262, .45, 'square', .06, 1), 180); }
+  // esteira de espuma
+  B0.wakeT -= dt;
+  if (spd > 2.5 && B0.wakeT <= 0){
+    B0.wakeT = .07;
+    const bx = B0.x - Math.sin(B0.h) * 3.4, bz = B0.z - Math.cos(B0.h) * 3.4, r = (Math.random() - .5) * 1.4;
+    spawnWake(bx + Math.cos(B0.h) * r, bz - Math.sin(B0.h) * r);
+  }
+  // câmera atrás do barco
+  if (spd > 1){ let da = (B0.h + Math.PI) - cam.yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); cam.yaw += da * Math.min(1, dt * 2.2); }
+  boatM.wheel.rotation.z = -B0.steer * 1.4;
+  // boneco no barco, atrás do volante
+  const by = boatM.g.position.y;
+  Object.assign(P, {x:B0.x + Math.sin(B0.h) * .2, z:B0.z + Math.cos(B0.h) * .2, y:by + .97, vy:0, onGround:true});
+  P.face = B0.h;
+}
+function updateMyBoat(dt, t){
+  const B0 = myBoat, spd = driving ? Math.abs(B0.v) : 0;
+  boatM.g.position.set(B0.x, -.5 + Math.sin(t * 1.5) * .07 + spd * .006, B0.z);
+  boatM.g.rotation.set(-spd * .004 + Math.sin(t * 1.1) * .02, B0.h, (driving ? -B0.steer * Math.min(1, spd / 10) * .14 : 0) + Math.sin(t * .9) * .025, 'YXZ');
+  for (const w of wakes) if (w.life > 0){ w.life -= dt; w.m.scale.setScalar(.6 + (1.2 - w.life) * 1.6); w.m.material.opacity = Math.max(0, w.life / 1.2) * .55; if (w.life <= 0) w.m.visible = false; }
+  boatCam += ((driving ? 6 : 0) - boatCam) * Math.min(1, dt * 3);
+  // barco longe? volta para a Ilha Central quando você chega na plaquinha
+  if (!driving && Math.hypot(B0.x - B0.home.x, B0.z - B0.home.z) > 15 && Math.hypot(P.x - B0.post.x, P.z - B0.post.z) < 4 && P.y < 1.5){
+    Object.assign(B0, {x:B0.home.x, z:B0.home.z, h:B0.home.h, v:0}); toast('Seu barco voltou para a Ilha Central!', 2200);
+  }
+  const can = !driving && !sail && !diving && !under && !inSky && P.y < 1.5 && Math.hypot(P.x - B0.x, P.z - B0.z) < 8.5;
+  if (can && !nearBoat && S.level < BOAT_LV && performance.now() > boatLockT){ boatLockT = performance.now() + 6000; toast(`Este barco é seu quando chegar ao nível ${BOAT_LV}!`, 2400); }
+  nearBoat = can;
+  const btn = $('boatBtn'), touch = document.body.classList.contains('touch');
+  btn.hidden = !(nearBoat || driving) || !shopEl.hidden || !petsEl.hidden || !skinsEl.hidden || !talkEl.hidden || !shipEl.hidden;
+  btn.disabled = !driving && S.level < BOAT_LV;
+  const txt = driving ? 'Descer do barco' + (touch ? '' : ' (E)') : S.level < BOAT_LV ? '🔒 Barco no nível ' + BOAT_LV : 'Pilotar barco' + (touch ? '' : ' (E)');
+  if (btn.textContent !== txt) btn.textContent = txt;
+}
+document.getElementById('boatBtn').addEventListener('click', () => { initAudio(); if (driving) leaveBoat(); else if (nearBoat) boardBoat(); canvas.focus(); });
 function setSnow(on){
   inSnow = on; snowTop = false; sled.on = false;
 }
@@ -2783,7 +3013,7 @@ function updateSnow(dt, t){
   if (snowFx.flag) snowFx.flag.rotation.y = Math.sin(t * 3) * .25;
   if (!snowTop && !sled.on && P.onGround && P.y > SNOW.topY - .3){ snowTop = true; banner('Você chegou no topo!', 'Uau!'); [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .18, 'triangle', .07, 1.2), j * 110)); setTimeout(() => toast('Pise no círculo azul para descer de tobogã!', 3500), 1800); }
   sled.cool = Math.max(0, sled.cool - dt);
-  if (!sled.on && !sled.cool && P.y > SNOW.topY - .3 && Math.hypot(P.x - SNOW.sledStart.x, P.z - SNOW.sledStart.z) < 1.1){ sled.on = true; sled.t = 0; sled.v = 4; beep(700, .9, 'sawtooth', .04, .25); }
+  if (!sled.on && !sled.cool && P.y > SNOW.topY - .3 && Math.hypot(P.x - SNOW.sledStart.x, P.z - SNOW.sledStart.z) < 1.1){ sled.on = true; sled.t = 0; sled.v = 4; quest('sled'); beep(700, .9, 'sawtooth', .04, .25); }
 }
 function updateSled(dt){
   sled.v = Math.min(26, sled.v + dt * 16); sled.t += sled.v * dt;
@@ -3036,6 +3266,7 @@ addEventListener('keydown', e => {
     if (n){ e.preventDefault(); talkAct(n); }
     return;
   }
+  if (!questEl.hidden && e.code === 'Escape'){ closeQuest(); return; }
   if (!shipEl.hidden){
     const m = /^(Digit|Numpad)([1-9])$/.exec(e.code);
     if (m){ e.preventDefault(); const b = $('shipOpts').querySelectorAll('button')[+m[2] - 1]; if (b && !b.disabled) b.click(); }
@@ -3053,7 +3284,8 @@ addEventListener('keydown', e => {
   if (e.code === 'Space'){ jumpBuf = 0.15; e.preventDefault(); }
   if (e.code === 'KeyL') toggleShop();
   if (e.code === 'KeyP') togglePets();
-  if (e.code === 'KeyE' && nearStall && shopEl.hidden && petsEl.hidden && skinsEl.hidden) openTalk(nearStall);
+  if (e.code === 'KeyE' && !e.repeat && (driving || nearBoat)){ if (driving) leaveBoat(); else boardBoat(); }
+  else if (e.code === 'KeyE' && nearStall && shopEl.hidden && petsEl.hidden && skinsEl.hidden) openTalk(nearStall);
   else if (e.code === 'KeyE' && nearDock) openShipMenu(nearDock);
   if (e.code === 'ShiftLeft' && !e.repeat && shopEl.hidden && petsEl.hidden && skinsEl.hidden) setShiftLock(!shiftLock);
   if (e.code === 'Escape'){ toggleShop(false); togglePets(false); toggleSkins(false); }
@@ -3144,9 +3376,9 @@ function hudLvl(){
   $('lvl').classList.toggle('max', max);
 }
 let lvlupT = 0, xpFloatT = 0;
-function gainXP(n, at){
+function gainXP(n, at, raw){
   if (S.level >= LV_MAX || !(n > 0)) return;
-  n = Math.max(1, Math.round(n * xpMult()));
+  n = raw ? n : Math.max(1, Math.round(n * xpMult()));
   S.xp += n;
   const from = S.level;
   while (S.level < LV_MAX && S.xp >= xpNeed(S.level)){ S.xp -= xpNeed(S.level); S.level++; }
@@ -3162,7 +3394,8 @@ function levelUp(from){
   const el = $('lvlup'); el.classList.add('show'); clearTimeout(lvlupT); lvlupT = setTimeout(() => el.classList.remove('show'), big ? 2600 : 1600);
   floatText('SUBIU DE NÍVEL!', P.x, P.y + 4, P.z, 'coin');
   (big ? [523, 659, 784, 1047, 1319, 1568] : [523, 659, 784, 1047]).forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .07, 1.15), j * 80));
-  if (big && L < LV_MAX) toast(`Uau! Nível ${fmt(L)}! Faltam ${fmt(LV_MAX - L)} para o máximo.`, 2800);
+  if (from < BOAT_LV && L >= BOAT_LV){ setTimeout(() => { banner('Barco liberado!', 'Nível ' + BOAT_LV + '!'); toast('Seu barco está na praia da Ilha Central (lado sudoeste). Chegue perto e aperte E para pilotar!', 5000); }, 1700); refreshBoatSign(); }
+  else if (big && L < LV_MAX) toast(`Uau! Nível ${fmt(L)}! Faltam ${fmt(LV_MAX - L)} para o máximo.`, 2800);
   hud(); save();
 }
 function hud(){
@@ -3252,7 +3485,7 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
@@ -3294,7 +3527,7 @@ function hatchEgg(i){
   let r = Math.random() * tot, k = e.pool[0][0];
   for (const [pk, w] of e.pool){ if ((r -= w) < 0){ k = pk; break; } }
   S.coins -= e.price;
-  const id = S.nid++; S.pets.push({id, k});
+  const id = S.nid++; S.pets.push({id, k}); quest('egg');
   if (S.equip.length < PET_SLOTS) S.equip.push(id);
   save(); hud(); pulseCoins();
   hatching = true;
@@ -3395,7 +3628,7 @@ function closeTalk(){ if (talkEl.hidden) return; clearInterval(typeT); talkEl.hi
 function talkAct(act){
   if (act === 'sell'){
     if (S.bag > 0){
-      const v = S.bagVal, n = S.bag; S.coins += v; S.bag = 0; S.bagVal = 0; gainXP(Math.ceil(n / 5)); save(); hud(); pulseCoins();
+      const v = S.bagVal, n = S.bag; S.coins += v; S.bag = 0; S.bagVal = 0; gainXP(Math.ceil(n / 5)); quest('sell'); save(); hud(); pulseCoins();
       floatText('+' + fmt(v), P.x, P.y + 3.4, P.z, 'coin');
       beep(660, .08, 'triangle', .07, 1.3); setTimeout(() => beep(990, .14, 'triangle', .07, 1.3), 90);
       $('talkSell').textContent = 'Vender cristais';
@@ -3504,8 +3737,8 @@ function toggleEmotes(force){
 function playEmote(id){
   const E = EMOTES.find(e => e.id === id); if (!E) return;
   toggleEmotes(false);
-  if (diving || sail || miniAnim || sled.on || swimming || !P.onGround) return;
-  emote = {E, t:0, bub:0};
+  if (diving || sail || driving || miniAnim || sled.on || swimming || !P.onGround) return;
+  emote = {E, t:0, bub:0}; quest('emote');
   if (id === 'flip' || id === 'spin') beep(500, .25, 'sine', .05, 2.2);
   if (id === 'clap') for (let k = 0; k < 6; k++) setTimeout(() => beep(1800, .03, 'square', .03, .6), k * 260);
   if (id === 'cheer') [523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .06, 1.2), j * 90));
@@ -3570,14 +3803,14 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail && !miniAnim && !sled.on){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail && !driving && !miniAnim && !sled.on){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
     mx = dx * sp * dt; mz = dz * sp * dt;
     P.face = Math.atan2(dx, dz);
   }
-  if (shiftLock) P.face = Math.atan2(fx, fz);
+  if (shiftLock && !driving) P.face = Math.atan2(fx, fz);
   if (swimming){ mx *= .6; mz *= .6; }
   // gelo do lago: escorrega
   if (inSnow && P.y < .3 && Math.hypot(P.x - SNOW.lake.x, P.z - SNOW.lake.z) < SNOW.lake.r){ const k = Math.min(1, dt * 1.3), id = 1 / Math.max(dt, 1e-4); ice.x += (mx * id - ice.x) * k; ice.z += (mz * id - ice.z) * k; mx = ice.x * dt; mz = ice.z * dt; }
@@ -3591,7 +3824,7 @@ function step(now){
   if (!blocked(P.x, nz, P.y) && !lockedAt(P.x, nz)) P.z = nz;
   // y
   coyote = P.onGround ? 0.1 : coyote - dt;
-  if (jumpBuf > 0 && coyote > 0){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
+  if (jumpBuf > 0 && coyote > 0 && !driving){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
   jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
   P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : 1) * dt);
@@ -3613,6 +3846,8 @@ function step(now){
   if (!diving && !inMini && P.y < 1 && Math.abs(P.x - SHRINK.x) < 1.2 && Math.abs(P.z - SHRINK.z) < 1.2) goMini(true);
   if (!diving && inMini && P.y < 1 && Math.abs(P.x - MINI.exit.x) < 1.2 && Math.abs(P.z - MINI.exit.z) < 1.2) goMini(false);
   if (sail) updateSail(dt);
+  if (driving) updateDrive(dt, ix, iz, t);
+  updateMyBoat(dt, t);
   if (STAD && !diving && S.unlocked > STAD_I && P.y < 1 && Math.hypot(P.x - STAD.gate.x, P.z - STAD.gate.z) < 2) goStadium(true);
   if (STAD && !diving && lastIsland === STAD_I && P.y < 1 && Math.hypot(P.x - STAD.portal.x, P.z - STAD.portal.z) < 2) goStadium(false);
   if (!diving && !inResto && P.y < 1 && Math.hypot(P.x - RESTO.gate.x, P.z - RESTO.gate.z) < 2) goResto(true);
@@ -3631,7 +3866,7 @@ function step(now){
   player.position.set(P.x, P.y, P.z);
   let da = P.face - player.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da));
   player.rotation.y += da * Math.min(1, dt * 14);
-  const moving = mag > 0.08 && P.onGround;
+  const moving = mag > 0.08 && P.onGround && !driving;
   P.walk += dt * (moving ? speedOf(S.lv.speed) * 1.3 : 0);
   const sw = moving ? Math.sin(P.walk) * 0.8 : (P.onGround ? 0 : -0.5);
   limbs.armL.rotation.x = sw; limbs.armR.rotation.x = P.onGround ? -sw : -2.6;
@@ -3660,7 +3895,8 @@ function step(now){
   if (!playing) cam.yaw += dt * 0.12;
   shoulder += ((shiftLock ? 1.7 : 0) - shoulder) * Math.min(1, dt * 10);
   const tx = P.x - fz * shoulder, ty = P.y + 2, tz = P.z + fx * shoulder;
-  camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, ty + Math.sin(cam.pitch) * cam.dist, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
+  const cd = cam.dist + boatCam;
+  camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cd, ty + Math.sin(cam.pitch) * cd, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cd);
   camera.lookAt(tx, ty, tz);
   sun.position.set(P.x + 18, 40, P.z - 12); sun.target.position.set(P.x, 0, P.z);
   updateEnv(dt, t);
@@ -3723,6 +3959,7 @@ function step(now){
         const val = ZONES[g.zone].value * (g.golden ? 10 : 1) * mult;
         S.bag++; S.bagVal += val;
         gainXP((g.zone + 1) * (g.golden ? 10 : 1), [P.x, P.y + 2.4, P.z]);
+        quest('gems'); if (g.golden) quest('gold');
         combo++; comboT = now + 900;
         if (now > gemSoundT){ beep(g.golden ? 880 : 520 + Math.min(combo, 14) * 40, .07, 'sine', .06, 1.4); gemSoundT = now + 40; }
         floatText('+' + fmt(val), P.x, P.y + 3.1, P.z, g.golden ? 'coin' : '');
@@ -3734,7 +3971,7 @@ function step(now){
   // barracas
   nearStall = null;
   for (const st of stalls){
-    const d = Math.hypot(P.x - st.tx, P.z - st.tz), on = d < 2.6 && P.y < 1.5;
+    const d = Math.hypot(P.x - st.tx, P.z - st.tz), on = d < 2.6 && P.y < 1.5 && !driving;
     if (on) nearStall = st;
     if (on && !st.inside) openTalk(st);
     st.inside = on;
@@ -3752,7 +3989,7 @@ function step(now){
   // portos dos navios
   nearDock = null;
   for (const D of DOCKS){
-    const on = !sail && Math.hypot(P.x - D.board.x, P.z - D.board.z) < 2.2 && P.y < 1.5;
+    const on = !sail && !driving && Math.hypot(P.x - D.board.x, P.z - D.board.z) < 2.2 && P.y < 1.5;
     if (on) nearDock = D;
     if (on && !D.inside) openShipMenu(D);
     D.inside = on || (sail && sail.to === D);
@@ -3777,7 +4014,7 @@ function start(data){
   if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
   if (FOREST && inIsle(FOREST, P.x, P.z)) setForest(true);
-  resize(); hud();
+  resize(); hud(); refreshBoatSign(); ensureDaily();
   cloudInit();
   if (data && data.P) play(); // recarga automática: volta direto pro jogo
   else { document.body.classList.add('intro'); $('playBtn').focus(); }
