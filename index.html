@@ -143,6 +143,7 @@ body.touch.arena #atk{display:block}
 #dive.arenaf{background:#3a0b18}
 #dive.minif{background:#b07cff}
 #dive.forestf{background:#3dffc8}
+#dive.elff{background:#ff9ad8}
 /* Poderes da arena */
 #powers{display:none;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));gap:10px}
 body.arena #powers{display:flex}
@@ -472,6 +473,8 @@ const ARENA = {cx:640, cz:0, r:30};
 let inArena = false;
 const MINI = {cx:-640, cz:0, r:40};
 let inMini = false;
+const ELF = {cx:640, cz:-640, r:45};
+let inElf = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
 const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
@@ -507,7 +510,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -527,6 +530,7 @@ function lockedAt(x, z){
   if (under && !inIsle(SUB, x, z, -0.5)) return true;
   if (inArena && !inIsle(ARENA, x, z, -BEACH - 0.8)) return true;
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
+  if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
   return false;
 }
 function palm(x, z){
@@ -1879,6 +1883,134 @@ function updateMini(dt, t){
   }
 }
 
+// ---------- Mundo dos Elfos (grátis, só para explorar) ----------
+const elfFx = {fairies:[], lamps:[]};
+function elfLamp(x, z, h = 3){
+  addBlock(x, 0, z, .22, h, .22, 0x3a2a20, false);
+  addBlock(x, h, z, .7, .12, .7, 0x3a2a20, false);
+  const l = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 8), new THREE.MeshBasicMaterial({color:0xffe27a})); l.position.set(x, h - .25, z); scene.add(l);
+  elfFx.lamps.push({m:l, ph:R() * 6});
+}
+function treehouse(tx, tz, roofC, a0){
+  const H = 13;
+  addBlock(tx, 0, tz, 1.8, H, 1.8, 0x6b4a2b);
+  addBlock(tx, H - 1, tz, 9, 3, 9, 0x3f8f6a, false); addBlock(tx, H + 2, tz, 6.5, 2.4, 6.5, 0x56b84a, false);
+  addBlock(tx, 5.05, tz, 6, .45, 6, 0x9a6b3f);
+  addBlock(tx, 5.5, tz, 3.4, 2.6, 3.4, 0xf4ecd8);
+  cone(2.9, 1.8, roofC, tx, 8.1, tz, 4).rotation.y = Math.PI / 4;
+  addBlock(tx, 5.5, tz + 1.71, .9, 1.6, .05, 0x5a3d22, false);
+  addBlock(tx + 1.71, 6.6, tz, .05, .6, .7, 0, false, new THREE.MeshBasicMaterial({color:0xffe27a}));
+  addBlock(tx - 1.71, 6.6, tz, .05, .6, .7, 0, false, new THREE.MeshBasicMaterial({color:0xffe27a}));
+  // escadinha em volta do tronco
+  for (let k = 0; k < 9; k++){
+    const a = a0 + k / 9 * Math.PI * 1.5, h = .55 * (k + 1);
+    addBlock(tx + Math.cos(a) * 5, 0, tz + Math.sin(a) * 5, 2, h, 2, k % 2 ? 0x9a6b3f : 0x8a5a3b);
+    if (k === 8) addBlock(tx + Math.cos(a) * 3.6, 0, tz + Math.sin(a) * 3.6, 1.4, h, 1.4, 0x9a6b3f);
+  }
+  elfLamp(tx + 2.6, tz + 2.6, 1.6 + 5.5);
+}
+function mushHouse(mx, mz, capC){
+  addBlock(mx, 0, mz, 3, 3.2, 3, 0xf4ecd8);
+  addBlock(mx, 0, mz + 1.51, .9, 1.7, .05, 0x8a5a3b, false);
+  addBlock(mx + .9, 1.8, mz + 1.51, .6, .6, .05, 0, false, new THREE.MeshBasicMaterial({color:0xffe27a}));
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(3, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(capC)); cap.scale.y = .65; cap.position.set(mx, 3.1, mz); cap.castShadow = true; scene.add(cap);
+  [[1.2, .9], [-1.4, .5], [.2, -1.6], [-.4, 1.7], [1.6, -1]].forEach(([a, b]) => { const d = new THREE.Mesh(new THREE.SphereGeometry(.35, 8, 6), mat(0xffffff)); d.scale.y = .5; d.position.set(mx + a, 3.1 + 1.95 * Math.sqrt(Math.max(0, 1 - (a * a + b * b) / 9)), mz + b); scene.add(d); });
+}
+{
+  const E = ELF, X = d => E.cx + d, Z = d => E.cz + d;
+  islandBase(E, 0x6cc46a, 0x8a7a5a);
+  // portal na Floresta Mítica (lado oeste, longe da chegada)
+  let px = FOREST.cx - 51, pz = FOREST.cz;
+  for (let a = 1; a < 50 && occupied(px, pz, 3); a++){ const ang = Math.PI + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .06; px = FOREST.cx + Math.cos(ang) * 51; pz = FOREST.cz + Math.sin(ang) * 51; }
+  E.gate = {x:px, z:pz}; E.back = {x:px + 5, z:pz};
+  portalUp(px, pz, 'MUNDO DOS ELFOS', 0xff9ad8, '#ff9ad8', '#2a2145', 0xffd6f0);
+  [-1, 1].forEach(sd => { addBlock(px, 0, pz + sd * 3.4, .9, 5.5, .9, 0xf4ecd8, false); [1, 2.5, 4].forEach(y => { const f = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshBasicMaterial({color:y === 2.5 ? 0xffe27a : 0xff9ad8})); f.position.set(px + .5, y, pz + sd * 3.4); scene.add(f); }); });
+  addBlock(px, 5.5, pz, 1.2, .8, 7.6, 0x56b84a, false);
+  // caminho de pedrinhas
+  for (let z = 36; z > -19; z -= 2.2){ if (z < 13 && z > -1) continue; addBlock(X(rr(-.5, .5)), 0, Z(z), rr(1.4, 2), .08, rr(1.2, 1.7), R() < .5 ? 0xc9bfe6 : 0xb8b0d0, false); }
+  // lago com vitórias-régias
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(6, 40), new THREE.MeshPhongMaterial({color:0x4ac8e8, shininess:90})); pond.rotation.x = -Math.PI / 2; pond.position.set(X(0), .04, Z(6)); scene.add(pond);
+  for (let k = 0; k < 20; k++){ const a = k / 20 * Math.PI * 2; addBlock(X(Math.cos(a) * 6.4), 0, Z(6 + Math.sin(a) * 6.4), .9, .35, .9, 0x9a9fae, false); }
+  for (let k = 0; k < 7; k++){
+    const a = R() * Math.PI * 2, d = 1.5 + R() * 3.5, x = X(Math.cos(a) * d), z = Z(6 + Math.sin(a) * d);
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(.75, 14, .3, Math.PI * 1.8), mat(0x3f9e3a)); pad.rotation.x = -Math.PI / 2; pad.position.set(x, .07, z); scene.add(pad);
+    if (k % 2 === 0){ const lo = new THREE.Mesh(new THREE.SphereGeometry(.25, 8, 6), new THREE.MeshBasicMaterial({color:0xff9ad8})); lo.position.set(x, .25, z); scene.add(lo); }
+  }
+  // palácio do rei elfo (dá para subir no telhado pela escada do lado)
+  addBlock(X(0), 0, Z(-26), 18, 1, 12, 0xe8e0f0);
+  addBlock(X(0), 0, Z(-19.5), 6, .5, 1.2, 0xe8e0f0);
+  addBlock(X(0), 1, Z(-27), 11, 6, 7, 0xf8f6ff);
+  addBlock(X(0), 1, Z(-23.45), 2.2, 3.2, .1, 0x6b4a2b, false);
+  [[-3.5, 4.2], [3.5, 4.2], [-3.5, 1.8], [3.5, 1.8]].forEach(([wx, wy]) => addBlock(X(wx), wy, Z(-23.45), 1.2, 1.4, .1, 0, false, new THREE.MeshBasicMaterial({color:0xffe27a})));
+  [[-9.5, -32.5], [9.5, -32.5], [-9.5, -19.5], [9.5, -19.5]].forEach(([a, b]) => {
+    const tw = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.4, 12, 12), mat(0xf8f6ff)); tw.position.set(X(a), 6, Z(b)); tw.castShadow = true; scene.add(tw);
+    cone(1.9, 4, 0x3dbf9a, X(a), 12, Z(b), 12);
+    colliders.push({minX:X(a) - 1.3, maxX:X(a) + 1.3, minZ:Z(b) - 1.3, maxZ:Z(b) + 1.3, bottom:0, top:12});
+    addBlock(X(a), 16, Z(b), .1, 1.2, .1, 0x3a2a20, false); addBlock(X(a) + .45, 16.7, Z(b), .8, .45, .05, 0xff9ad8, false);
+  });
+  const ct = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 8, 14), mat(0xf8f6ff)); ct.position.set(X(0), 11, Z(-28.5)); scene.add(ct);
+  cone(2.8, 5, 0xff9ad8, X(0), 15, Z(-28.5), 14);
+  colliders.push({minX:X(0) - 2, maxX:X(0) + 2, minZ:Z(-30.5), maxZ:Z(-26.5), bottom:7, top:15});
+  for (let i = 0; i < 7; i++){ const h = 6 / 7 * (i + 1); addBlock(X(7.2), 1, Z(-21.5 - i * 1.5), 2.4, h, 1.6, i % 2 ? 0xe8e0f0 : 0xd8d0e8); }
+  // casas na árvore
+  treehouse(X(-22), Z(-8), 0xff7ac8, 0); treehouse(X(22), Z(-8), 0x9a6bff, Math.PI);
+  treehouse(X(-24), Z(18), 0x4aa8ff, -Math.PI / 2); treehouse(X(24), Z(18), 0xffb000, Math.PI / 2);
+  // casas-cogumelo
+  [[-12, -6, 0xe8402c], [12, -6, 0x9a6bff], [-14, 8, 0xff7ac8], [14, 8, 0x4aa8ff], [-9, 22, 0xffb000], [9, 22, 0x3ddc84]].forEach(([a, b, c]) => mushHouse(X(a), Z(b), c));
+  // lanternas
+  [32, 24, 16, -4, -12].forEach(z => { elfLamp(X(-3), Z(z)); elfLamp(X(3), Z(z)); });
+  for (let k = 0; k < 6; k++){ const a = k / 6 * Math.PI * 2 + .5; elfLamp(X(Math.cos(a) * 8.6), Z(6 + Math.sin(a) * 8.6)); }
+  // portal de volta e chegada
+  E.exit = {x:X(7), z:Z(39)}; E.spawn = {x:X(0), z:Z(37)};
+  portalUp(E.exit.x, E.exit.z, 'VOLTAR À FLORESTA', 0x3dffc8, '#3dffc8', '#06243f', 0xb8ffe8);
+  // árvores grandes em volta e plantinhas
+  for (let k = 0; k < 14; k++){ const a = k / 14 * Math.PI * 2 + .2, d = 39 + R() * 2.5, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d); if (Math.hypot(x - E.exit.x, z - E.exit.z) < 7 || Math.hypot(x - E.spawn.x, z - E.spawn.z) < 7) continue; bigTree(x, z); }
+  const free = (pad) => { for (let t = 0; t < 40; t++){ const a = R() * Math.PI * 2, d = Math.sqrt(R()) * 40, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d);
+    if ((Math.abs(x - X(0)) < 3.5 && z > Z(-20)) || Math.hypot(x - X(0), z - Z(6)) < 7.5 || Math.hypot(x - E.spawn.x, z - E.spawn.z) < 5 || Math.hypot(x - E.exit.x, z - E.exit.z) < 4 || occupied(x, z, pad)) continue; return [x, z]; } return null; };
+  [[flowers, 18], [glowShroom, 22], [crystalFlower, 22], [fern, 12]].forEach(([fn, n]) => { for (let k = 0; k < n; k++){ const sp = free(1.6); if (sp) fn(sp[0], sp[1]); } });
+  // fadinhas voando
+  const wingM = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.6, side:THREE.DoubleSide, depthWrite:false});
+  for (let k = 0; k < 16; k++){
+    const g = new THREE.Group(); scene.add(g);
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), new THREE.MeshBasicMaterial({color:[0xffe27a, 0xff9ad8, 0x9fe6ff, 0xb8ffb0][k % 4]})));
+    const wings = [-1, 1].map(sd => { const w = new THREE.Mesh(new THREE.PlaneGeometry(.5, .32), wingM); w.position.x = sd * .25; const pv = new THREE.Group(); pv.add(w); g.add(pv); return {pv, sd}; });
+    const a = R() * Math.PI * 2, d = R() * 32;
+    elfFx.fairies.push({g, wings, cx:X(Math.cos(a) * d), cz:Z(Math.sin(a) * d), r:rr(2, 6), y:rr(2, 7), sp:rr(.4, .9) * (R() < .5 ? 1 : -1), ph:R() * 6});
+  }
+}
+function setElf(on){
+  inElf = on;
+  if (!on) return;
+  scene.background.set(0x9a86d8);
+  scene.fog.color.set(0xa492e0); scene.fog.near = 60; scene.fog.far = 210;
+  hemi.color.set(0xfff0ff); hemi.groundColor.set(0x5a7a5a); hemi.intensity = .85;
+  sun.color.set(0xffe0f0); sun.intensity = .8;
+}
+function goElf(on){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('elff', 'flash');
+  [784, 988, 1175, 1568].forEach((f, j) => setTimeout(() => beep(on ? f : 2352 - f, .14, 'sine', .06, 1.2), j * 100));
+  setTimeout(() => {
+    const to = on ? ELF.spawn : ELF.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = on ? 0 : -Math.PI / 2; P.face = on ? Math.PI : Math.PI / 2;
+    lastIsland = on ? -1 : FOREST_I;
+    if (on){ setForest(false); setElf(true); banner('Mundo dos Elfos', 'Bem-vindo ao'); toast('É só para explorar! Suba nas casas da árvore e no telhado do palácio.', 4500); }
+    else { setElf(false); setForest(true); }
+    fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('elff'), 450); diving = false;
+  }, 500);
+}
+function updateElf(dt, t){
+  if (!inElf) return;
+  for (const f of elfFx.fairies){
+    const a = t * f.sp + f.ph;
+    f.g.position.set(f.cx + Math.cos(a) * f.r, f.y + Math.sin(t * 2 + f.ph) * .5, f.cz + Math.sin(a) * f.r);
+    f.g.rotation.y = -a + (f.sp > 0 ? 0 : Math.PI);
+    f.wings.forEach(w => w.pv.rotation.y = w.sd * (.3 + Math.sin(t * 30 + f.ph) * .6));
+  }
+  for (const l of elfFx.lamps) l.m.scale.setScalar(.9 + Math.sin(t * 6 + l.ph) * .08);
+}
+
 // ---------- Moradores das ilhas (só para enfeitar) ----------
 const SKINT = [0xffcf9e, 0xe8b48a, 0xc68a5a, 0x8a5a3b, 0xffdcc0];
 const HAIRS = [0x3a2a20, 0x1d1630, 0x8a5a3b, 0xe0b860, 0xc9c9c9, 0xc0392b];
@@ -1892,6 +2024,7 @@ const LOOKS = [
   {I:ZONES[2], n:4, hats:['beanie', 'beanie', 'fur'], tops:[0x2b4c7e, 0xe8402c, 0x3ddc84, 0xb07cff], scarf:1},
   {I:ZONES[3], n:4, hats:['helmet'], tops:[0x8a2a2a, 0x3a2a2e, 0xff8a2a]},
   {I:ZONES[4], n:4, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0x2b4c7e]},
+  {I:ELF, n:14, hats:['elf', 'elf', 'wreath', 'elf'], tops:[0x3f9e3a, 0x2f6f5e, 0x6b3fc0, 0xff7ac8, 0x4aa8ff], bottoms:[0x3a2a20, 0x2f5f3a, 0xf4ecd8]},
   {I:ZONES[6], n:6, hats:['elf', 'elf', 'wreath'], tops:[0x2f6f5e, 0x3f8f6a, 0x6b3fc0, 0x8a5a3b], bottoms:[0x3a2a20, 0x2f5f3a]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
 ];
@@ -2264,7 +2397,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -2461,7 +2594,7 @@ function setPart(k){
   for (let i = 0; i < PN; i++){ pPos[i * 3] = P.x + (Math.random() - .5) * 80; pPos[i * 3 + 1] = Math.random() * 30; pPos[i * 3 + 2] = P.z + (Math.random() - .5) * 80; }
 }
 function updateEnv(dt, t){
-  const special = under || inSky || inForest;
+  const special = under || inSky || inForest || inElf;
   skyMesh.visible = !special;
   if (special){ pts.visible = false; return; }
   const key = !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
@@ -2535,6 +2668,8 @@ function step(now){
   if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
   if (FOREST && inSky && !diving && S.unlocked > FOREST_I && P.y < 1 && Math.hypot(P.x - FOREST.gate.x, P.z - FOREST.gate.z) < 2) goForest(true);
   if (inForest && !diving && P.y < 1 && Math.hypot(P.x - FOREST.portal.x, P.z - FOREST.portal.z) < 2) goForest(false);
+  if (inForest && !diving && P.y < 1 && Math.hypot(P.x - ELF.gate.x, P.z - ELF.gate.z) < 2) goElf(true);
+  if (inElf && !diving && P.y < 1 && Math.hypot(P.x - ELF.exit.x, P.z - ELF.exit.z) < 2) goElf(false);
   if (SKY && !inSky && !diving && S.unlocked > SKY_I && P.y < 1 && Math.hypot(P.x - SKY.gate.x, P.z - SKY.gate.z) < 2) fly(true);
   if (inSky && !diving && P.y < 1 && Math.hypot(P.x - SKY.portal.x, P.z - SKY.portal.z) < 2) fly(false);
   updateShips(t);
@@ -2561,6 +2696,7 @@ function step(now){
   updateArena(dt, t);
   updateVillagers(dt, t);
   updateMini(dt, t);
+  updateElf(dt, t);
 
   // câmera (na tela inicial ela gira devagar em volta do boneco)
   if (!playing) cam.yaw += dt * 0.12;
@@ -2677,7 +2813,7 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
   if (FOREST && inIsle(FOREST, P.x, P.z)) setForest(true);
