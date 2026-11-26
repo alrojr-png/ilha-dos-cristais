@@ -533,6 +533,7 @@ function lockedAt(x, z){
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
   if (inSnow && !inIsle(SNOW, x, z, -BEACH - 1.5)) return true;
+  if (swimming && !landAt(x, z) && !praiaSea(x, z)) return true;
   return false;
 }
 function palm(x, z){
@@ -1124,6 +1125,12 @@ function updatePraia(t){
   for (const b of praiaFx.balls){ b.m.position.y = .4 + Math.abs(Math.sin(t * 2.5 + b.ph)) * 3; b.m.position.x = b.x + Math.sin(t * 1.25 + b.ph) * 3.5; }
 }
 const PRAIA_I = ZONES.findIndex(Z => Z.praia);
+// mar da Praia do Sol: o único lugar onde dá para nadar
+const SWIM_R = 18, SWIM_Y = -1.6;
+const praiaSea = (x, z) => PRAIA_I >= 0 && S.unlocked > PRAIA_I && Math.hypot(x - ZONES[PRAIA_I].cx, z - ZONES[PRAIA_I].cz) < ZONES[PRAIA_I].r + BEACH + SWIM_R;
+let swimming = false, swimLift = 0, swimTip = false;
+const ripple = new THREE.Mesh(new THREE.RingGeometry(.7, 1.05, 28), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.6, depthWrite:false}));
+ripple.rotation.x = -Math.PI / 2; ripple.visible = false; scene.add(ripple);
 
 // ---------- Estádio de Futebol (9ª fase, entrada pelo Campo Verde) ----------
 const STAD = ZONES.find(Z => Z.stadium), STAD_I = ZONES.indexOf(STAD);
@@ -2636,6 +2643,7 @@ function blocked(x, z, y){
 }
 function support(x, z, limit){
   let h = landAt(x, z) ? 0 : -50; const r = RAD * 0.8;
+  if (h < 0 && praiaSea(x, z)){ const Z = ZONES[PRAIA_I], d = Math.hypot(x - Z.cx, z - Z.cz) - Z.r - BEACH; h = Math.max(SWIM_Y, -d * .55); }
   for (const c of colliders) if (c.top <= limit && x+r > c.minX && x-r < c.maxX && z+r > c.minZ && z-r < c.maxZ && c.top > h) h = c.top;
   return h;
 }
@@ -3175,6 +3183,7 @@ function step(now){
     P.face = Math.atan2(dx, dz);
   }
   if (shiftLock) P.face = Math.atan2(fx, fz);
+  if (swimming){ mx *= .6; mz *= .6; }
   // gelo do lago: escorrega
   if (inSnow && P.y < .3 && Math.hypot(P.x - SNOW.lake.x, P.z - SNOW.lake.z) < SNOW.lake.r){ const k = Math.min(1, dt * 1.3), id = 1 / Math.max(dt, 1e-4); ice.x += (mx * id - ice.x) * k; ice.z += (mz * id - ice.z) * k; mx = ice.x * dt; mz = ice.z * dt; }
   else { ice.x = mx / Math.max(dt, 1e-4); ice.z = mz / Math.max(dt, 1e-4); }
@@ -3216,7 +3225,10 @@ function step(now){
   if (sled.on) updateSled(dt);
   if (!diving && !inArena && P.y < 1 && Math.abs(P.x - ARENA_GATE.x) < 1.6 && Math.abs(P.z - ARENA_GATE.z) < .8) goArena(true);
   if (!diving && inArena && P.y < 1 && Math.abs(P.x - ARENA.exit.x) < 1.6 && Math.abs(P.z - ARENA.exit.z) < .8) goArena(false);
-  if (P.y < (inSky ? -22 : -1.8) && !diving) splash();
+  const wasSwim = swimming;
+  swimming = !diving && !landAt(P.x, P.z) && praiaSea(P.x, P.z) && P.y < -.9;
+  if (swimming && !wasSwim){ beep(260, .35, 'sine', .07, .4); if (!swimTip){ swimTip = true; toast('Você está nadando! Volte para a areia quando quiser.', 3200); } }
+  if (P.y < (inSky ? -22 : SWIM_Y - .2) && !diving) splash();
 
   // boneco
   player.position.set(P.x, P.y, P.z);
@@ -3229,6 +3241,11 @@ function step(now){
   limbs.legL.rotation.x = -sw * (P.onGround ? 1 : 0.4); limbs.legR.rotation.x = sw * (P.onGround ? 1 : -0.4);
   if (!moving && P.onGround){ limbs.armL.rotation.x *= 0.8; }
   packGem.rotation.y += dt * 3;
+  swimLift += ((swimming ? 1 : 0) - swimLift) * Math.min(1, dt * 8);
+  player.rotation.order = 'YXZ'; player.rotation.x = swimLift * 1.1;
+  if (swimLift > .01){ const fwX = Math.sin(player.rotation.y), fwZ = Math.cos(player.rotation.y); player.position.set(P.x - fwX * swimLift, P.y + swimLift + Math.sin(t * 3) * .05 * swimLift, P.z - fwZ * swimLift); }
+  if (swimming){ const k = t * (mag > .08 ? 7 : 2.5); limbs.armL.rotation.x = -k; limbs.armR.rotation.x = -k + Math.PI; limbs.legL.rotation.x = Math.sin(t * 14) * .35; limbs.legR.rotation.x = -Math.sin(t * 14) * .35; }
+  ripple.visible = swimming; if (swimming){ ripple.position.set(P.x, -.45, P.z); ripple.scale.setScalar(1 + (t * 1.5 % 1) * .8); ripple.material.opacity = .6 * (1 - t * 1.5 % 1); }
   if (B.swing > 0){ B.swing -= dt; limbs.armR.rotation.x = -2.8 + (1 - Math.max(0, B.swing) / .28) * 3.1; }
   updatePets(dt, t);
   updateArena(dt, t);
