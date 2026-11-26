@@ -2645,6 +2645,93 @@ function updateResto(dt, t){
     }
   }
 }
+// ---------- Reis das ilhas ----------
+const KINGS = [
+  {I:HUB,      name:'Rei Cristóvão',  robe:0x7b4fd6, cape:0xc0392b, gem:0x34f0b0, skin:0xffcf9e, beard:0xc9c9c9, hello:'Bem-vindo à Ilha Central, meu reino de cristais! Explore tudo!'},
+  {I:ZONES[0], name:'Rei Girassol',   robe:0x4f9a35, cape:0xffd23f, gem:0xffd23f, skin:0xe8b48a, beard:0x8a5a3b, hello:'Olá! Aqui no Campo Verde tudo floresce. Cuide das plantinhas!'},
+  {I:ZONES[1], name:'Rei Escaravelho', robe:0xe0b860, cape:0x2b4c7e, gem:0x4aa8ff, skin:0xc68a5a, beard:0x1d1630, hello:'Saudações, viajante do deserto! Beba água e cuidado com o sol.'},
+  {I:ZONES[2], name:'Rei Floco',      robe:0x9fd8ff, cape:0xffffff, gem:0x4aa8ff, skin:0xffdcc0, beard:0xffffff, hello:'Brrr! Bem-vindo ao meu Vale Gelado. Aqui até a coroa é de gelo!'},
+  {I:ZONES[3], name:'Rei Magma',      robe:0x8a2a2a, cape:0xff6a1a, gem:0xff2f6d, skin:0xb57a50, beard:0xff8a2a, hello:'Hahaha! Ninguém aguenta o calor do meu vulcão. Você é corajoso!'},
+  {I:ZONES[4], name:'Rei Tritão',     robe:0x2b8a9e, cape:0x9a6bff, gem:0x7fffd4, skin:0x9fd4c8, beard:0x4ae0c8, hello:'Glub glub! Bem-vindo ao meu reino no fundo do mar.'},
+  {I:ZONES[5], name:'Rei Trovão',     robe:0xf4f0ff, cape:0x5c7ccf, gem:0xffe14d, skin:0xffdcc0, beard:0xe8e8f0, hello:'Do alto das nuvens eu vejo tudo! Que bom que você subiu.'},
+  {I:ZONES[6], name:'Rei Carvalho',   robe:0x2f6f5e, cape:0x8a5a3b, gem:0x3dffc8, skin:0xe8b48a, beard:0x56b84a, hello:'As árvores me contaram que você vinha. Bem-vindo à floresta!'},
+  {I:ZONES[7], name:'Rei Barbacinza', robe:0x2a2f45, cape:0x7a5638, gem:0xffd6f0, skin:0xbfe8ff, beard:0xc9c9c9, hello:'Uuuu... sou o rei fantasma deste navio. Mas sou bonzinho!'},
+  {I:ZONES[8], name:'Rei Craque',     robe:0x2b9e4a, cape:0xffd23f, gem:0x4aa8ff, skin:0x8a5a3b, beard:0x1d1630, hello:'Eu sou o rei do futebol! Bora fazer um golaço?', at:[30, -14]},
+  {I:ZONES[9], name:'Rei Coqueiro',   robe:0xff7a59, cape:0x4ae0c8, gem:0xffd23f, skin:0xc68a5a, beard:0xe0b860, hello:'Aloha! Bem-vindo à minha praia. Pode nadar à vontade!'},
+  {I:SNOW,     name:'Rei Iglu',       robe:0x4aa8ff, cape:0xffffff, gem:0x9fd8ff, skin:0xffcf9e, beard:0xffffff, hello:'Olá! Já desceu de tobogã? É o melhor brinquedo do meu reino!'},
+  {I:ELF,      name:'Rei Aurelion',   robe:0x6b3fc0, cape:0x3f9e3a, gem:0xff9ad8, skin:0xffdcc0, beard:null,     hello:'Seja bem-vindo ao Mundo dos Elfos, pequeno aventureiro.'},
+  {I:RESTO,    name:'Rei Banquete',   robe:0xe8402c, cape:0xffffff, gem:0xffd23f, skin:0xffcf9e, beard:0x8a5a3b, hello:'Hummm! Já provou a pizza do meu restaurante? É a melhor!', at:[-24, 0]},
+];
+const kings = [];
+function kingSpot(K){
+  const I = K.I;
+  if (K.at) return [I.cx + K.at[0], I.cz + K.at[1]];
+  const avoid = [{x:0, z:8}, SNOW_GATE, RESTO.gate, ARENA_GATE, SHRINK, SKY && SKY.gate, I.spawn, I.portal, I.exit, I.back, ELF.gate, SUB && SUB.gate, WRECK && WRECK.gate, FOREST && FOREST.gate, STAD && STAD.gate, SNOW.lake, SNOW.sledStart].filter(Boolean);
+  for (let t = 0; t < 300; t++){
+    const a = R() * Math.PI * 2, d = rr(.25, .72) * I.r, x = I.cx + Math.cos(a) * d, z = I.cz + Math.sin(a) * d;
+    if (occupied(x, z, 3.4)) continue;
+    if (avoid.some(q => Math.hypot(x - q.x, z - q.z) < (q === SNOW.lake ? 12 : 7))) continue;
+    if (I === SNOW && x > SNOW.cx && Math.abs(z - (SNOW.cz - 8)) < 4) continue;
+    return [x, z];
+  }
+  return null;
+}
+function buildKing(K){
+  const sp = kingSpot(K); if (!sp) return;
+  const [x, z] = sp, rot = Math.atan2(K.I.cx - x, K.I.cz - z);
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; scene.add(g);
+  const GOLD = 0xffcc33;
+  // tablado, tapete e trono
+  part(3.4, .5, 3.4, 0xc9a06a, 0, .25, 0, g); part(3.6, .12, 3.6, GOLD, 0, .06, 0, g);
+  part(1.4, .04, 4, 0xc0392b, 0, .02, 3.3, g);
+  part(1.8, .6, 1.4, K.cape, 0, .8, -.9, g);
+  part(1.8, 2.8, .3, K.robe, 0, 1.9, -1.5, g); part(1.95, .25, .4, GOLD, 0, 3.4, -1.5, g);
+  [-1, 1].forEach(sd => { part(.3, 1.2, 1.4, GOLD, sd * .95, 1.1, -.9, g); const b = new THREE.Mesh(new THREE.SphereGeometry(.22, 10, 8), mat(K.gem)); b.position.set(sd * .95, 1.8, -.3); g.add(b); });
+  const tg = new THREE.Mesh(new THREE.OctahedronGeometry(.32, 0), new THREE.MeshBasicMaterial({color:K.gem})); tg.position.set(0, 3.85, -1.5); g.add(tg);
+  colliders.push({minX:x - 1.7, maxX:x + 1.7, minZ:z - 1.7, maxZ:z + 1.7, bottom:0, top:.5});
+  // o rei (em pé na frente do trono)
+  const k = new THREE.Group(); k.position.set(0, .5, .45); g.add(k);
+  part(1.3, 1.15, .85, K.robe, 0, .58, 0, k);
+  part(1.32, .12, .87, 0xffffff, 0, .06, 0, k);
+  part(1.05, .95, .6, K.robe, 0, 1.6, 0, k);
+  part(1.1, .14, .65, GOLD, 0, 1.2, 0, k);
+  part(.3, .6, .05, 0xffffff, 0, 1.6, .31, k);
+  part(1.4, 2.1, .1, K.cape, 0, 1.15, -.4, k); part(1.5, .25, .55, 0xffffff, 0, 2.1, -.15, k);
+  const head = new THREE.Group(); head.position.set(0, 2.05, 0); k.add(head);
+  part(.78, .74, .74, K.skin, 0, .37, 0, head);
+  part(.12, .16, .05, 0x1d1630, -.17, .43, .38, head); part(.12, .16, .05, 0x1d1630, .17, .43, .38, head);
+  part(.3, .06, .05, 0xb5524a, 0, .25, .38, head);
+  if (K.beard){ part(.72, .32, .12, K.beard, 0, .06, .36, head); part(.46, .1, .06, K.beard, 0, .3, .4, head); }
+  else { part(.84, .22, .8, 0xe0b860, 0, .78, -.02, head); [-1, 1].forEach(sd => part(.12, .3, .2, K.skin, sd * .45, .5, 0, head)); }
+  // coroa
+  part(.9, .26, .9, GOLD, 0, .86, 0, head);
+  [[-.34, -.34], [.34, -.34], [-.34, .34], [.34, .34], [0, .38], [0, -.38], [.38, 0], [-.38, 0]].forEach(([a, b]) => { const c = new THREE.Mesh(new THREE.ConeGeometry(.1, .3, 4), mat(GOLD)); c.position.set(a, 1.13, b); head.add(c); });
+  const cg = new THREE.Mesh(new THREE.OctahedronGeometry(.12, 0), new THREE.MeshBasicMaterial({color:K.gem})); cg.position.set(0, .88, .47); head.add(cg);
+  // braços; o direito segura o cetro
+  const arms = [-1, 1].map(sd => {
+    const pv = new THREE.Group(); pv.position.set(sd * .72, 2, 0); k.add(pv);
+    part(.38, .5, .45, K.robe, 0, -.25, 0, pv); part(.4, .14, .47, 0xffffff, 0, -.5, 0, pv); part(.34, .32, .38, K.skin, 0, -.68, 0, pv);
+    if (sd > 0){ part(.1, 1.7, .1, GOLD, 0, -.6, .25, pv); const o = new THREE.Mesh(new THREE.SphereGeometry(.2, 12, 10), new THREE.MeshBasicMaterial({color:K.gem})); o.position.set(0, .3, .25); pv.add(o); pv.rotation.x = -.5; }
+    return pv;
+  });
+  const l = label(K.name, '#ffcc33', '#3a2a00', 640); l.position.set(0, 4.6, .45); g.add(l);
+  kings.push({K, g, k, head, arms, x, z, rot, greeted:false, ph:R() * 6});
+}
+KINGS.forEach(buildKing);
+function updateKings(dt, t){
+  for (const kg of kings){
+    const d = Math.hypot(P.x - kg.x, P.z - kg.z);
+    if (d > 60) continue;
+    const near = d < 6;
+    const want = near ? Math.atan2(P.x - kg.x, P.z - kg.z) - kg.rot : 0;
+    let da = want - kg.k.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); kg.k.rotation.y += da * Math.min(1, dt * 5);
+    kg.arms[1].rotation.x = near ? -2.4 + Math.sin(t * 6) * .35 : -.5 + Math.sin(t * 1.2 + kg.ph) * .08;
+    kg.arms[0].rotation.x = Math.sin(t * 1.2 + kg.ph) * .06;
+    kg.head.rotation.z = Math.sin(t * .9 + kg.ph) * .05;
+    if (near && !kg.greeted){ kg.greeted = true; toast(kg.K.name + ': ' + kg.K.hello, 4200); floatText('👑', kg.x, 5.4, kg.z, 'emo2'); [392, 523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .06, 1.2), j * 110)); }
+    if (d > 12) kg.greeted = false;
+  }
+}
 function setSnow(on){
   inSnow = on; snowTop = false; sled.on = false;
 }
@@ -3519,6 +3606,7 @@ function step(now){
   updateElf(dt, t);
   updateSnow(dt, t);
   updateResto(dt, t);
+  updateKings(dt, t);
   updateStadium(dt, t);
   updatePraia(t);
 
