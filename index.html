@@ -144,6 +144,7 @@ body.touch.arena #atk{display:block}
 #dive.minif{background:#b07cff}
 #dive.forestf{background:#3dffc8}
 #dive.elff{background:#ff9ad8}
+#dive.snowf{background:#eaf6ff}
 /* Poderes da arena */
 #powers{display:none;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));gap:10px}
 body.arena #powers{display:flex}
@@ -476,6 +477,8 @@ const MINI = {cx:-640, cz:0, r:40};
 let inMini = false;
 const ELF = {cx:640, cz:-640, r:45};
 let inElf = false;
+const SNOW = {cx:-640, cz:640, r:50};
+let inSnow = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
 const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
@@ -511,7 +514,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -532,6 +535,7 @@ function lockedAt(x, z){
   if (inArena && !inIsle(ARENA, x, z, -BEACH - 0.8)) return true;
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
+  if (inSnow && !inIsle(SNOW, x, z, -BEACH - 1.5)) return true;
   return false;
 }
 function palm(x, z){
@@ -2072,6 +2076,178 @@ function mushHouse(mx, mz, capC){
     elfFx.fairies.push({g, wings, cx:X(Math.cos(a) * d), cz:Z(Math.sin(a) * d), r:rr(2, 6), y:rr(2, 7), sp:rr(.4, .9) * (R() < .5 ? 1 : -1), ph:R() * 6});
   }
 }
+// ---------- Montanha de Neve (grátis, só para explorar) ----------
+const snowFx = {peng:[], smoke:[], swirls:[]};
+const sled = {on:false, t:0, v:0, path:null, segs:null, len:0, cool:0};
+let snowTop = false;
+function pine(x, z, s = 1){
+  addBlock(x, 0, z, .6 * s, 1.2 * s, .6 * s, 0x6b4a2b);
+  [[2.6, 2.2, 1.1], [2, 1.9, 2.4], [1.3, 1.6, 3.5]].forEach(([r, h, y]) => { cone(r * s, h * s, 0x2f6f4a, x, y * s, z, 8); cone(r * s * .62, h * s * .45, 0xffffff, x, (y + h * .58) * s, z, 8); });
+}
+function snowman(x, z, rot = 0){
+  ball(.95, 0xffffff, x, .8, z); ball(.68, 0xffffff, x, 2.1, z); ball(.48, 0xffffff, x, 3.05, z);
+  const fx = Math.sin(rot), fz = Math.cos(rot);
+  const nose = cone(.1, .55, 0xff8a2a, x + fx * .6, 2.75, z + fz * .6, 8); nose.rotation.order = 'YXZ'; nose.rotation.y = rot; nose.rotation.x = Math.PI / 2;
+  [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.SphereGeometry(.07, 6, 5), mat(0x1d1630)); e.position.set(x + fx * .42 + fz * sd * .17, 3.15, z + fz * .42 - fx * sd * .17); scene.add(e); });
+  [2.35, 2.0, 1.65].forEach(y => { const b = new THREE.Mesh(new THREE.SphereGeometry(.07, 6, 5), mat(0x1d1630)); b.position.set(x + fx * .66, y, z + fz * .66); scene.add(b); });
+  addBlock(x, 3.4, z, .9, .1, .9, 0x1d1630, false); addBlock(x, 3.5, z, .55, .55, .55, 0x1d1630, false);
+  addBlock(x, 2.55, z, 1.1, .2, 1.1, 0xe8402c, false);
+  colliders.push({minX:x - .8, maxX:x + .8, minZ:z - .8, maxZ:z + .8, bottom:0, top:3.4});
+}
+function igloo(x, z, rot = 0){
+  const d = new THREE.Mesh(new THREE.SphereGeometry(3, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4fbff)); d.position.set(x, 0, z); d.castShadow = true; scene.add(d);
+  for (let k = 1; k < 4; k++){ const ring = new THREE.Mesh(new THREE.TorusGeometry(3 * Math.cos(k * .38), .04, 4, 30), mat(0xbcd4ea)); ring.rotation.x = Math.PI / 2; ring.position.set(x, 3 * Math.sin(k * .38), z); scene.add(ring); }
+  const fx = Math.sin(rot), fz = Math.cos(rot);
+  const tun = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xeaf4ff)); tun.scale.z = 1.4; tun.rotation.y = rot; tun.position.set(x + fx * 2.9, 0, z + fz * 2.9); scene.add(tun);
+  const door = new THREE.Mesh(new THREE.CircleGeometry(.7, 14, 0, Math.PI), mat(0x2a3a55)); door.rotation.y = rot; door.position.set(x + fx * 4.45, 0, z + fz * 4.45); scene.add(door);
+  colliders.push({minX:x - 2.4, maxX:x + 2.4, minZ:z - 2.4, maxZ:z + 2.4, bottom:0, top:2.2});
+}
+function penguin(cx, cz, r){
+  const g = new THREE.Group(); scene.add(g);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.45, 12, 10), mat(0x1d1f2a)); body.scale.y = 1.4; body.position.y = .65; g.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(.36, 12, 10), mat(0xffffff)); belly.scale.set(1, 1.3, .7); belly.position.set(0, .6, .17); g.add(belly);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(.09, .25, 6), mat(0xffa21a)); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.05, .45); g.add(beak);
+  [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.SphereGeometry(.06, 6, 5), mat(0xffffff)); e.position.set(sd * .16, 1.18, .36); g.add(e);
+    const f = new THREE.Mesh(boxGeo, mat(0xffa21a)); f.scale.set(.22, .06, .3); f.position.set(sd * .17, .03, .1); g.add(f);
+    const w = new THREE.Mesh(boxGeo, mat(0x1d1f2a)); w.scale.set(.08, .55, .3); w.position.set(sd * .47, .7, 0); w.rotation.z = sd * .25; g.add(w); });
+  snowFx.peng.push({g, cx, cz, r, a0:R() * 6, sp:rr(.25, .5) * (R() < .5 ? 1 : -1)});
+}
+function iceArch(x, z, txt){
+  // atravessa andando no eixo x
+  [-1, 1].forEach(sd => { addBlock(x, 0, z + sd * 2.4, 1.2, 5, 1, 0xbfe8ff); cone(.7, 1.4, 0xffffff, x, 5.8, z + sd * 2.4, 6); });
+  addBlock(x, 5, z, 1.4, .8, 6, 0x9fd4f5, false);
+  for (let k = -2; k <= 2; k++) cone(.18, .9, 0xdff4ff, x, 4.1, z + k, 5).rotation.x = Math.PI;
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.9, 32), new THREE.MeshBasicMaterial({color:0x7fd0ff, transparent:true, opacity:.75, side:THREE.DoubleSide}));
+  disc.rotation.y = Math.PI / 2; disc.position.set(x, 2.5, z); scene.add(disc);
+  for (let k = 0; k < 2; k++){
+    const sw = new THREE.Mesh(new THREE.RingGeometry(.5 + k * .6, 1 + k * .7, 32, 1, 0, Math.PI * 1.3), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.6, side:THREE.DoubleSide, depthWrite:false}));
+    const pv = new THREE.Group(); pv.rotation.y = Math.PI / 2; pv.position.set(x + (k ? -.03 : .03), 2.5, z); pv.add(sw); scene.add(pv); snowFx.swirls.push({m:sw, sp:k ? -2 : 3});
+  }
+  const l = label(txt, '#bfe8ff', '#0b2a4a', 768); l.position.set(x, 7.6, z); scene.add(l);
+  return {x, z};
+}
+// portal de gelo na Ilha Central (lado oeste)
+let SNOW_GATE;
+{
+  let gx = -19, gz = -3;
+  for (let a = 1; a < 60 && occupied(gx, gz, 3.2); a++){ const ang = Math.PI + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07; gx = Math.cos(ang) * 19; gz = Math.sin(ang) * 19; }
+  SNOW_GATE = iceArch(gx, gz, 'MONTANHA DE NEVE');
+  SNOW_GATE.back = {x:gx + 3.7, z:gz};
+}
+{
+  const N = SNOW, X = d => N.cx + d, Z = d => N.cz + d;
+  islandBase(N, 0xf4f8ff, 0xdfe8f5);
+  // a montanha: degraus grandes, com escadas que dão a volta até o pico
+  const MX = 0, MZ = -8, SIZES = [40, 32, 25, 18, 12, 7], TH = 2.5;
+  const FACES = [[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1], [-1, 0]];
+  SIZES.forEach((sz, i) => {
+    const y0 = i * TH, top = y0 + TH;
+    addBlock(X(MX), y0, Z(MZ), sz, TH, sz, i % 2 ? 0x8a97ab : 0x7d8aa0);
+    addBlock(X(MX), top - .02, Z(MZ), sz + .3, .3, sz + .3, 0xffffff, false);
+    // montinhos de neve na borda
+    for (let k = 0; k < sz / 2; k++){ const u = -sz / 2 + .8 + k * 2; [[u, sz / 2], [u, -sz / 2], [sz / 2, u], [-sz / 2, u]].forEach(([a, b]) => { if (R() < .5) addBlock(X(MX + a * 1.005), top - .5, Z(MZ + b * 1.005), .5, .5, .5, 0xffffff, false); }); }
+    // escada encostada na face, subindo de lado
+    const [fx, fz] = FACES[i], half = sz / 2 + .8, steps = 5;
+    for (let k = 0; k < steps; k++){
+      const h = TH / steps * (k + 1), along = (-4 + k * 1.1) * (i % 2 ? -1 : 1);
+      const sx = fx ? MX + fx * half : MX + along, sz2 = fz ? MZ + fz * half : MZ + along;
+      addBlock(X(sx), y0, Z(sz2), fx ? 1.6 : 1.1, h, fz ? 1.6 : 1.1, k % 2 ? 0xa8b4c6 : 0x98a6ba);
+      addBlock(X(sx), y0 + h - .02, Z(sz2), fx ? 1.6 : 1.1, .1, fz ? 1.6 : 1.1, 0xffffff, false);
+    }
+    // pinheirinhos nos degraus
+    if (i < 4) for (let k = 0; k < 8 - i; k++){
+      const a = R() * Math.PI * 2, d = (sz / 2 + SIZES[i + 1] / 2) / 2 * 1.3, x = MX + Math.cos(a) * d, z = MZ + Math.sin(a) * d;
+      if (Math.abs(x - MX) > sz / 2 - 1 || Math.abs(z - MZ) > sz / 2 - 1 || (Math.abs(x - MX) < SIZES[i + 1] / 2 + 1 && Math.abs(z - MZ) < SIZES[i + 1] / 2 + 1) || occupied(X(x), Z(z), 2)) continue;
+      cone(.9, 2.4, 0x2f6f4a, X(x), top, Z(z), 7); cone(.55, 1, 0xffffff, X(x), top + 1.5, Z(z), 7);
+    }
+  });
+  const TOP = SIZES.length * TH;
+  N.topY = TOP;
+  // bandeira no pico
+  addBlock(X(MX - 2), TOP, Z(MZ - 2), .15, 4.5, .15, 0x6b4a2b, false);
+  const flag = new THREE.Mesh(boxGeo, mat(0xe8402c)); flag.scale.set(1.8, 1.1, .06); flag.position.set(X(MX - 1.05), TOP + 3.9, Z(MZ - 2)); scene.add(flag); snowFx.flag = flag;
+  const tl = label('TOPO DA MONTANHA', '#ffffff', '#0b2a4a', 768); tl.position.set(X(MX), TOP + 6.2, Z(MZ)); scene.add(tl);
+  // tobogã: do pico até lá embaixo
+  const sx0 = MX + 3.5, sx1 = MX + 30, run = 8;
+  N.sledStart = {x:X(MX + 2.2), z:Z(MZ)};
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, .12, 24), new THREE.MeshBasicMaterial({color:0x4aa8ff})); pad.position.set(N.sledStart.x, TOP + .1, N.sledStart.z); scene.add(pad);
+  const sl = label('TOBOGÃ!', '#4aa8ff', '#ffffff', 384); sl.position.set(N.sledStart.x, TOP + 2.6, N.sledStart.z); scene.add(sl);
+  const ang = Math.atan2(TOP, sx1 - sx0), L = Math.hypot(TOP, sx1 - sx0);
+  const ramp = new THREE.Group(); ramp.position.set(X((sx0 + sx1) / 2), TOP / 2 - .15, Z(MZ)); ramp.rotation.z = -ang; scene.add(ramp);
+  const rb = new THREE.Mesh(boxGeo, mat(0x9fd4f5)); rb.scale.set(L, .25, 2.2); rb.castShadow = true; ramp.add(rb);
+  [-1, 1].forEach(sd => { const rl = new THREE.Mesh(boxGeo, mat(0x4aa8ff)); rl.scale.set(L, .5, .2); rl.position.set(0, .3, sd * 1.1); ramp.add(rl); });
+  for (let x = sx0 + 3; x < sx1 - 2; x += 4){ const y = TOP * (1 - (x - sx0) / (sx1 - sx0)); [-1.3, 1.3].forEach(o => addBlock(X(x), 0, Z(MZ) + o, .25, y - .3, .25, 0x6b4a2b, false)); }
+  addBlock(X(sx1 + run / 2), 0, Z(MZ), run, .2, 2.2, 0x9fd4f5, false);
+  const path = [{x:N.sledStart.x, y:TOP, z:Z(MZ)}, {x:X(sx0), y:TOP, z:Z(MZ)}, {x:X(sx1), y:.25, z:Z(MZ)}, {x:X(sx1 + run), y:.2, z:Z(MZ)}];
+  sled.path = path; sled.segs = []; let acc = 0;
+  for (let k = 1; k < path.length; k++){ const d = Math.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y, path[k].z - path[k - 1].z); sled.segs.push({a:acc, d}); acc += d; }
+  sled.len = acc;
+  // lago congelado (escorrega!)
+  N.lake = {x:X(-27), z:Z(24), r:8};
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(8, 40), new THREE.MeshPhongMaterial({color:0xbfe8ff, specular:0xffffff, shininess:120})); lake.rotation.x = -Math.PI / 2; lake.position.set(N.lake.x, .03, N.lake.z); scene.add(lake);
+  for (let k = 0; k < 5; k++){ const c = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.5})); c.scale.set(rr(1.5, 4), .01, .08); c.rotation.y = R() * 3; c.position.set(N.lake.x + rr(-4, 4), .05, N.lake.z + rr(-4, 4)); scene.add(c); }
+  const ll = label('LAGO DE PATINAR', '#bfe8ff', '#0b2a4a', 768); ll.position.set(N.lake.x, 3.2, N.lake.z - 9.5); scene.add(ll);
+  for (let k = 0; k < 4; k++) penguin(N.lake.x, N.lake.z, rr(2.5, 6));
+  for (let k = 0; k < 3; k++){ const a = rr(-1, 1) + Math.PI * .25; penguin(N.lake.x + Math.cos(a) * 10, N.lake.z + Math.sin(a) * 10, rr(1, 2)); }
+  // iglus, cabana e bonecos de neve
+  igloo(X(26), Z(26), -Math.PI / 4); igloo(X(36), Z(14), -Math.PI / 2);
+  hut(X(-32), Z(-2), 0x8a5a3b, 0xffffff);
+  addBlock(X(-31), 4.2, Z(-3), .7, 1.6, .7, 0x6b6f7a);
+  for (let k = 0; k < 5; k++){ const p = new THREE.Mesh(new THREE.SphereGeometry(.35, 8, 6), new THREE.MeshBasicMaterial({color:0xdde3ea, transparent:true, opacity:.6, depthWrite:false})); scene.add(p); snowFx.smoke.push({m:p, x:X(-31), z:Z(-3), ph:k / 5}); }
+  [[-8, 30, 0], [12, 34, -.5], [-40, 16, 1.2], [38, -22, -1.6], [-20, 38, .3]].forEach(([a, b, r]) => snowman(X(a), Z(b), r));
+  // chegada e portal de volta
+  N.spawn = {x:X(0), z:Z(42)}; N.exit = {x:X(9), z:Z(44)};
+  portalUp(N.exit.x, N.exit.z, 'VOLTAR', 0x7fd0ff, '#7fd0ff', '#0b2a4a', 0xdff4ff);
+  // pinheiros em volta
+  for (let k = 0; k < 30; k++){ const a = k / 30 * Math.PI * 2 + .1, d = 44 + R() * 3, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d);
+    if (Math.hypot(x - N.exit.x, z - N.exit.z) < 7 || Math.hypot(x - N.spawn.x, z - N.spawn.z) < 7 || (Math.abs(z - Z(MZ)) < 4 && x > X(30))) continue; pine(x, z, rr(.9, 1.3)); }
+  for (let k = 0; k < 40; k++){ const a = R() * Math.PI * 2, d = Math.sqrt(R()) * 42, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d);
+    if (Math.hypot(x - N.lake.x, z - N.lake.z) < 10 || Math.hypot(x - N.spawn.x, z - N.spawn.z) < 5 || Math.hypot(x - N.exit.x, z - N.exit.z) < 4 || (Math.abs(z - Z(MZ)) < 3 && x > X(20)) || occupied(x, z, 2.2)) continue;
+    if (k % 3) pine(x, z, rr(.7, 1.1)); else rock(x, z, 0x9aa6b8, .8); }
+}
+function setSnow(on){
+  inSnow = on; snowTop = false; sled.on = false;
+}
+function goSnow(on){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('snowf', 'flash');
+  [1047, 1319, 1568, 2093].forEach((f, j) => setTimeout(() => beep(on ? f : 3140 - f, .12, 'triangle', .05, 1.1), j * 90));
+  setTimeout(() => {
+    const to = on ? SNOW.spawn : SNOW_GATE.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = on ? 0 : -Math.PI / 2; P.face = on ? Math.PI : Math.PI / 2;
+    lastIsland = -1; setSnow(on);
+    if (on){ banner('Montanha de Neve', 'Bem-vindo à'); toast('É grátis! Suba até o topo, desça de tobogã e patine no lago.', 4500); }
+    else banner('Ilha Central', 'Voltou para a');
+    fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('snowf'), 450); diving = false;
+  }, 500);
+}
+function sledAt(s){
+  const p = sled.path; let k = 0;
+  while (k < sled.segs.length - 1 && s > sled.segs[k].a + sled.segs[k].d) k++;
+  const g = sled.segs[k], u = Math.min(1, Math.max(0, (s - g.a) / g.d)), a = p[k], b = p[k + 1];
+  return {x:a.x + (b.x - a.x) * u, y:a.y + (b.y - a.y) * u, z:a.z + (b.z - a.z) * u};
+}
+function updateSnow(dt, t){
+  for (const w of snowFx.swirls) w.m.rotation.z += w.sp * dt;
+  if (!inSnow) return;
+  for (const p of snowFx.peng){
+    const a = t * p.sp + p.a0;
+    p.g.position.set(p.cx + Math.cos(a) * p.r, Math.abs(Math.sin(t * 9 + p.a0)) * .08, p.cz + Math.sin(a) * p.r);
+    p.g.rotation.y = -a + (p.sp > 0 ? Math.PI : 0); p.g.rotation.z = Math.sin(t * 9 + p.a0) * .15;
+  }
+  for (const s of snowFx.smoke){ const k = (t * .25 + s.ph) % 1; s.m.position.set(s.x + Math.sin(k * 6) * .4, 6 + k * 5, s.z); s.m.scale.setScalar(.6 + k * 1.6); s.m.material.opacity = .6 * (1 - k); }
+  if (snowFx.flag) snowFx.flag.rotation.y = Math.sin(t * 3) * .25;
+  if (!snowTop && !sled.on && P.onGround && P.y > SNOW.topY - .3){ snowTop = true; banner('Você chegou no topo!', 'Uau!'); [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .18, 'triangle', .07, 1.2), j * 110)); setTimeout(() => toast('Pise no círculo azul para descer de tobogã!', 3500), 1800); }
+  sled.cool = Math.max(0, sled.cool - dt);
+  if (!sled.on && !sled.cool && P.y > SNOW.topY - .3 && Math.hypot(P.x - SNOW.sledStart.x, P.z - SNOW.sledStart.z) < 1.1){ sled.on = true; sled.t = 0; sled.v = 4; beep(700, .9, 'sawtooth', .04, .25); }
+}
+function updateSled(dt){
+  sled.v = Math.min(26, sled.v + dt * 16); sled.t += sled.v * dt;
+  const q = sledAt(sled.t);
+  Object.assign(P, {x:q.x, y:q.y, z:q.z, vy:0, onGround:true}); P.face = Math.PI / 2;
+  if (sled.t >= sled.len){ sled.on = false; sled.cool = 2; snowTop = false; toast('Iuhuuu! Que descida!'); beep(880, .2, 'triangle', .06, 1.5); }
+}
 function setElf(on){
   inElf = on;
   if (!on) return;
@@ -2118,6 +2294,7 @@ const LOOKS = [
   {I:ZONES[2], n:4, hats:['beanie', 'beanie', 'fur'], tops:[0x2b4c7e, 0xe8402c, 0x3ddc84, 0xb07cff], scarf:1},
   {I:ZONES[3], n:4, hats:['helmet'], tops:[0x8a2a2a, 0x3a2a2e, 0xff8a2a]},
   {I:ZONES[4], n:4, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0x2b4c7e]},
+  {I:SNOW, n:7, hats:['beanie', 'fur', 'beanie'], tops:[0xe8402c, 0x2b4c7e, 0x3ddc84, 0xffd23f, 0xb07cff], bottoms:[0x2a2a35, 0x2b4c7e], scarf:1},
   {I:ELF, n:14, hats:['elf', 'elf', 'wreath', 'elf'], tops:[0x3f9e3a, 0x2f6f5e, 0x6b3fc0, 0xff7ac8, 0x4aa8ff], bottoms:[0x3a2a20, 0x2f5f3a, 0xf4ecd8]},
   {I:ZONES[7], n:5, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0xe8402c, 0x2b4c7e]},
   {I:ZONES[6], n:6, hats:['elf', 'elf', 'wreath'], tops:[0x2f6f5e, 0x3f8f6a, 0x6b3fc0, 0x8a5a3b], bottoms:[0x3a2a20, 0x2f5f3a]},
@@ -2492,7 +2669,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -2656,6 +2833,7 @@ const ENV = {
   0:    {top:C(0x3d9cff), hor:C(0xd2f4ff), fog:C(0xc8eeff), near:90, far:270, hemi:C(0xffffff), ground:C(0x5a8a4a), hi:.8,  sunC:C(0xfff4d0), si:.9,  disc:C(0xfff8c0), disk:.7,  part:'pollen'},
   1:    {top:C(0x4f8fd8), hor:C(0xffc98a), fog:C(0xf4cf98), near:60, far:220, hemi:C(0xffe8c0), ground:C(0x9a6a3a), hi:.8,  sunC:C(0xffc880), si:1,   disc:C(0xffb050), disk:1.6, part:'dust'},
   2:    {top:C(0x8fb4dc), hor:C(0xeef6ff), fog:C(0xe4f0fb), near:35, far:170, hemi:C(0xe8f2ff), ground:C(0x8aa0c0), hi:.85, sunC:C(0xe0eeff), si:.7,  disc:C(0xffffff), disk:.4,  part:'snow'},
+  mt:   {top:C(0x5f9ee0), hor:C(0xf2f8ff), fog:C(0xe8f2fc), near:55, far:220, hemi:C(0xf0f6ff), ground:C(0x9ab0cc), hi:.9,  sunC:C(0xfff6e8), si:.8,  disc:C(0xffffff), disk:.8,  part:'snow'},
   3:    {top:C(0x1e0a10), hor:C(0x9a3018), fog:C(0x5e2016), near:30, far:160, hemi:C(0xffb090), ground:C(0x3a1010), hi:.8,  sunC:C(0xff9a6a), si:.75, disc:C(0xff4020), disk:1.2, part:'ember'},
 };
 const envCur = {top:ENV.hub.top.clone(), hor:ENV.hub.hor.clone(), fog:ENV.hub.fog.clone(), near:90, far:260, hemi:ENV.hub.hemi.clone(), ground:ENV.hub.ground.clone(), hi:.75, sunC:ENV.hub.sunC.clone(), si:.85, disc:ENV.hub.disc.clone(), disk:.5};
@@ -2692,7 +2870,7 @@ function updateEnv(dt, t){
   const special = under || inSky || inForest || inElf;
   skyMesh.visible = !special;
   if (special){ pts.visible = false; return; }
-  const key = !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
+  const key = inSnow ? 'mt' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
   const T = ENV[key], k = 1 - Math.exp(-dt * 1.6);
   for (const c of ['top', 'hor', 'fog', 'hemi', 'ground', 'sunC', 'disc']) envCur[c].lerp(T[c], k);
   for (const n of ['near', 'far', 'hi', 'si', 'disk']) envCur[n] += (T[n] - envCur[n]) * k;
@@ -2720,6 +2898,7 @@ function updateEnv(dt, t){
 }
 
 // ---------- Laço do jogo ----------
+const ice = {x:0, z:0};
 let last = performance.now(), saveT = 0, fullWarn = 0, combo = 0, comboT = 0, zoneNow = -1, gemSoundT = 0;
 function step(now){
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -2735,7 +2914,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail && !miniAnim){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail && !miniAnim && !sled.on){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -2743,6 +2922,9 @@ function step(now){
     P.face = Math.atan2(dx, dz);
   }
   if (shiftLock) P.face = Math.atan2(fx, fz);
+  // gelo do lago: escorrega
+  if (inSnow && P.y < .3 && Math.hypot(P.x - SNOW.lake.x, P.z - SNOW.lake.z) < SNOW.lake.r){ const k = Math.min(1, dt * 1.3), id = 1 / Math.max(dt, 1e-4); ice.x += (mx * id - ice.x) * k; ice.z += (mz * id - ice.z) * k; mx = ice.x * dt; mz = ice.z * dt; }
+  else { ice.x = mx / Math.max(dt, 1e-4); ice.z = mz / Math.max(dt, 1e-4); }
   // x
   let nx = P.x + mx, c = blocked(nx, P.z, P.y);
   if (c) nx = mx > 0 ? c.minX - RAD - 0.001 : c.maxX + RAD + 0.001;
@@ -2774,6 +2956,9 @@ function step(now){
   if (!diving && !inMini && P.y < 1 && Math.abs(P.x - SHRINK.x) < 1.2 && Math.abs(P.z - SHRINK.z) < 1.2) goMini(true);
   if (!diving && inMini && P.y < 1 && Math.abs(P.x - MINI.exit.x) < 1.2 && Math.abs(P.z - MINI.exit.z) < 1.2) goMini(false);
   if (sail) updateSail(dt);
+  if (!diving && !inSnow && P.y < 1 && Math.abs(P.x - SNOW_GATE.x) < .8 && Math.abs(P.z - SNOW_GATE.z) < 1.6) goSnow(true);
+  if (!diving && inSnow && P.y < 1 && Math.hypot(P.x - SNOW.exit.x, P.z - SNOW.exit.z) < 2) goSnow(false);
+  if (sled.on) updateSled(dt);
   if (!diving && !inArena && P.y < 1 && Math.abs(P.x - ARENA_GATE.x) < 1.6 && Math.abs(P.z - ARENA_GATE.z) < .8) goArena(true);
   if (!diving && inArena && P.y < 1 && Math.abs(P.x - ARENA.exit.x) < 1.6 && Math.abs(P.z - ARENA.exit.z) < .8) goArena(false);
   if (P.y < (inSky ? -22 : -1.8) && !diving) splash();
@@ -2795,6 +2980,7 @@ function step(now){
   updateVillagers(dt, t);
   updateMini(dt, t);
   updateElf(dt, t);
+  updateSnow(dt, t);
 
   // câmera (na tela inicial ela gira devagar em volta do boneco)
   if (!playing) cam.yaw += dt * 0.12;
@@ -2911,7 +3097,7 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z) || inIsle(SNOW, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
