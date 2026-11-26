@@ -420,7 +420,7 @@ const jumpHeight = l => jumpVel(l) ** 2 / (2 * GRAV);
 const magnetOf = l => 1.4 + l * 0.8;
 const rebirthCost = r => 100000 * Math.pow(4, r);
 const multOf = r => 1 + r;
-// Níveis: 1 a 10.000. Cada nível = +1% no valor dos cristais e moedas.
+// Níveis: 1 a 10.000. XP só vem das missões do Rei Cristóvão. Cada nível = +1% no valor dos cristais e moedas.
 const LV_MAX = 10000;
 const xpNeed = l => 10 + l * 2;
 const lvMult = () => 1 + (S.level - 1) * .01;
@@ -1378,7 +1378,7 @@ function updateStadium(dt, t){
   if (stad.goalT <= 0 && Math.abs(stad.bz) > HL + R0 && inMouth){
     stad.goals++; scoreBoard(); stad.goalT = 2.6; stad.party = 3.5;
     const rew = Math.round(10 * STAD.value * gemMult());
-    S.coins += rew; gainXP(50); quest('goal'); hud(); pulseCoins(); save();
+    S.coins += rew; quest('goal'); hud(); pulseCoins(); save();
     banner('GOOOOL!', '+' + fmt(rew) + ' moedas');
     floatText('+' + fmt(rew), stad.cx + stad.bx, 3, stad.cz + stad.bz, 'coin');
     [523, 659, 784, 1047, 1319].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .08, 1.2), j * 90));
@@ -1959,7 +1959,7 @@ function hitFoe(e, dmg, fx, fz, push){
   if (e.hp <= 0){
     e.dying = .35;
     const rew = Math.round(e.T.rew * coinScale());
-    S.coins += rew; pulseCoins(); hud(); gainXP(e.T.rew / 2); quest('foes');
+    S.coins += rew; pulseCoins(); hud(); quest('foes');
     floatText('+' + fmt(rew), e.x, 3.2 * e.T.s, e.z, 'coin');
     [523, 784].forEach((f, j) => setTimeout(() => beep(f, .1, 'triangle', .06, 1.3), j * 70));
     arenaFx.cheer = 1.4;
@@ -2102,7 +2102,7 @@ function updateArena(dt, t){
     if (B.next > 0){ B.next -= dt; if (B.next <= 0) spawnWave(); }
     else if (B.wave > 0){
       const bonus = Math.round(B.wave * 20 * coinScale());
-      S.coins += bonus; gainXP(B.wave * 5); hud(); pulseCoins(); save();
+      S.coins += bonus; hud(); pulseCoins(); save();
       banner(`+${fmt(bonus)} moedas`, `Onda ${B.wave} vencida!`); arenaFx.cheer = 2.5;
       [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .07, 1.2), j * 100));
       B.next = 3.5;
@@ -2297,7 +2297,7 @@ function updateMini(dt, t){
     c.m.rotation.z += dt * 2.5; c.m.position.y = c.y + Math.sin(t * 2 + c.x) * .2;
     if (Math.hypot(P.x - c.x, P.z - c.z) < 1.6 && Math.abs(P.y + 1.2 - c.y) < 2){
       const rew = Math.round(100 * coinScale());
-      S.coins += rew; gainXP(15); quest('mini'); hud(); pulseCoins(); save();
+      S.coins += rew; quest('mini'); hud(); pulseCoins(); save();
       floatText('+' + fmt(rew), c.x, c.y + 1.5, c.z, 'coin');
       [659, 880, 1175].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
       c.m.visible = false; c.back = 45;
@@ -3451,7 +3451,7 @@ function gateCheck(){
 }
 $('gateBtn').addEventListener('click', () => {
   const Z = ZONES[S.unlocked]; if (!Z || S.coins < Z.price) return;
-  S.coins -= Z.price; S.unlocked++; gainXP(100 * S.unlocked); save(); hud(); gateCheck();
+  S.coins -= Z.price; S.unlocked++; save(); hud(); gateCheck();
   beep(440, .12, 'triangle', .08, 2); setTimeout(() => beep(660, .2, 'triangle', .08, 2), 120);
   banner(Z.name, 'Desbloqueado!'); canvas.focus();
 });
@@ -3628,7 +3628,7 @@ function closeTalk(){ if (talkEl.hidden) return; clearInterval(typeT); talkEl.hi
 function talkAct(act){
   if (act === 'sell'){
     if (S.bag > 0){
-      const v = S.bagVal, n = S.bag; S.coins += v; S.bag = 0; S.bagVal = 0; gainXP(Math.ceil(n / 5)); quest('sell'); save(); hud(); pulseCoins();
+      const v = S.bagVal, n = S.bag; S.coins += v; S.bag = 0; S.bagVal = 0; quest('sell'); save(); hud(); pulseCoins();
       floatText('+' + fmt(v), P.x, P.y + 3.4, P.z, 'coin');
       beep(660, .08, 'triangle', .07, 1.3); setTimeout(() => beep(990, .14, 'triangle', .07, 1.3), 90);
       $('talkSell').textContent = 'Vender cristais';
@@ -3958,7 +3958,6 @@ function step(now){
         g.active = false; m.visible = false; g.respawnAt = now + 3500 + Math.random() * 3000;
         const val = ZONES[g.zone].value * (g.golden ? 10 : 1) * mult;
         S.bag++; S.bagVal += val;
-        gainXP((g.zone + 1) * (g.golden ? 10 : 1), [P.x, P.y + 2.4, P.z]);
         quest('gems'); if (g.golden) quest('gold');
         combo++; comboT = now + 900;
         if (now > gemSoundT){ beep(g.golden ? 880 : 520 + Math.min(combo, 14) * 40, .07, 'sine', .06, 1.4); gemSoundT = now + 40; }
