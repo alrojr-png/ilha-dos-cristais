@@ -145,6 +145,7 @@ body.touch.arena #atk{display:block}
 #dive.forestf{background:#3dffc8}
 #dive.elff{background:#ff9ad8}
 #dive.snowf{background:#eaf6ff}
+#dive.restof{background:#ffb347}
 #dive.stadf{background:#3ddc84}
 /* Poderes da arena */
 #powers{display:none;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));gap:10px}
@@ -482,6 +483,8 @@ const ELF = {cx:640, cz:-640, r:45};
 let inElf = false;
 const SNOW = {cx:-640, cz:640, r:50};
 let inSnow = false;
+const RESTO = {cx:380, cz:-320, r:40};
+let inResto = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
 const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
@@ -517,7 +520,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -539,6 +542,7 @@ function lockedAt(x, z){
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
   if (inSnow && !inIsle(SNOW, x, z, -BEACH - 1.5)) return true;
+  if (inResto && !inIsle(RESTO, x, z, -BEACH - 1.5)) return true;
   if (swimming && !landAt(x, z) && !praiaSea(x, z)) return true;
   return false;
 }
@@ -2468,6 +2472,173 @@ let SNOW_GATE;
     if (Math.hypot(x - N.lake.x, z - N.lake.z) < 10 || Math.hypot(x - N.spawn.x, z - N.spawn.z) < 5 || Math.hypot(x - N.exit.x, z - N.exit.z) < 4 || (Math.abs(z - Z(MZ)) < 3 && x > X(20)) || occupied(x, z, 2.2)) continue;
     if (k % 3) pine(x, z, rr(.7, 1.1)); else rock(x, z, 0x9aa6b8, .8); }
 }
+// ---------- Restaurante (grátis, só para explorar) ----------
+const restoFx = {chefs:[], steam:[], food:[], signs:[]};
+const pk3 = a => a[Math.floor(R() * a.length)];
+function cyl(r, h, color, x, y, z, seg = 18, r2){ const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 === undefined ? r : r2, h, seg), color.isMaterial ? color : mat(color)); m.position.set(x, y + h / 2, z); m.castShadow = true; scene.add(m); return m; }
+// comidinhas
+function foodBurger(x, y, z, s = 1, g){
+  const parts = [[.42, .16, 0xd99a4e], [.46, .05, 0x56b84a], [.44, .12, 0x6b3a20], [.46, .04, 0xffcc33], [.42, .18, 0xd99a4e]];
+  let yy = y; const out = [];
+  parts.forEach(([r, h, c], k) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r * s, (k === 0 ? r * .9 : r) * s, h * s, 18), mat(c)); m.position.set(x, yy + h * s / 2, z); yy += h * s; (g || scene).add(m); out.push(m); });
+  const top = new THREE.Mesh(new THREE.SphereGeometry(.42 * s, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xd99a4e)); top.position.set(x, yy - .02 * s, z); top.scale.y = .6; (g || scene).add(top); out.push(top);
+  return out;
+}
+function foodPizza(x, y, z, g){
+  const out = [];
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .06, 20), mat(0xf0c070)); b.position.set(x, y + .03, z); (g || scene).add(b); out.push(b);
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(.4, .4, .02, 20), mat(0xffd84a)); c.position.set(x, y + .07, z); (g || scene).add(c); out.push(c);
+  for (let k = 0; k < 6; k++){ const a = k / 6 * Math.PI * 2, pp = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, .02, 10), mat(0xc0392b)); pp.position.set(x + Math.cos(a) * .22, y + .09, z + Math.sin(a) * .22); (g || scene).add(pp); out.push(pp); }
+  return out;
+}
+function foodIce(x, y, z, g){
+  const cn = new THREE.Mesh(new THREE.ConeGeometry(.13, .4, 10), mat(0xd9a05a)); cn.rotation.x = Math.PI; cn.position.set(x, y + .2, z); (g || scene).add(cn);
+  const sc = new THREE.Mesh(new THREE.SphereGeometry(.15, 12, 8), mat(pk3([0xff9ac0, 0xfff1de, 0x8a5a3b, 0x9fe6a0]))); sc.position.set(x, y + .45, z); (g || scene).add(sc);
+  return [cn, sc];
+}
+function foodCup(x, y, z, g){
+  const cp = new THREE.Mesh(new THREE.CylinderGeometry(.13, .1, .4, 12), mat(pk3([0xff5a5a, 0x4aa8ff, 0xffd23f]))); cp.position.set(x, y + .2, z); (g || scene).add(cp);
+  const st = new THREE.Mesh(boxGeo, mat(0xffffff)); st.scale.set(.03, .35, .03); st.position.set(x + .04, y + .5, z); st.rotation.z = .2; (g || scene).add(st);
+  return [cp, st];
+}
+const FOODS = [['Hambúrguer', (x, y, z) => foodBurger(x, y, z, .55)], ['Pizza', foodPizza], ['Sorvete', foodIce], ['Refri', foodCup]];
+function dish(x, y, z, eat = true){
+  const pl = new THREE.Mesh(new THREE.CylinderGeometry(.55, .45, .05, 20), mat(0xffffff)); pl.position.set(x, y + .025, z); scene.add(pl);
+  const [name, fn] = pk3(FOODS), ms = fn(x, y + .05, z);
+  if (eat) restoFx.food.push({x, y, z, ms, name, back:0});
+}
+function table(x, z, color){
+  cyl(.12, .85, 0x5a3d22, x, 0, z, 8); cyl(1.15, .1, color, x, .85, z, 22);
+  colliders.push({minX:x - .8, maxX:x + .8, minZ:z - .8, maxZ:z + .8, bottom:0, top:.95});
+  [[1.6, 0], [-1.6, 0], [0, 1.6], [0, -1.6]].forEach(([a, b]) => { addBlock(x + a, 0, z + b, .7, .5, .7, 0xc0392b); addBlock(x + a * 1.22, .5, z + b * 1.22, a ? .12 : .7, .7, b ? .12 : .7, 0xc0392b, false); });
+  dish(x + .3, .95, z + .2); if (R() < .6) foodCup(x - .45, .95, z - .35);
+}
+function chef(x, z, rotY, range){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  part(.46, .97, .5, 0x2a2a35, -.27, .485, 0, g); part(.46, .97, .5, 0x2a2a35, .27, .485, 0, g);
+  part(1.05, .95, .55, 0xffffff, 0, 1.45, 0, g); part(.9, .5, .06, 0xe8e8f0, 0, 1.2, .29, g);
+  part(.78, .74, .74, pk3([0xffcf9e, 0xc68a5a, 0xe8b48a]), 0, 2.32, 0, g);
+  part(.12, .16, .05, 0x1d1630, -.17, 2.36, .38, g); part(.12, .16, .05, 0x1d1630, .17, 2.36, .38, g); part(.46, .1, .06, 0x3a2a20, 0, 2.2, .39, g);
+  part(.8, .5, .8, 0xffffff, 0, 2.95, 0, g); const puff = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), mat(0xffffff)); puff.scale.y = .7; puff.position.set(0, 3.3, 0); g.add(puff);
+  const arms = [-1, 1].map(sd => { const pv = new THREE.Group(); pv.position.set(sd * .7, 1.9, 0); g.add(pv); part(.36, .45, .42, 0xffffff, 0, -.22, 0, pv); part(.34, .5, .38, 0xffcf9e, 0, -.68, 0, pv); pv.rotation.x = -1; return pv; });
+  restoFx.chefs.push({g, arms, x, z, range, ph:R() * 6});
+}
+function stove(x, z){
+  addBlock(x, 0, z, 2.2, 1.1, 1.4, 0x3a3f4a);
+  [[-.5, -.3], [.5, -.3], [-.5, .3], [.5, .3]].forEach(([a, b]) => { const r = new THREE.Mesh(new THREE.TorusGeometry(.2, .04, 6, 16), new THREE.MeshBasicMaterial({color:0xff5a2a})); r.rotation.x = Math.PI / 2; r.position.set(x + a, 1.12, z + b); scene.add(r); });
+  cyl(.3, .25, 0x8a909c, x - .5, 1.12, z - .3, 14); addBlock(x - .5, 1.25, z - .75, .08, .08, .6, 0x2a2a35, false);
+  const pan = cyl(.35, .12, 0x2a2a35, x + .5, 1.12, z + .3, 16);
+  for (let k = 0; k < 4; k++){ const st = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.5, depthWrite:false})); scene.add(st); restoFx.steam.push({m:st, x:x - .5, z:z - .3, ph:k / 4}); }
+}
+function buildRestoGate(){
+  let gx = 19, gz = -3;
+  for (let a = 1; a < 80 && occupied(gx, gz, 3); a++){ const ang = (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07 - .16; gx = Math.cos(ang) * 19; gz = Math.sin(ang) * 19; }
+  const ux = -gx / 19, uz = -gz / 19;
+  RESTO.gate = {x:gx, z:gz}; RESTO.back = {x:gx + ux * 4.5, z:gz + uz * 4.5, face:Math.atan2(ux, uz)};
+  portalUp(gx, gz, 'RESTAURANTE', 0xffb347, '#ffb347', '#3a1a00', 0xffe0b0);
+  // garfo e colher gigantes do lado
+  const sx = -uz, sz = ux;
+  [-1, 1].forEach(sd => { const bx = gx + sx * sd * 3.2, bz = gz + sz * sd * 3.2; addBlock(bx, 0, bz, .35, 4.2, .35, 0xc9ced8);
+    if (sd < 0){ [-.3, 0, .3].forEach(o => addBlock(bx + sx * o, 4.2, bz + sz * o, .12, 1.1, .12, 0xc9ced8, false)); addBlock(bx, 4.1, bz, .8, .2, .8, 0xc9ced8, false); }
+    else { const sp = new THREE.Mesh(new THREE.SphereGeometry(.55, 14, 10), mat(0xc9ced8)); sp.scale.set(1, 1.4, .4); sp.position.set(bx, 4.8, bz); scene.add(sp); } });
+}
+buildRestoGate();
+{
+  const N = RESTO, X = d => N.cx + d, Z = d => N.cz + d;
+  islandBase(N, 0x8fd46a, 0xf3dfa2);
+  // caminho de pedras até a porta
+  for (let z = 34; z > 4; z -= 2) addBlock(X(rr(-.4, .4)), 0, Z(z), rr(2.2, 2.8), .06, 1.5, R() < .5 ? 0xd8cfc0 : 0xc9bfb0, false);
+  // prédio: 24 x 18, porta no sul, telhado dá para subir pela escada do leste
+  const W = 24, D = 18, CZ = -6, H = 5, x0 = -W / 2, z0 = CZ - D / 2, z1 = CZ + D / 2;
+  for (let i = 0; i < W / 2; i++) for (let j = 0; j < D / 2; j++) addBlock(X(x0 + 1 + i * 2), 0, Z(z0 + 1 + j * 2), 2, .05, 2, (i + j) % 2 ? 0xffffff : 0xe8402c, false);
+  const WALL = 0xffe0b0, TRIM = 0xc0392b;
+  addBlock(X(0), 0, Z(z0), W, H, .4, WALL);
+  addBlock(X(x0), 0, Z(CZ), .4, H, D, WALL); addBlock(X(-x0), 0, Z(CZ), .4, H, D, WALL);
+  addBlock(X(-7.5), 0, Z(z1), 9, H, .4, WALL); addBlock(X(7.5), 0, Z(z1), 9, H, .4, WALL); addBlock(X(0), 3.2, Z(z1), 6, H - 3.2, .4, WALL);
+  // janelas e toldo listrado
+  const glass = new THREE.MeshBasicMaterial({color:0x9fe6ff, transparent:true, opacity:.55});
+  [-9, -5, 5, 9].forEach(x => addBlock(X(x), 1.3, Z(z1 + .22), 2.4, 1.8, .05, 0, false, glass));
+  [-4, 0, 4].forEach(z => [x0 - .22, -x0 + .22].forEach(x => addBlock(X(x), 1.3, Z(CZ + z), .05, 1.8, 2.4, 0, false, glass)));
+  for (let k = 0; k < 12; k++){ const a = addBlock(X(x0 + 1 + k * 2), 3.6, Z(z1 + 1), 2, .12, 2.2, k % 2 ? 0xffffff : TRIM, false); a.rotation.x = .35; }
+  addBlock(X(0), H, Z(CZ), W + .6, .4, D + .6, TRIM);
+  for (let k = 0; k < 4; k++) addBlock(X(0), H + .4, Z(CZ), W + .6 - 0, .5, .3, TRIM, false).position.z = Z(k % 2 ? z0 - .15 : z1 + .15);
+  const sign = label('RESTAURANTE', '#e8402c', '#ffffff', 768); sign.scale.multiplyScalar(1.8); sign.position.set(X(0), H + 2, Z(z1 + .6)); scene.add(sign);
+  // escada do lado leste até o telhado
+  for (let k = 0; k < 11; k++){ const h = .49 * (k + 1); addBlock(X(-x0 + 1), 0, Z(z1 - 1 - k), 1.6, h, 1, k % 2 ? 0xd9c27a : 0xc9b26a); }
+  // hambúrguer gigante e copo de refri em cima do telhado
+  const big = new THREE.Group(); big.position.set(X(-3), H + .4, Z(CZ)); scene.add(big);
+  foodBurger(0, 0, 0, 7, big); restoFx.signs.push(big);
+  colliders.push({minX:X(-3) - 3, maxX:X(-3) + 3, minZ:Z(CZ) - 3, maxZ:Z(CZ) + 3, bottom:H, top:H + 4});
+  const cup = cyl(1.3, 4.5, 0xff5a5a, X(6), H + .4, Z(CZ - 2), 18, 1); cyl(1.35, .3, 0xffffff, X(6), H + 4.9, Z(CZ - 2), 18);
+  addBlock(X(6.4), H + 5.2, Z(CZ - 2), .2, 2.4, .2, 0xffffff, false).rotation.z = .25;
+  colliders.push({minX:X(6) - 1.3, maxX:X(6) + 1.3, minZ:Z(CZ - 2) - 1.3, maxZ:Z(CZ - 2) + 1.3, bottom:H, top:H + 4.9});
+  // cozinha: balcão, fogões, forno, geladeira, pia
+  addBlock(X(-3), 0, Z(CZ - 3), 16, 1.1, 1, 0xc0392b); addBlock(X(-3), 1.1, Z(CZ - 3), 16.2, .12, 1.2, 0xf4ecd8, false);
+  for (let k = 0; k < 5; k++) dish(X(-9.5 + k * 3.2), 1.22, Z(CZ - 3));
+  [-8, -4].forEach(x => stove(X(x), Z(z0 + 1.2)));
+  addBlock(X(0), 0, Z(z0 + 1), 2.4, 2.6, 1.6, 0x6b6f7a); addBlock(X(0), .6, Z(z0 + 1.82), 1.6, 1.1, .05, 0, false, new THREE.MeshBasicMaterial({color:0xff8a2a}));
+  addBlock(X(3.5), 0, Z(z0 + 1), 2, 3.6, 1.6, 0xf4f6fa); addBlock(X(3.5), 2.1, Z(z0 + 1.82), .1, .6, .05, 0x8a909c, false); addBlock(X(4.2), .8, Z(z0 + 1.82), .1, .6, .05, 0x8a909c, false);
+  addBlock(X(7.5), 0, Z(z0 + 1), 2.6, 1.1, 1.4, 0xc9ced8); addBlock(X(7.5), 1.1, Z(z0 + 1), 1.6, .05, .9, 0x7fd0ff, false); addBlock(X(7.5), 1.1, Z(z0 + .5), .1, .6, .1, 0x8a909c, false);
+  chef(X(-6), Z(z0 + 2.6), Math.PI, 2.5); chef(X(3), Z(z0 + 2.8), Math.PI, 2);
+  // mesas do salão
+  [[-8, 0], [-3, 0], [3, 0], [8, 0], [-8, 4.5], [8, 4.5]].forEach(([a, b], k) => table(X(a), Z(CZ + b), [0xf4ecd8, 0xffd23f, 0x9fe6ff][k % 3]));
+  // varanda com guarda-sóis
+  [[-9, 6], [9, 6], [-13, 12], [13, 12]].forEach(([a, b], k) => { table(X(a), Z(b), 0xffffff); cone(2.2, .8, [0xff5a8a, 0xffd23f, 0x4aa8ff, 0x3ddc84][k], X(a), 2.9, Z(b), 8); addBlock(X(a), .95, Z(b), .12, 2.2, .12, 0xffffff, false); });
+  // food truck de lanches
+  const tx = X(-24), tz = Z(14);
+  addBlock(tx, .5, tz, 4, 3.2, 8, 0xffd23f); addBlock(tx, .5, tz - 5, 4, 2.2, 2, 0xffd23f);
+  addBlock(tx + 2.01, 1.6, tz, .05, 1.4, 4, 0, false, glass); addBlock(tx + 2.4, 2.9, tz, .8, .12, 4.4, 0xe8402c, false);
+  addBlock(tx + 2.3, 1.5, tz, .6, .1, 4, 0xf4ecd8, false); dish(tx + 2.3, 1.6, tz - 1); dish(tx + 2.3, 1.6, tz + 1);
+  [[-1.6, -4.6], [1.6, -4.6], [-1.6, 2.5], [1.6, 2.5]].forEach(([a, b]) => { const w = cyl(.6, .35, 0x1d1630, tx + a * 1.12, .25, tz + b, 14); w.rotation.z = Math.PI / 2; w.position.y = .6; });
+  const tl = label('LANCHES', '#ffd23f', '#3a1a00', 512); tl.position.set(tx, 4.6, tz); scene.add(tl);
+  // carrinho de sorvete
+  const ix = X(22), iz = Z(16);
+  addBlock(ix, .4, iz, 3, 1.3, 1.6, 0x9fe6ff); addBlock(ix, 1.7, iz, 3.1, .1, 1.7, 0xffffff, false);
+  for (let k = 0; k < 4; k++) foodIce(ix - 1.1 + k * .75, 1.8, iz, null);
+  addBlock(ix, 1.8, iz - .7, .1, 2, .1, 0xffffff, false); cone(1.8, .7, 0xff9ac0, ix, 3.6, iz - .7, 10);
+  [-1.2, 1.2].forEach(a => { const w = cyl(.4, .2, 0x2a2a35, ix + a, .2, iz + .85, 12); w.rotation.x = Math.PI / 2; w.position.y = .4; });
+  colliders.push({minX:ix - 1.5, maxX:ix + 1.5, minZ:iz - .8, maxZ:iz + .8, bottom:0, top:1.8});
+  const il = label('SORVETE', '#ff9ac0', '#3a0b2a', 512); il.position.set(ix, 5, iz); scene.add(il);
+  // flores, postes e árvores em volta
+  for (let k = 0; k < 8; k++){ const x = X(k % 2 ? 4.5 : -4.5), z = Z(30 - k * 3); addBlock(x, 0, z, .15, 3, .15, 0x2a2a35, false); const l = new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 8), new THREE.MeshBasicMaterial({color:0xffe27a})); l.position.set(x, 3.1, z); scene.add(l); }
+  N.spawn = {x:X(0), z:Z(36)}; N.exit = {x:X(8), z:Z(36)};
+  portalUp(N.exit.x, N.exit.z, 'VOLTAR', 0x7fe8ff, '#7fe8ff', '#06243f', 0xbff4ff);
+  for (let k = 0; k < 26; k++){ const a = R() * Math.PI * 2, d = 18 + Math.sqrt(R()) * 19, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d);
+    if (Math.abs(x - X(0)) < 6 && z > Z(2)) continue;
+    if (Math.hypot(x - N.spawn.x, z - N.spawn.z) < 6 || Math.hypot(x - N.exit.x, z - N.exit.z) < 5 || occupied(x, z, 2.4)) continue;
+    if (k % 3 === 0) tree(x, z); else flowers(x, z); }
+}
+function goResto(on){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('restof', 'flash');
+  [659, 784, 988].forEach((f, j) => setTimeout(() => beep(on ? f : 1647 - f, .13, 'triangle', .05, 1.2), j * 90));
+  setTimeout(() => {
+    const to = on ? RESTO.spawn : RESTO.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    P.face = on ? Math.PI : to.face; cam.yaw = P.face + Math.PI;
+    lastIsland = -1; inResto = on;
+    if (on){ banner('Restaurante', 'Bem-vindo ao'); toast('É grátis! Encoste nas comidas para comer e suba no telhado pela escada.', 4500); }
+    else banner('Ilha Central', 'Voltou para a');
+    fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('restof'), 450); diving = false;
+  }, 500);
+}
+function updateResto(dt, t){
+  if (!inResto) return;
+  for (const c of restoFx.chefs){
+    c.g.position.x = c.x + Math.sin(t * .5 + c.ph) * c.range;
+    c.arms[0].rotation.x = -1 + Math.sin(t * 6 + c.ph) * .4; c.arms[1].rotation.x = -1 - Math.sin(t * 6 + c.ph) * .4;
+  }
+  for (const s of restoFx.steam){ const k = (t * .5 + s.ph) % 1; s.m.position.set(s.x + Math.sin(k * 7) * .15, 1.5 + k * 2.2, s.z); s.m.scale.setScalar(.6 + k * 1.4); s.m.material.opacity = .5 * (1 - k); }
+  for (const b of restoFx.signs) b.rotation.y += dt * .4;
+  for (const f of restoFx.food){
+    if (f.back > 0){ f.back -= dt; if (f.back <= 0) f.ms.forEach(m => m.visible = true); continue; }
+    if (Math.hypot(P.x - f.x, P.z - f.z) < 1.3 && Math.abs(P.y + 1 - f.y) < 1.8){
+      f.ms.forEach(m => m.visible = false); f.back = 20;
+      floatText('Nham! ' + f.name, f.x, f.y + 1.2, f.z, 'heal');
+      [523, 392, 659].forEach((q, j) => setTimeout(() => beep(q, .08, 'square', .05, 1.4), j * 70));
+    }
+  }
+}
 function setSnow(on){
   inSnow = on; snowTop = false; sled.on = false;
 }
@@ -2557,6 +2728,7 @@ const LOOKS = [
   {I:ZONES[2], n:4, hats:['beanie', 'beanie', 'fur'], tops:[0x2b4c7e, 0xe8402c, 0x3ddc84, 0xb07cff], scarf:1},
   {I:ZONES[3], n:4, hats:['helmet'], tops:[0x8a2a2a, 0x3a2a2e, 0xff8a2a]},
   {I:ZONES[4], n:4, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0x2b4c7e]},
+  {I:RESTO, n:9, hats:['chef', 'chef', 'none', 'cap', 'bun'], tops:[0xffffff, 0xe8402c, 0x2a2a35, 0xffd23f]},
   {I:SNOW, n:7, hats:['beanie', 'fur', 'beanie'], tops:[0xe8402c, 0x2b4c7e, 0x3ddc84, 0xffd23f, 0xb07cff], bottoms:[0x2a2a35, 0x2b4c7e], scarf:1},
   {I:ELF, n:14, hats:['elf', 'elf', 'wreath', 'elf'], tops:[0x3f9e3a, 0x2f6f5e, 0x6b3fc0, 0xff7ac8, 0x4aa8ff], bottoms:[0x3a2a20, 0x2f5f3a, 0xf4ecd8]},
   {I:ZONES[7], n:5, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0xe8402c, 0x2b4c7e]},
@@ -2593,6 +2765,7 @@ function buildVillager(L){
   if (hat === 'straw'){ part(1.5, .1, 1.5, 0xe8c86a, 0, .78, 0, head); part(.85, .38, .85, 0xe8c86a, 0, .98, 0, head); part(.87, .1, .87, 0xc0392b, 0, .86, 0, head); }
   if (hat === 'turban'){ part(.94, .5, .9, pickR([0xff8a2a, 0xffffff, 0xff5a8a]), 0, .9, 0, head); }
   if (hat === 'beanie'){ part(.86, .42, .84, hc, 0, .86, 0, head); part(.88, .12, .86, 0xffffff, 0, .7, 0, head); }
+  if (hat === 'chef'){ part(.8, .5, .8, 0xffffff, 0, .95, 0, head); const pf = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), mat(0xffffff)); pf.scale.y = .7; pf.position.set(0, 1.3, 0); head.add(pf); }
   if (hat === 'fur'){ part(.92, .42, .9, 0xf4f0e0, 0, .84, 0, head); part(.1, .3, .7, 0xf4f0e0, -.48, .5, 0, head); part(.1, .3, .7, 0xf4f0e0, .48, .5, 0, head); }
   if (hat === 'helmet'){ part(.94, .36, .94, 0xffb000, 0, .86, 0, head); part(1.1, .06, 1.1, 0xffb000, 0, .7, .05, head); part(.22, .18, .1, 0xfff1a0, 0, .86, .48, head); }
   if (hat === 'diver'){
@@ -2935,7 +3108,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -3226,6 +3399,8 @@ function step(now){
   if (sail) updateSail(dt);
   if (STAD && !diving && S.unlocked > STAD_I && P.y < 1 && Math.hypot(P.x - STAD.gate.x, P.z - STAD.gate.z) < 2) goStadium(true);
   if (STAD && !diving && lastIsland === STAD_I && P.y < 1 && Math.hypot(P.x - STAD.portal.x, P.z - STAD.portal.z) < 2) goStadium(false);
+  if (!diving && !inResto && P.y < 1 && Math.hypot(P.x - RESTO.gate.x, P.z - RESTO.gate.z) < 2) goResto(true);
+  if (!diving && inResto && P.y < 1 && Math.hypot(P.x - RESTO.exit.x, P.z - RESTO.exit.z) < 2) goResto(false);
   if (!diving && !inSnow && P.y < 1 && Math.abs(P.x - SNOW_GATE.x) < .8 && Math.abs(P.z - SNOW_GATE.z) < 1.6) goSnow(true);
   if (!diving && inSnow && P.y < 1 && Math.hypot(P.x - SNOW.exit.x, P.z - SNOW.exit.z) < 2) goSnow(false);
   if (sled.on) updateSled(dt);
@@ -3259,6 +3434,7 @@ function step(now){
   updateMini(dt, t);
   updateElf(dt, t);
   updateSnow(dt, t);
+  updateResto(dt, t);
   updateStadium(dt, t);
   updatePraia(t);
 
@@ -3377,7 +3553,7 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z) || inIsle(SNOW, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z) || inIsle(SNOW, P.x, P.z) || inIsle(RESTO, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
