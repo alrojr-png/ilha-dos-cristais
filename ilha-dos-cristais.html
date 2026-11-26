@@ -135,6 +135,7 @@ body.touch.arena #atk{display:block}
 #hurt.on{opacity:1;transition:none}
 #dive.arenaf{background:#3a0b18}
 #dive.minif{background:#b07cff}
+#dive.forestf{background:#3dffc8}
 @keyframes rise{to{transform:translate(-50%,-160%);opacity:0}}
 /* Loja */
 #shop,#pets,#skins{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -289,6 +290,7 @@ const ZONES = [
   {name:'Cratera de Lava', cx:0,  cz:168, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
   {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
   {name:'Reino das Nuvens', cx:0, cz:-640, r:40, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
+  {name:'Floresta Mítica', cx:-640, cz:-640, r:55, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -627,6 +629,8 @@ const NPCS = [
    hello:'Ahoy, marujo! Bem-vindo ao fundo do mar. O que deseja deste velho capitão?'},
   {name:'Vovó Nimbus',   color:0x7fd0ff, css:'#bfe8ff', shirt:0xffffff, apron:0xbfe8ff, skin:0xffdcc0, hair:0xffffff, hat:'halo',
    hello:'Bem-vindo ao céu, aventureiro! Aqui em cima as nuvens são fofinhas. O que vai querer?'},
+  {name:'Sábia Lumi',    color:0x3dffc8, css:'#3dffc8', shirt:0x2f6f5e, apron:0x8a5a3b, skin:0xe8b48a, hair:0xc9e8ff, hat:'wreath',
+   hello:'Psiu... as árvores contaram que você vinha. Bem-vindo à Floresta Mítica! O que deseja?'},
 ];
 const stalls = [];
 function addStall(x, z, fx, fz, N){
@@ -660,6 +664,7 @@ function addStall(x, z, fx, fz, N){
   if (N.hat === 'turban'){ part(.94, .5, .9, N.hatC, 0, .9, 0, head); const gm = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), mat(0x34f0b0)); gm.position.set(0, .92, .47); head.add(gm); }
   if (N.hat === 'beanie'){ part(.86, .42, .84, N.hatC, 0, .86, 0, head); part(.88, .12, .86, 0xffffff, 0, .7, 0, head); const pom = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), mat(0xffffff)); pom.position.set(0, 1.15, 0); head.add(pom); }
   if (N.hat === 'helmet'){ part(.94, .36, .94, 0xffb000, 0, .86, 0, head); part(1.1, .06, 1.1, 0xffb000, 0, .7, .05, head); part(.22, .18, .1, 0xfff1a0, 0, .86, .48, head); }
+  if (N.hat === 'wreath'){ part(.84, .22, .8, N.hair, 0, .78, -.02, head); part(.5, .5, .3, N.hair, 0, .5, -.4, head); [0, 1, 2, 3, 4, 5, 6, 7].forEach(k => { const a = k / 8 * Math.PI * 2; part(.2, .16, .2, k % 2 ? 0xff7ac8 : 0x56b84a, Math.cos(a) * .44, .86, Math.sin(a) * .44, head); }); }
   if (N.hat === 'halo'){ part(.84, .22, .8, N.hair, 0, .78, -.02, head); part(.5, .4, .45, N.hair, 0, .95, -.3, head); const h = new THREE.Mesh(new THREE.TorusGeometry(.42, .07, 8, 24), new THREE.MeshBasicMaterial({color:0xffe27a})); h.rotation.x = Math.PI / 2; h.position.set(0, 1.3, 0); head.add(h); }
   if (N.hat === 'pirate'){ part(1.3, .12, .9, 0x1d1630, 0, .8, 0, head); part(.9, .45, .78, 0x1d1630, 0, 1.06, 0, head); part(.16, .16, .05, 0xffffff, 0, 1.08, .4, head); part(.84, .14, .8, N.hair, 0, .7, -.05, head); }
   const arms = [];
@@ -803,6 +808,62 @@ function balloon(x, z){
   const bk = new THREE.Mesh(boxGeo, mat(0x8a5a3b)); bk.scale.set(.9, .7, .9); bk.position.y = -2.9; g.add(bk);
   bobbers.push({m:g, base:y, ph:R() * 6, amp:.7});
 }
+
+// ---------- Floresta Mítica ----------
+const FOREST = ZONES.find(Z => Z.forest), FOREST_I = ZONES.indexOf(FOREST);
+const glowM = c => new THREE.MeshBasicMaterial({color:c});
+// portal mágico no Reino das Nuvens (lado oeste da ilha do céu)
+function buildForestGate(Z){
+  const gx = SKY.cx - (SKY.r - 6), gz = SKY.cz;
+  Z.gate = {x:gx, z:gz}; Z.back = {x:gx + 5, z:gz};
+  portalUp(gx, gz, 'FLORESTA MÍTICA', 0x3dffc8, '#3dffc8', '#06243f', 0xb8ffe8);
+  [-1, 1].forEach(s => { addBlock(gx, 0, gz + s * 3.4, 1, 6, 1, 0x6b4a2b, false); addBlock(gx, 6, gz + s * 2.6, 1.2, 1, 2.6, 0x3f8f6a, false); });
+  addBlock(gx, 6.6, gz, 2, 1.2, 5, 0x3f8f6a, false);
+  [-2, 0, 2].forEach(dz => { const f = new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 8), glowM(dz ? 0xff7ac8 : 0xffe27a)); f.position.set(gx + .8, 6.5, gz + dz); scene.add(f); });
+}
+function buildForest(Z){
+  // árvore ancestral gigante no meio
+  const H = 30;
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5, H, 10), mat(0x5a3d22)); tr.position.set(Z.cx, H / 2, Z.cz); tr.castShadow = true; scene.add(tr);
+  for (let k = 0; k < 6; k++){ const a = k / 6 * Math.PI * 2; const root = addBlock(Z.cx + Math.cos(a) * 5, 0, Z.cz + Math.sin(a) * 5, 3.2, 1.6, 1.4, 0x5a3d22, false); root.rotation.y = -a; }
+  colliders.push({minX:Z.cx - 4.5, maxX:Z.cx + 4.5, minZ:Z.cz - 4.5, maxZ:Z.cz + 4.5, bottom:0, top:H});
+  [[26, 20, 0x2f6f5e], [31, 15, 0x3f8f6a], [36, 9, 0x56b84a]].forEach(([y, w, c]) => { const m = new THREE.Mesh(new THREE.SphereGeometry(w, 14, 10), mat(c)); m.scale.y = .45; m.position.set(Z.cx, y, Z.cz); scene.add(m); });
+  for (let k = 0; k < 18; k++){ const a = R() * Math.PI * 2, d = 4 + R() * 15; const f = new THREE.Mesh(new THREE.SphereGeometry(.6, 10, 8), glowM(k % 3 ? 0xffe27a : 0xff7ac8)); f.position.set(Z.cx + Math.cos(a) * d, 23 + R() * 3, Z.cz + Math.sin(a) * d); scene.add(f); }
+  // pedras com runas em volta da árvore
+  for (let k = 0; k < 8; k++){
+    const a = k / 8 * Math.PI * 2 + .2, x = Z.cx + Math.cos(a) * 11, z = Z.cz + Math.sin(a) * 11;
+    addBlock(x, 0, z, 1.6, 3.2, 1, 0x6b7280).rotation.y = -a;
+    const r = new THREE.Mesh(boxGeo, glowM(0x3dffc8)); r.scale.set(.5, 1.3, .1); r.position.set(x - Math.cos(a) * .52, 1.9, z - Math.sin(a) * .52); r.rotation.y = -a + Math.PI / 2; scene.add(r);
+  }
+  // vagalumes
+  for (let k = 0; k < 60; k++){
+    const a = R() * Math.PI * 2, d = R() * (Z.r + 2), y = rr(1, 9);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(.12, 6, 4), glowM(R() < .7 ? 0xd8ff6a : 0x7fffe0)); m.position.set(Z.cx + Math.cos(a) * d, y, Z.cz + Math.sin(a) * d); scene.add(m);
+    bobbers.push({m, base:y, ph:R() * 6, amp:.6});
+  }
+}
+function bigTree(x, z){
+  const h = rr(10, 16), c = R() < .5 ? 0x2f6f5e : 0x3f8f6a;
+  addBlock(x, 0, z, 1.8, h, 1.8, 0x5a3d22);
+  addBlock(x, h - 2, z, 8, 3, 8, c, false); addBlock(x, h + 1, z, 6, 2.4, 6, c, false); addBlock(x, h + 3.4, z, 3.6, 1.8, 3.6, 0x56b84a, false);
+  for (let k = 0; k < 4; k++){ const f = new THREE.Mesh(new THREE.SphereGeometry(.35, 8, 6), glowM(R() < .5 ? 0xff7ac8 : 0xffe27a)); f.position.set(x + rr(-3.6, 3.6), h - 2.3, z + rr(-3.6, 3.6)); scene.add(f); }
+}
+function glowShroom(x, z){
+  const c = [0x3dffc8, 0xff7ac8, 0x9a6bff, 0x7fd0ff][Math.floor(R() * 4)], h = rr(.8, 2.4);
+  addBlock(x, 0, z, .35, h, .35, 0xe8e0d0, false);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(rr(.6, 1.2), 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), glowM(c)); cap.position.set(x, h, z); scene.add(cap);
+}
+function fern(x, z){ for (let k = 0; k < 5; k++){ const b = addBlock(x, 0, z, .3, rr(1.2, 2), 1.6, k % 2 ? 0x3f9e3a : 0x56b84a, false); b.rotation.y = k * .63; b.rotation.z = .3; } }
+function crystalFlower(x, z){
+  addBlock(x, 0, z, .12, 1, .12, 0x3f9e3a, false);
+  const m = new THREE.Mesh(new THREE.OctahedronGeometry(.4, 0), glowM(R() < .5 ? 0x9fe6ff : 0xff9ad8)); m.position.set(x, 1.3, z); scene.add(m);
+}
+function ruin(x, z){
+  addBlock(x, 0, z, 1.2, rr(2, 4.5), 1.2, 0x8a8f9c);
+  addBlock(x + 2.6, 0, z, 1.2, rr(1, 3), 1.2, 0x8a8f9c);
+  addBlock(x + 1.3, 0, z + 1.4, 3.6, .6, 1, 0x7d8594, false);
+  const v = addBlock(x + .4, 0, z + .62, .4, 2.2, .1, 0x3f9e3a, false); v.rotation.z = .1;
+}
 const CORAL = [0xff6f91, 0xff9a4d, 0xb07cff, 0xffd23f, 0x4ae0c8];
 function coral(x, z){
   const c = CORAL[Math.floor(R() * CORAL.length)];
@@ -877,9 +938,9 @@ function spawnBubble(x, y, z){
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
-  const prev = i && !Z.sky ? ZONES[i-1] : HUB;
+  const prev = Z.forest ? SKY : i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
@@ -887,6 +948,7 @@ ZONES.forEach((Z, i) => {
   Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
   if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
+  if (Z.forest){ Z.portal = {x: Z.spawn.x - 4, z: Z.spawn.z + 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO CÉU', 0xfff6c8, '#fff6c8', '#2a2145', 0xfff6c8); }
   if (Z.sky){ Z.portal = {x: Z.spawn.x - 8, z: Z.spawn.z - 4}; portalUp(Z.portal.x, Z.portal.z, 'DESCER', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
@@ -904,12 +966,13 @@ ZONES.forEach((Z, i) => {
     [[obsidian,14],[lavaPool,10],[rock,7],[skull,4]],
     [[coral,24],[seaweed,34],[starfish,12],[clam,4],[chest,4],[rock,8],[anchor,2],[jelly,10],[fishSchool,8]],
     [[temple,2],[skyPillar,12],[cloudBush,18],[skyTree,12],[flowers,12],[rock,4],[balloon,5]],
+    [[bigTree,22],[glowShroom,30],[fern,24],[crystalFlower,26],[ruin,4],[rock,6]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
-    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple;
+    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -918,7 +981,7 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b][i];
   for (let k = 0; k < 4; k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
@@ -1079,7 +1142,7 @@ function placeGem(g){
   g.mesh.position.set(g.x, g.baseY, g.z);
   g.mesh.visible = true; g.active = true; g.flying = false;
 }
-ZONES.forEach((Z, zi) => { for (let k = 0; k < 42; k++){
+ZONES.forEach((Z, zi) => { for (let k = 0; k < (Z.forest ? 64 : 42); k++){
   const m = new THREE.Mesh(gemGeo, gemMats[zi]); m.castShadow = true; scene.add(m);
   const g = {mesh:m, zone:zi, phase:Math.random()*6, active:true}; placeGem(g); gems.push(g);
 }});
@@ -1682,6 +1745,7 @@ const LOOKS = [
   {I:ZONES[2], n:4, hats:['beanie', 'beanie', 'fur'], tops:[0x2b4c7e, 0xe8402c, 0x3ddc84, 0xb07cff], scarf:1},
   {I:ZONES[3], n:4, hats:['helmet'], tops:[0x8a2a2a, 0x3a2a2e, 0xff8a2a]},
   {I:ZONES[4], n:4, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0x2b4c7e]},
+  {I:ZONES[6], n:6, hats:['elf', 'elf', 'wreath'], tops:[0x2f6f5e, 0x3f8f6a, 0x6b3fc0, 0x8a5a3b], bottoms:[0x3a2a20, 0x2f5f3a]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
 ];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
@@ -1718,6 +1782,8 @@ function buildVillager(L){
     const gl = new THREE.Mesh(new THREE.SphereGeometry(.62, 16, 12), new THREE.MeshPhongMaterial({color:0x9fdcff, transparent:true, opacity:.35, shininess:140, depthWrite:false})); gl.position.y = .37; head.add(gl);
     part(.92, .14, .92, 0xb07c3a, 0, -.02, 0, head); part(.5, .8, .3, 0xffd23f, 0, 1.5, -.45, g);
   }
+  if (hat === 'elf'){ const ec = pickR([0x3f9e3a, 0x2f6f5e, 0x6b3fc0]); part(.86, .26, .84, ec, 0, .82, 0, head); part(.56, .34, .56, ec, 0, 1.1, -.08, head); part(.3, .34, .3, ec, 0, 1.4, -.2, head).rotation.x = -.3; part(.12, .2, .12, 0xffe27a, 0, 1.62, -.32, head); [-1, 1].forEach(sd => { part(.12, .3, .16, skin, sd * .44, .42, 0, head).rotation.z = sd * -.5; }); }
+  if (hat === 'wreath'){ part(.84, .22, .8, hair, 0, .78, -.02, head); [0, 1, 2, 3, 4, 5].forEach(k => { const a = k / 6 * Math.PI * 2; part(.2, .16, .2, k % 2 ? 0xff7ac8 : 0x56b84a, Math.cos(a) * .44, .86, Math.sin(a) * .44, head); }); }
   if (hat === 'halo'){ const h = new THREE.Mesh(new THREE.TorusGeometry(.34, .055, 8, 20), new THREE.MeshBasicMaterial({color:0xffe27a})); h.rotation.x = Math.PI / 2; h.position.y = 1.08; head.add(h); }
   [-1, 1].forEach(sd => { const p = new THREE.Group(); p.position.set(sd * .7, 1.9, 0); g.add(p); part(.36, .45, .42, top, 0, -.22, 0, p); part(.34, .5, .38, skin, 0, -.68, 0, p); arms.push(p); });
   const s = R() < .25 ? .72 : .92 + R() * .12; // alguns são crianças
@@ -1800,6 +1866,27 @@ function setSky(on){
   hemi.color.set(0xffffff); hemi.groundColor.set(on ? 0xbfd8ff : 0x6a5a8a); hemi.intensity = on ? .9 : .75;
   sun.color.set(on ? 0xfff6e0 : 0xfff1d6); sun.intensity = on ? .95 : .85;
   water.visible = seabed.visible = !on;
+}
+let inForest = false;
+function setForest(on){
+  inForest = on;
+  scene.background.set(on ? 0x1d2a4a : 0x8fd6ff);
+  scene.fog.color.set(on ? 0x24365a : 0x8fd6ff); scene.fog.near = on ? 40 : 90; scene.fog.far = on ? 170 : 260;
+  hemi.color.set(on ? 0x9fb8ff : 0xffffff); hemi.groundColor.set(on ? 0x2a4a3a : 0x6a5a8a); hemi.intensity = .75;
+  sun.color.set(on ? 0xbfd8ff : 0xfff1d6); sun.intensity = on ? .55 : .85;
+}
+function goForest(on){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('forestf', 'flash');
+  [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(on ? f : 1570 - f, .14, 'sine', .06, 1.2), j * 110));
+  setTimeout(() => {
+    const to = on ? FOREST.spawn : FOREST.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = on ? Math.PI / 2 : -Math.PI / 2; P.face = on ? -Math.PI / 2 : Math.PI / 2;
+    lastIsland = on ? FOREST_I : SKY_I;
+    if (on){ setSky(false); setForest(true); } else { setForest(false); setSky(true); }
+    fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('forestf'), 450); diving = false;
+  }, 500);
 }
 function fly(up){
   if (diving) return; diving = true;
@@ -2029,7 +2116,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -2228,6 +2315,8 @@ function step(now){
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
   if (SUB && !under && !diving && S.unlocked > SUB_I && P.y < -0.2 && Math.hypot(P.x - SUB.gate.x, P.z - SUB.gate.z) < 6) dive(true);
   if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
+  if (FOREST && inSky && !diving && S.unlocked > FOREST_I && P.y < 1 && Math.hypot(P.x - FOREST.gate.x, P.z - FOREST.gate.z) < 2) goForest(true);
+  if (inForest && !diving && P.y < 1 && Math.hypot(P.x - FOREST.portal.x, P.z - FOREST.portal.z) < 2) goForest(false);
   if (SKY && !inSky && !diving && S.unlocked > SKY_I && P.y < 1 && Math.hypot(P.x - SKY.gate.x, P.z - SKY.gate.z) < 2) fly(true);
   if (inSky && !diving && P.y < 1 && Math.hypot(P.x - SKY.portal.x, P.z - SKY.portal.z) < 2) fly(false);
   updateShips(t);
@@ -2267,7 +2356,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
@@ -2372,6 +2461,7 @@ function start(data){
   if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
+  if (FOREST && inIsle(FOREST, P.x, P.z)) setForest(true);
   resize(); hud();
   cloudInit();
   if (data && data.P) play(); // recarga automática: volta direto pro jogo
