@@ -319,6 +319,7 @@ const ZONES = [
   {name:'Floresta Mítica', cx:-640, cz:-640, r:55, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
   {name:'Navio Abandonado', cx:640, cz:640, r:40, ground:0x9a8a64, edge:0x7d6e4e, beach:0x6b5e44, gem:0xffd6f0, value:100000, price:10000000, wreck:true},
   {name:'Estádio de Futebol', cx:-400, cz:80, r:44, ground:0xa7adb8, edge:0x8a909c, beach:0xd9d2bf, gem:0xffe14d, value:250000, price:25000000, stadium:true},
+  {name:'Praia do Sol', cx:88, cz:-4, r:32, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -669,6 +670,8 @@ const NPCS = [
    hello:'Uuuu... calma, sou um fantasma amigável! Bem-vindo ao meu velho navio. O que vai ser?'},
   {name:'Técnico Apito',  color:0xffe14d, css:'#ffe14d', shirt:0x2b9e4a, apron:0xffe14d, skin:0xc68a5a, hair:0x1d1630, hat:'cap', hatC:0xffe14d, stache:1,
    hello:'Prrriii! Bem-vindo ao estádio, craque! Chute a bola no gol para ganhar moedas. O que vai querer?'},
+  {name:'Salva-vidas Nina', color:0xff5a5a, css:'#ff5a5a', shirt:0xe8402c, apron:0xffd23f, skin:0xe8b48a, hair:0xe0b860, hat:'cap', hatC:0xffd23f,
+   hello:'Oi! Que sol bonito, né? Passe protetor e aproveite a praia. O que vai querer?'},
 ];
 const stalls = [];
 function addStall(x, z, fx, fz, N){
@@ -1062,6 +1065,66 @@ function spawnBubble(x, y, z){
   b.m.position.set(x, y, z); b.m.visible = true; b.life = 2.6; b.m.scale.setScalar(.6 + Math.random() * .9); b.ph = Math.random() * 6;
 }
 
+// ---------- Enfeites da Praia do Sol ----------
+const praiaFx = {crabs:[], balls:[]};
+const pk2 = a => a[Math.floor(R() * a.length)];
+function beachUmb(x, z){
+  umbrella(x, z, pk2([0xff5a8a, 0x4aa8ff, 0xffd23f, 0x3ddc84, 0xff8a2a]));
+  addBlock(x - 1.3, .01, z + .4, 1.1, .04, 2.2, pk2([0xff7ac8, 0x5cc8ff, 0xffffff, 0xffe14d]), false);
+}
+function sandcastle(x, z){
+  const C = 0xe8c97a;
+  addBlock(x, 0, z, 3, .9, 3, C);
+  [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]].forEach(([a, b]) => { addBlock(x + a, 0, z + b, .9, 1.8, .9, 0xdfbd6c, false); cone(.6, .6, C, x + a, 1.8, z + b, 4).rotation.y = Math.PI / 4; });
+  addBlock(x, .9, z, 1.3, 1.3, 1.3, 0xdfbd6c, false); cone(.9, .9, C, x, 2.2, z, 4).rotation.y = Math.PI / 4;
+  addBlock(x, 3.1, z, .06, .8, .06, 0x6b4a2b, false); addBlock(x + .25, 3.6, z, .45, .28, .03, 0xff2f6d, false);
+  addBlock(x, 0, z + 1.51, .55, .6, .05, 0x8a6a3a, false);
+}
+function surf(x, z){
+  const b = addBlock(x, 0, z, .7, 2.6, .14, pk2([0xff5a8a, 0x4ae0c8, 0xffd23f, 0x7b4fd6, 0xff8a2a]), false);
+  b.rotation.y = R() * Math.PI; b.rotation.z = rr(-.15, .15);
+  addBlock(x, 1, z, .72, .25, .16, 0xffffff, false).rotation.y = b.rotation.y;
+}
+function crab(x, z){
+  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.35, 12, 8), mat(0xe8402c)); body.scale.set(1.3, .6, 1); body.position.y = .3; g.add(body);
+  [-1, 1].forEach(sd => {
+    const c = new THREE.Mesh(boxGeo, mat(0xff5a3a)); c.scale.set(.22, .18, .25); c.position.set(sd * .5, .38, .3); g.add(c);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(.06, 6, 5), mat(0x1d1630)); e.position.set(sd * .12, .55, .25); g.add(e);
+    for (let k = 0; k < 3; k++){ const l = new THREE.Mesh(boxGeo, mat(0xc0392b)); l.scale.set(.3, .05, .05); l.position.set(sd * .45, .12, -.15 + k * .15); g.add(l); }
+  });
+  praiaFx.crabs.push({g, x, z, ph:R() * 6, r:rr(1, 2.2)});
+}
+function lifeguard(x, z){
+  [[-.8, -.8], [.8, -.8], [-.8, .8], [.8, .8]].forEach(([a, b]) => addBlock(x + a, 0, z + b, .2, 3, .2, 0xffffff));
+  addBlock(x, 3, z, 2.2, .25, 2.2, 0xffffff);
+  addBlock(x, 3.25, z - .9, 2.2, 1, .15, 0xe8402c, false);
+  [-1, 1].forEach(sd => addBlock(x + sd * 1, 3.25, z, .12, .7, 2.2, 0xe8402c, false));
+  addBlock(x, 5, z, 2.6, .2, 2.6, 0xe8402c, false); [-1, 1].forEach(sd => addBlock(x + sd * 1.05, 3.25, z - 1.05, .12, 1.8, .12, 0xffffff, false));
+  for (let k = 0; k < 5; k++) addBlock(x, 0, z + 1.4 + (4 - k) * .7, 1, .55 * (k + 1) + .05, .7, 0xc9a06a);
+  const l = label('SALVA-VIDAS', '#e8402c', '#ffffff', 512); l.position.set(x, 6.1, z); scene.add(l);
+}
+function volley(x, z){
+  [-4, 4].forEach(a => addBlock(x + a, 0, z, .2, 2.8, .2, 0x8a5a3b));
+  addBlock(x, 1.9, z, 8, .9, .04, 0, false, new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.45, side:THREE.DoubleSide}));
+  addBlock(x, 2.75, z, 8, .12, .06, 0xffffff, false);
+  const b = new THREE.Mesh(new THREE.SphereGeometry(.4, 14, 10), mat(0xffe14d)); b.position.set(x + 2, .4, z + 2); scene.add(b); praiaFx.balls.push({m:b, x:x + 2, z:z + 2, ph:R() * 6});
+}
+function kiosk(x, z){
+  addBlock(x, 0, z, 3.6, 1.1, 2, 0x8a5a3b);
+  [[-1.7, -1], [1.7, -1], [-1.7, 1], [1.7, 1]].forEach(([a, b]) => addBlock(x + a, 0, z + b, .2, 3, .2, 0x6b4a2b, false));
+  cone(3.4, 1.4, 0xd9b45a, x, 3, z, 8);
+  [[-1, 0xff8a2a], [0, 0x3ddc84], [1, 0xff5a8a]].forEach(([a, c]) => { addBlock(x + a, 1.1, z + .3, .3, .5, .3, c, false); addBlock(x + a, 1.6, z + .3, .05, .25, .05, 0xffffff, false); });
+  const l = label('SUCOS', '#ffd23f', '#3a2a00', 384); l.position.set(x, 4.9, z); scene.add(l);
+}
+function shell(x, z){ for (let k = 0; k < 3; k++){ const m = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(pk2([0xfff1de, 0xffc0cb, 0xffe0b0]))); m.scale.z = 1.3; m.position.set(x + rr(-1, 1), 0, z + rr(-1, 1)); scene.add(m); } }
+function updatePraia(t){
+  if (lastIsland !== PRAIA_I) return;
+  for (const c of praiaFx.crabs){ const a = Math.sin(t * .7 + c.ph); c.g.position.x = c.x + a * c.r; c.g.position.y = Math.abs(Math.sin(t * 10 + c.ph)) * .04; c.g.rotation.z = Math.sin(t * 10 + c.ph) * .08; }
+  for (const b of praiaFx.balls){ b.m.position.y = .4 + Math.abs(Math.sin(t * 2.5 + b.ph)) * 3; b.m.position.x = b.x + Math.sin(t * 1.25 + b.ph) * 3.5; }
+}
+const PRAIA_I = ZONES.findIndex(Z => Z.praia);
+
 // ---------- Estádio de Futebol (9ª fase, entrada pelo Campo Verde) ----------
 const STAD = ZONES.find(Z => Z.stadium), STAD_I = ZONES.indexOf(STAD);
 const pk = a => a[Math.floor(R() * a.length)];
@@ -1250,7 +1313,7 @@ function updateStadium(dt, t){
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
-  const prev = Z.forest ? SKY : Z.wreck ? SUB : Z.stadium ? ZONES[0] : i && !Z.sky ? ZONES[i-1] : HUB;
+  const prev = Z.from !== undefined ? ZONES[Z.from] : Z.forest ? SKY : Z.wreck ? SUB : Z.stadium ? ZONES[0] : i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
   if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else if (Z.stadium){ buildStadiumGate(Z); buildStadium(Z, i); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
@@ -1267,7 +1330,8 @@ ZONES.forEach((Z, i) => {
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   if (!Z.stadium) for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
   const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
-  const clear = (x, z) => Math.hypot(x - px, z - pz) > 7 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
+  const exits2 = ZONES.filter(W => W.from === i).map(W => ({x: Z.cx + Math.sign(W.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(W.cz - Z.cz) * Z.r}));
+  const clear = (x, z) => exits2.every(e => Math.hypot(x - e.x, z - e.z) > 8) && Math.hypot(x - px, z - pz) > 7 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
   const spot = (m = 4, pad = 2.2) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, pad)) return [x, z]; } return null; };
   if (i === 3) volcano(Z.cx, Z.cz);
   if (Z.sub){ const s = spot(14, 7.5); if (s) ship(s[0], s[1], i); }
@@ -1283,12 +1347,13 @@ ZONES.forEach((Z, i) => {
     [[bigTree,22],[glowShroom,30],[fern,24],[crystalFlower,26],[ruin,4],[rock,6]],
     [[barrel,12],[crate,10],[coral,14],[seaweed,26],[starfish,8],[rock,8],[jelly,10],[fishSchool,7],[anchor,2],[skull,3]],
     [],
+    [[palm,14],[beachUmb,9],[sandcastle,4],[surf,6],[crab,9],[starfish,8],[shell,8],[rock,3],[lifeguard,1],[volley,1],[kiosk,2]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
-    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree;
+    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree || fn === lifeguard || fn === volley || fn === kiosk;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a, 0x56606b][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a, 0x56606b, 0x8a909c, 0xb8a07a][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -1297,7 +1362,7 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b, 0x5a4030][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b, 0x5a4030, 0x8a909c, 0xe8c97a][i];
   for (let k = 0; k < (Z.stadium ? 0 : 4); k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
@@ -2483,6 +2548,7 @@ const LOOKS = [
   {I:ELF, n:14, hats:['elf', 'elf', 'wreath', 'elf'], tops:[0x3f9e3a, 0x2f6f5e, 0x6b3fc0, 0xff7ac8, 0x4aa8ff], bottoms:[0x3a2a20, 0x2f5f3a, 0xf4ecd8]},
   {I:ZONES[7], n:5, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0xe8402c, 0x2b4c7e]},
   {I:ZONES[6], n:6, hats:['elf', 'elf', 'wreath'], tops:[0x2f6f5e, 0x3f8f6a, 0x6b3fc0, 0x8a5a3b], bottoms:[0x3a2a20, 0x2f5f3a]},
+  {I:ZONES[9], n:6, hats:['sun', 'none', 'cap', 'straw'], tops:[0xff5a8a, 0x4ae0c8, 0xffd23f, 0xffffff, 0xff8a2a], bottoms:[0x4aa8ff, 0xff7ac8, 0xffd23f]},
   {I:ZONES[8], n:6, hats:['cap', 'cap', 'none'], tops:[0xffd23f, 0x3ddc84, 0x4aa8ff, 0xffffff], bottoms:[0x2b4c7e, 0xffffff]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
 ];
@@ -3019,6 +3085,7 @@ const ENV = {
   0:    {top:C(0x3d9cff), hor:C(0xd2f4ff), fog:C(0xc8eeff), near:90, far:270, hemi:C(0xffffff), ground:C(0x5a8a4a), hi:.8,  sunC:C(0xfff4d0), si:.9,  disc:C(0xfff8c0), disk:.7,  part:'pollen'},
   1:    {top:C(0x4f8fd8), hor:C(0xffc98a), fog:C(0xf4cf98), near:60, far:220, hemi:C(0xffe8c0), ground:C(0x9a6a3a), hi:.8,  sunC:C(0xffc880), si:1,   disc:C(0xffb050), disk:1.6, part:'dust'},
   2:    {top:C(0x8fb4dc), hor:C(0xeef6ff), fog:C(0xe4f0fb), near:35, far:170, hemi:C(0xe8f2ff), ground:C(0x8aa0c0), hi:.85, sunC:C(0xe0eeff), si:.7,  disc:C(0xffffff), disk:.4,  part:'snow'},
+  praia:{top:C(0x2f8fff), hor:C(0xc4f1ff), fog:C(0xc4f1ff), near:95, far:280, hemi:C(0xffffff), ground:C(0xc9a86a), hi:.85, sunC:C(0xfff2c0), si:1,   disc:C(0xfff6b0), disk:1.3, part:null},
   mt:   {top:C(0x5f9ee0), hor:C(0xf2f8ff), fog:C(0xe8f2fc), near:55, far:220, hemi:C(0xf0f6ff), ground:C(0x9ab0cc), hi:.9,  sunC:C(0xfff6e8), si:.8,  disc:C(0xffffff), disk:.8,  part:'snow'},
   3:    {top:C(0x1e0a10), hor:C(0x9a3018), fog:C(0x5e2016), near:30, far:160, hemi:C(0xffb090), ground:C(0x3a1010), hi:.8,  sunC:C(0xff9a6a), si:.75, disc:C(0xff4020), disk:1.2, part:'ember'},
 };
@@ -3056,7 +3123,7 @@ function updateEnv(dt, t){
   const special = under || inSky || inForest || inElf;
   skyMesh.visible = !special;
   if (special){ pts.visible = false; return; }
-  const key = inSnow ? 'mt' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
+  const key = inSnow ? 'mt' : !inArena && !inMini && lastIsland === PRAIA_I ? 'praia' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
   const T = ENV[key], k = 1 - Math.exp(-dt * 1.6);
   for (const c of ['top', 'hor', 'fog', 'hemi', 'ground', 'sunC', 'disc']) envCur[c].lerp(T[c], k);
   for (const n of ['near', 'far', 'hi', 'si', 'disk']) envCur[n] += (T[n] - envCur[n]) * k;
@@ -3170,6 +3237,7 @@ function step(now){
   updateElf(dt, t);
   updateSnow(dt, t);
   updateStadium(dt, t);
+  updatePraia(t);
 
   // câmera (na tela inicial ela gira devagar em volta do boneco)
   if (!playing) cam.yaw += dt * 0.12;
@@ -3184,7 +3252,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
