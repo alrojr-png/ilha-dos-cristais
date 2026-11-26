@@ -2421,6 +2421,76 @@ function talkAct(act){
 talkEl.addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (b){ initAudio(); talkAct(b.dataset.act); } });
 talkBtn.addEventListener('click', () => { initAudio(); if (nearStall) openTalk(nearStall); else if (nearDock) openShipMenu(nearDock); });
 
+// ---------- Céu de cada ilha (fundo + partículas no ar) ----------
+const C = c => new THREE.Color(c);
+const ENV = {
+  hub:  {top:C(0x4aa8ff), hor:C(0x8fd6ff), fog:C(0x8fd6ff), near:90, far:260, hemi:C(0xffffff), ground:C(0x6a5a8a), hi:.75, sunC:C(0xfff1d6), si:.85, disc:C(0xfff6d0), disk:.5,  part:null},
+  0:    {top:C(0x3d9cff), hor:C(0xd2f4ff), fog:C(0xc8eeff), near:90, far:270, hemi:C(0xffffff), ground:C(0x5a8a4a), hi:.8,  sunC:C(0xfff4d0), si:.9,  disc:C(0xfff8c0), disk:.7,  part:'pollen'},
+  1:    {top:C(0x4f8fd8), hor:C(0xffc98a), fog:C(0xf4cf98), near:60, far:220, hemi:C(0xffe8c0), ground:C(0x9a6a3a), hi:.8,  sunC:C(0xffc880), si:1,   disc:C(0xffb050), disk:1.6, part:'dust'},
+  2:    {top:C(0x8fb4dc), hor:C(0xeef6ff), fog:C(0xe4f0fb), near:35, far:170, hemi:C(0xe8f2ff), ground:C(0x8aa0c0), hi:.85, sunC:C(0xe0eeff), si:.7,  disc:C(0xffffff), disk:.4,  part:'snow'},
+  3:    {top:C(0x1e0a10), hor:C(0x9a3018), fog:C(0x5e2016), near:30, far:160, hemi:C(0xffb090), ground:C(0x3a1010), hi:.8,  sunC:C(0xff9a6a), si:.75, disc:C(0xff4020), disk:1.2, part:'ember'},
+};
+const envCur = {top:ENV.hub.top.clone(), hor:ENV.hub.hor.clone(), fog:ENV.hub.fog.clone(), near:90, far:260, hemi:ENV.hub.hemi.clone(), ground:ENV.hub.ground.clone(), hi:.75, sunC:ENV.hub.sunC.clone(), si:.85, disc:ENV.hub.disc.clone(), disk:.5};
+const skyMat = new THREE.ShaderMaterial({
+  uniforms:{top:{value:envCur.top}, hor:{value:envCur.hor}, disc:{value:envCur.disc}, disk:{value:.5}, sunDir:{value:new THREE.Vector3(.55, .22, -.8).normalize()}},
+  vertexShader:'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader:'uniform vec3 top; uniform vec3 hor; uniform vec3 disc; uniform float disk; uniform vec3 sunDir; varying vec3 vP;' +
+    'void main(){ float h = clamp(vP.y, 0.0, 1.0); vec3 c = mix(hor, top, pow(h, 0.55));' +
+    ' float d = max(dot(normalize(vP), sunDir), 0.0); c += disc * (smoothstep(0.9985, 0.9993, d) * 0.9 + pow(d, 60.0) * 0.35 * disk);' +
+    ' gl_FragColor = vec4(c, 1.0); }',
+  side:THREE.BackSide, depthWrite:false, fog:false
+});
+const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(370, 32, 16), skyMat); skyMesh.renderOrder = -1; skyMesh.frustumCulled = false; scene.add(skyMesh);
+// partículas: pólen, poeira, neve e faíscas
+const PART = {
+  pollen:{color:0xfff6b0, size:.28, op:.8,  add:false, v:(i, t) => [Math.sin(t * .5 + i) * .4, .25 + Math.sin(t + i * 3) * .2, Math.cos(t * .4 + i) * .4]},
+  dust:  {color:0xe8c890, size:.4,  op:.55, add:false, v:(i, t) => [7 + Math.sin(i) * 2, Math.sin(t * 2 + i) * .4, 1.5]},
+  snow:  {color:0xffffff, size:.38, op:.9,  add:false, v:(i, t) => [Math.sin(t * .8 + i) * .6, -2.6 - (i % 5) * .2, Math.cos(t * .6 + i * 2) * .5]},
+  ember: {color:0xff8a2a, size:.3,  op:1,   add:true,  v:(i, t) => [Math.sin(t * 1.3 + i) * .7, 1.8 + (i % 4) * .4, Math.cos(t + i) * .7]},
+};
+const PN = 700, pPos = new Float32Array(PN * 3);
+for (let i = 0; i < PN; i++){ pPos[i * 3] = (Math.random() - .5) * 80; pPos[i * 3 + 1] = Math.random() * 30; pPos[i * 3 + 2] = (Math.random() - .5) * 80; }
+const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const dotTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.5, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv); })();
+const pMat = new THREE.PointsMaterial({size:.3, map:dotTex, transparent:true, opacity:0, depthWrite:false, sizeAttenuation:true});
+const pts = new THREE.Points(pGeo, pMat); pts.frustumCulled = false; scene.add(pts);
+let partCur = null, partAmt = 0;
+function setPart(k){
+  partCur = k; if (!k) return;
+  const d = PART[k]; pMat.color.set(d.color); pMat.size = d.size; pMat.blending = d.add ? THREE.AdditiveBlending : THREE.NormalBlending; pMat.needsUpdate = true;
+  for (let i = 0; i < PN; i++){ pPos[i * 3] = P.x + (Math.random() - .5) * 80; pPos[i * 3 + 1] = Math.random() * 30; pPos[i * 3 + 2] = P.z + (Math.random() - .5) * 80; }
+}
+function updateEnv(dt, t){
+  const special = under || inSky || inForest;
+  skyMesh.visible = !special;
+  if (special){ pts.visible = false; return; }
+  const key = !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
+  const T = ENV[key], k = 1 - Math.exp(-dt * 1.6);
+  for (const c of ['top', 'hor', 'fog', 'hemi', 'ground', 'sunC', 'disc']) envCur[c].lerp(T[c], k);
+  for (const n of ['near', 'far', 'hi', 'si', 'disk']) envCur[n] += (T[n] - envCur[n]) * k;
+  skyMesh.position.copy(camera.position);
+  skyMat.uniforms.disk.value = envCur.disk;
+  scene.background.copy(envCur.hor);
+  scene.fog.color.copy(envCur.fog); scene.fog.near = envCur.near; scene.fog.far = envCur.far;
+  hemi.color.copy(envCur.hemi); hemi.groundColor.copy(envCur.ground); hemi.intensity = envCur.hi;
+  sun.color.copy(envCur.sunC); sun.intensity = envCur.si;
+  // partículas: some, troca e aparece de novo
+  const want = T.part;
+  if (want !== partCur){ partAmt = Math.max(0, partAmt - dt * 1.5); if (partAmt === 0) setPart(want); }
+  else if (want) partAmt = Math.min(1, partAmt + dt * .8);
+  pts.visible = !!partCur && partAmt > 0;
+  if (!pts.visible) return;
+  const d = PART[partCur]; pMat.opacity = d.op * partAmt;
+  for (let i = 0; i < PN; i++){
+    const v = d.v(i, t), j = i * 3;
+    pPos[j] += v[0] * dt; pPos[j + 1] += v[1] * dt; pPos[j + 2] += v[2] * dt;
+    if (pPos[j] - P.x > 40) pPos[j] -= 80; else if (pPos[j] - P.x < -40) pPos[j] += 80;
+    if (pPos[j + 2] - P.z > 40) pPos[j + 2] -= 80; else if (pPos[j + 2] - P.z < -40) pPos[j + 2] += 80;
+    if (pPos[j + 1] > 30) pPos[j + 1] -= 30; else if (pPos[j + 1] < 0) pPos[j + 1] += 30;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+}
+
 // ---------- Laço do jogo ----------
 let last = performance.now(), saveT = 0, fullWarn = 0, combo = 0, comboT = 0, zoneNow = -1, gemSoundT = 0;
 function step(now){
@@ -2499,6 +2569,7 @@ function step(now){
   camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, ty + Math.sin(cam.pitch) * cam.dist, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
   camera.lookAt(tx, ty, tz);
   sun.position.set(P.x + 18, 40, P.z - 12); sun.target.position.set(P.x, 0, P.z);
+  updateEnv(dt, t);
 
   // zona atual
   const zi = islandAt(P.x, P.z);

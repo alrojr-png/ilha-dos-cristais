@@ -11,7 +11,7 @@ Jogo 3D de simulador no navegador: pegue cristais, venda para os vendedores das 
 ## O que tem
 - Tela inicial com o botão JOGAR
 - Oceano com a Ilha Central e 7 fases:
-  - Campo Verde, Dunas Douradas, Vale Gelado e Cratera de Lava (ligadas por pontes)
+  - Campo Verde, Dunas Douradas, Vale Gelado e Cratera de Lava (ligadas por pontes), cada uma com seu céu: primavera com pólen, pôr do sol com poeira, neve caindo e céu vermelho com faíscas
   - Reino Submerso, no fundo do mar (entra pelo redemoinho)
   - Reino das Nuvens, no céu (sobe pelo pé de feijão gigante)
   - Floresta Mítica gigante (portal mágico no Reino das Nuvens, 4 milhões de moedas)
