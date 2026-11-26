@@ -315,6 +315,7 @@ const ZONES = [
   {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
   {name:'Reino das Nuvens', cx:0, cz:-640, r:40, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
   {name:'Floresta Mítica', cx:-640, cz:-640, r:55, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
+  {name:'Navio Abandonado', cx:640, cz:640, r:40, ground:0x9a8a64, edge:0x7d6e4e, beach:0x6b5e44, gem:0xffd6f0, value:100000, price:10000000, wreck:true},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -521,7 +522,7 @@ function lockedAt(x, z){
     if (inIsle(Z, x, z, 1.2 + RAD)) return true;
     if (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 6.5) return true;
   }
-  if (under && !inIsle(SUB, x, z, -0.5)) return true;
+  if (under && !inIsle(SUB, x, z, -0.5) && !inIsle(WRECK, x, z, -0.5)) return true;
   if (inArena && !inIsle(ARENA, x, z, -BEACH - 0.8)) return true;
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
@@ -658,6 +659,8 @@ const NPCS = [
    hello:'Bem-vindo ao céu, aventureiro! Aqui em cima as nuvens são fofinhas. O que vai querer?'},
   {name:'Sábia Lumi',    color:0x3dffc8, css:'#3dffc8', shirt:0x2f6f5e, apron:0x8a5a3b, skin:0xe8b48a, hair:0xc9e8ff, hat:'wreath',
    hello:'Psiu... as árvores contaram que você vinha. Bem-vindo à Floresta Mítica! O que deseja?'},
+  {name:'Vovô Âncora',   color:0x7fffd4, css:'#7fffd4', shirt:0x2b4c7e, apron:0xd8cfb8, skin:0xbfe8ff, hair:0xffffff, hat:'pirate', stache:1,
+   hello:'Uuuu... calma, sou um fantasma amigável! Bem-vindo ao meu velho navio. O que vai ser?'},
 ];
 const stalls = [];
 function addStall(x, z, fx, fz, N){
@@ -941,6 +944,95 @@ function fishSchool(x, z){
   }
   bobbers.push({fish:g, x, z, r:rr(5, 12), y:rr(2.5, 8), sp:rr(.25, .5) * (R() < .5 ? 1 : -1), ph:R() * 6});
 }
+// ---------- Navio Abandonado (8ª fase, no fundo do mar) ----------
+const WRECK = ZONES.find(Z => Z.wreck), WRECK_I = ZONES.indexOf(WRECK);
+function barrel(x, z){
+  const lying = R() < .35, b = new THREE.Mesh(new THREE.CylinderGeometry(.7, .7, 1.6, 12), mat(0x6b4a2b));
+  if (lying){ b.rotation.z = Math.PI / 2; b.rotation.y = R() * 3; b.position.set(x, .7, z); } else b.position.set(x, .8, z);
+  b.castShadow = true; scene.add(b);
+  if (!lying) [-.5, .5].forEach(dy => { const r = new THREE.Mesh(new THREE.CylinderGeometry(.73, .73, .12, 12), mat(0x3a3a40)); r.position.set(x, .8 + dy, z); scene.add(r); });
+  colliders.push({minX:x - .7, maxX:x + .7, minZ:z - .7, maxZ:z + .7, bottom:0, top:lying ? 1.4 : 1.6});
+}
+function crate(x, z){
+  const sz = rr(1.1, 1.7);
+  addBlock(x, 0, z, sz, sz, sz, 0x8a6a45);
+  addBlock(x, sz * .45, z, sz + .02, .14, sz + .02, 0x5a4030, false);
+  if (R() < .4) addBlock(x + rr(-.1, .1), sz, z, sz * .8, sz * .8, sz * .8, 0x9a7a55);
+}
+const wreckFx = {lamps:[]};
+function buildWreckGate(Z){
+  let gx = SUB.cx + SUB.r - 7, gz = SUB.cz;
+  for (let a = 1; a < 50 && occupied(gx, gz, 3); a++){ const ang = (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .07; gx = SUB.cx + Math.cos(ang) * (SUB.r - 7); gz = SUB.cz + Math.sin(ang) * (SUB.r - 7); }
+  Z.gate = {x:gx, z:gz}; Z.back = {x:gx - 5, z:gz};
+  portalUp(gx, gz, 'NAVIO ABANDONADO', 0x7fffd4, '#7fffd4', '#06243f', 0xbff4ff);
+  // pedaço de navio afundado ao lado
+  const plank = addBlock(gx + 3.2, 0, gz - 2.5, 1, 3.5, 4, 0x4a3424, false); plank.rotation.z = .4; plank.rotation.y = .5;
+  anchor(gx + 2.5, gz + 3);
+}
+function buildWreck(Z, zi){
+  const X = d => Z.cx + d, ZZ = d => Z.cz + d, W = 0x7a5638, W2 = 0x8f6a46;
+  addBlock(X(0), -.03, ZZ(-1), 14, .1, 52, 0x5a4030, false);
+  const wall = (x, z1, z2) => addBlock(X(x), 0, ZZ((z1 + z2) / 2), 1, 6.5, z2 - z1, W);
+  wall(-7, -27, -12); wall(-7, -5, 24);   // buraco para entrar do lado oeste
+  wall(7, -27, 8); wall(7, 14, 24);       // buraco do lado leste, embaixo do convés
+  for (let z = -26; z < 24; z += 2.5){
+    if (z < -12 || z > -5) if (R() < .6) addBlock(X(-7), 6.5, ZZ(z), 1.05, rr(.3, 1.5), 1.2, W2, false);
+    if (z < 8 || z > 14) if (R() < .6) addBlock(X(7), 6.5, ZZ(z), 1.05, rr(.3, 1.5), 1.2, W2, false);
+  }
+  // escotilhas redondas e pontas de madeira quebrada no buraco
+  [[-7.55, -20], [-7.55, 2], [-7.55, 12], [-7.55, 20], [7.55, -20], [7.55, -6], [7.55, 18]].forEach(([x, z]) => {
+    const po = new THREE.Mesh(new THREE.CircleGeometry(.55, 16), mat(0x1d1630)); po.position.set(X(x), 3.6, ZZ(z)); po.rotation.y = x < 0 ? -Math.PI / 2 : Math.PI / 2; scene.add(po);
+  });
+  [[-12, 2.5], [-11, 4.8], [-6, 3.4], [-5.2, 1.2]].forEach(([z, y]) => { const sp = addBlock(X(-7), y, ZZ(z), .9, .5, 1.6, W2, false); sp.rotation.x = .6; });
+  // popa e proa
+  addBlock(X(0), 0, ZZ(24.5), 15, 9, 1, W);
+  addBlock(X(0), 0, ZZ(-27.5), 15, 6.5, 1, W);
+  addBlock(X(0), 0, ZZ(-29.6), 7.2, 6.5, 7.2, W, false).rotation.y = Math.PI / 4;
+  const bs = new THREE.Mesh(new THREE.CylinderGeometry(.3, .4, 10, 8), mat(0x3a2a1a)); bs.rotation.x = Math.PI / 2 + .5; bs.position.set(X(0), 7, ZZ(-35)); scene.add(bs);
+  // convés de trás (dá para subir)
+  addBlock(X(0), 4.6, ZZ(13), 13, .4, 22, W2);
+  for (let i = 0; i < 6; i++) addBlock(X(4), 0, ZZ(-7.2 + i * 1.6), 3, 5 / 6 * (i + 1), 1.9, i % 2 ? W2 : W);
+  // cabine do capitão (com caixotes para subir no teto)
+  addBlock(X(0), 5, ZZ(19.5), 8, 3.4, 6, W);
+  addBlock(X(0), 5, ZZ(16.45), 1.3, 2.2, .1, 0x2a1c12, false);
+  [-2.5, 2.5].forEach(wx => addBlock(X(wx), 6.6, ZZ(16.45), .9, .7, .1, 0, false, new THREE.MeshBasicMaterial({color:0x7fffd4})));
+  addBlock(X(-5.5), 5, ZZ(12.5), 1.6, 1.6, 1.6, 0x8a6a45);
+  addBlock(X(-5.5), 5, ZZ(14.6), 1.6, 3.2, 1.6, 0x9a7a55);
+  const roofChest = [X(1.5), ZZ(20.5)];
+  addBlock(roofChest[0], 8.4, roofChest[1], 1.8, 1, 1.2, 0x8a5a3b, false); addBlock(roofChest[0], 9.4, roofChest[1], 1.5, .3, .9, 0xffd23f, false);
+  // mastro quebrado e vela rasgada
+  addBlock(X(0), 5, ZZ(8), .9, 3, .9, 0x3a2a1a);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(.42, .5, 24, 8), mat(0x3a2a1a)); mast.position.set(X(-2.5), 2.2, ZZ(-8)); mast.rotation.x = Math.PI / 2 - .17; mast.rotation.z = .1; scene.add(mast);
+  const sail = new THREE.Mesh(new THREE.PlaneGeometry(7, 5), new THREE.MeshLambertMaterial({color:0xb8c0a8, transparent:true, opacity:.55, side:THREE.DoubleSide})); sail.position.set(X(-4.5), 1.2, ZZ(-14)); sail.rotation.x = -Math.PI / 2 + .25; sail.rotation.z = .3; scene.add(sail);
+  // canhões no porão
+  [2, 8, 14, 20].forEach(z => {
+    addBlock(X(-5.6), 0, ZZ(z), 1.4, .7, 1.6, 0x5a4030);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(.32, .42, 2.2, 10), mat(0x2a2a35)); c.rotation.z = Math.PI / 2; c.position.set(X(-6.2), 1.05, ZZ(z)); scene.add(c);
+  });
+  // tesouros
+  chest(X(-3), ZZ(-19)); chest(X(3.5), ZZ(21)); chest(X(-2), ZZ(6));
+  // lanternas fantasmas
+  [[-4, -18, 3.8], [4, -10, 3.8], [-4, 0, 3.8], [0, 6, 3.9], [3, 18, 3.9], [-3, 12, 3.9]].forEach(([x, z, y]) => {
+    addBlock(X(x), y + .4, ZZ(z), .06, 1, .06, 0x2a2a35, false);
+    const l = new THREE.Mesh(new THREE.SphereGeometry(.32, 10, 8), new THREE.MeshBasicMaterial({color:0x7fffd4})); l.position.set(X(x), y, ZZ(z)); scene.add(l);
+    wreckFx.lamps.push({m:l, ph:R() * 6});
+  });
+  // lugares altos para os cristais
+  for (let k = 0; k < 6; k++) zonePlatforms[zi].push({x:X(rr(-5, 5)), z:ZZ(rr(3, 15)), top:5});
+  zonePlatforms[zi].push({x:X(-1.5), z:ZZ(18.5), top:8.4}, {x:X(2), z:ZZ(22), top:8.4});
+}
+function goWreck(on){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('flash');
+  beep(on ? 330 : 500, .7, 'sine', .07, on ? .4 : 2.5);
+  setTimeout(() => {
+    const to = on ? WRECK.spawn : WRECK.back;
+    Object.assign(P, {x:to.x, y:on ? 2 : 0, z:to.z, vy:0});
+    cam.yaw = on ? -Math.PI / 2 : Math.PI / 2; P.face = on ? Math.PI / 2 : -Math.PI / 2;
+    lastIsland = on ? WRECK_I : SUB_I;
+    fx.classList.remove('flash'); diving = false;
+  }, 500);
+}
 function ship(x, z, zi){
   addBlock(x, 0, z, 4.5, 2.4, 13, 0x5a3d22);
   addBlock(x, 2.4, z - 4.5, 4, 1.8, 3.5, 0x6b4a2b);
@@ -965,9 +1057,9 @@ function spawnBubble(x, y, z){
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
-  const prev = Z.forest ? SKY : i && !Z.sky ? ZONES[i-1] : HUB;
+  const prev = Z.forest ? SKY : Z.wreck ? SUB : i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
@@ -975,6 +1067,7 @@ ZONES.forEach((Z, i) => {
   Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
   if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
+  if (Z.wreck){ Z.portal = {x: Z.spawn.x, z: Z.spawn.z - 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO REINO', 0x7fe8ff, '#7fe8ff', '#06243f', 0xbff4ff); }
   if (Z.forest){ Z.portal = {x: Z.spawn.x - 4, z: Z.spawn.z + 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO CÉU', 0xfff6c8, '#fff6c8', '#2a2145', 0xfff6c8); }
   if (Z.sky){ Z.portal = {x: Z.spawn.x - 8, z: Z.spawn.z - 4}; portalUp(Z.portal.x, Z.portal.z, 'DESCER', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
@@ -994,12 +1087,13 @@ ZONES.forEach((Z, i) => {
     [[coral,24],[seaweed,34],[starfish,12],[clam,4],[chest,4],[rock,8],[anchor,2],[jelly,10],[fishSchool,8]],
     [[temple,2],[skyPillar,12],[cloudBush,18],[skyTree,12],[flowers,12],[rock,4],[balloon,5]],
     [[bigTree,22],[glowShroom,30],[fern,24],[crystalFlower,26],[ruin,4],[rock,6]],
+    [[barrel,12],[crate,10],[coral,14],[seaweed,26],[starfish,8],[rock,8],[jelly,10],[fishSchool,7],[anchor,2],[skull,3]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
     const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a, 0x56606b][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -1008,7 +1102,7 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b, 0x5a4030][i];
   for (let k = 0; k < 4; k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
@@ -1169,7 +1263,7 @@ function placeGem(g){
   g.mesh.position.set(g.x, g.baseY, g.z);
   g.mesh.visible = true; g.active = true; g.flying = false;
 }
-ZONES.forEach((Z, zi) => { for (let k = 0; k < (Z.forest ? 64 : 42); k++){
+ZONES.forEach((Z, zi) => { for (let k = 0; k < (Z.forest ? 64 : Z.wreck ? 50 : 42); k++){
   const m = new THREE.Mesh(gemGeo, gemMats[zi]); m.castShadow = true; scene.add(m);
   const g = {mesh:m, zone:zi, phase:Math.random()*6, active:true}; placeGem(g); gems.push(g);
 }});
@@ -2019,6 +2113,7 @@ const LOOKS = [
   {I:ZONES[3], n:4, hats:['helmet'], tops:[0x8a2a2a, 0x3a2a2e, 0xff8a2a]},
   {I:ZONES[4], n:4, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0x2b4c7e]},
   {I:ELF, n:14, hats:['elf', 'elf', 'wreath', 'elf'], tops:[0x3f9e3a, 0x2f6f5e, 0x6b3fc0, 0xff7ac8, 0x4aa8ff], bottoms:[0x3a2a20, 0x2f5f3a, 0xf4ecd8]},
+  {I:ZONES[7], n:5, hats:['diver'], tops:[0xffd23f, 0xff8a2a, 0xe8402c, 0x2b4c7e]},
   {I:ZONES[6], n:6, hats:['elf', 'elf', 'wreath'], tops:[0x2f6f5e, 0x3f8f6a, 0x6b3fc0, 0x8a5a3b], bottoms:[0x3a2a20, 0x2f5f3a]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
 ];
@@ -2660,6 +2755,9 @@ function step(now){
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
   if (SUB && !under && !diving && S.unlocked > SUB_I && P.y < -0.2 && Math.hypot(P.x - SUB.gate.x, P.z - SUB.gate.z) < 6) dive(true);
   if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
+  if (WRECK && under && !diving && S.unlocked > WRECK_I && P.y < 1 && Math.hypot(P.x - WRECK.gate.x, P.z - WRECK.gate.z) < 2) goWreck(true);
+  if (WRECK && under && !diving && P.y < 1 && Math.hypot(P.x - WRECK.portal.x, P.z - WRECK.portal.z) < 2) goWreck(false);
+  if (under) for (const l of wreckFx.lamps) l.m.scale.setScalar(.85 + Math.sin(t * 3 + l.ph) * .15);
   if (FOREST && inSky && !diving && S.unlocked > FOREST_I && P.y < 1 && Math.hypot(P.x - FOREST.gate.x, P.z - FOREST.gate.z) < 2) goForest(true);
   if (inForest && !diving && P.y < 1 && Math.hypot(P.x - FOREST.portal.x, P.z - FOREST.portal.z) < 2) goForest(false);
   if (inForest && !diving && P.y < 1 && Math.hypot(P.x - ELF.gate.x, P.z - ELF.gate.z) < 2) goElf(true);
@@ -2705,7 +2803,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
@@ -2809,6 +2907,7 @@ function start(data){
   if (data && data.P) Object.assign(P, data.P);
   if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
+  if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
   if (FOREST && inIsle(FOREST, P.x, P.z)) setForest(true);
   resize(); hud();
