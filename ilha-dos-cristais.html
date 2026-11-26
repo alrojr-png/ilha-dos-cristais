@@ -2648,19 +2648,6 @@ function updateResto(dt, t){
 // ---------- Reis das ilhas ----------
 const KINGS = [
   {I:HUB,      name:'Rei Cristóvão',  robe:0x7b4fd6, cape:0xc0392b, gem:0x34f0b0, skin:0xffcf9e, beard:0xc9c9c9, hello:'Bem-vindo à Ilha Central, meu reino de cristais! Explore tudo!'},
-  {I:ZONES[0], name:'Rei Girassol',   robe:0x4f9a35, cape:0xffd23f, gem:0xffd23f, skin:0xe8b48a, beard:0x8a5a3b, hello:'Olá! Aqui no Campo Verde tudo floresce. Cuide das plantinhas!'},
-  {I:ZONES[1], name:'Rei Escaravelho', robe:0xe0b860, cape:0x2b4c7e, gem:0x4aa8ff, skin:0xc68a5a, beard:0x1d1630, hello:'Saudações, viajante do deserto! Beba água e cuidado com o sol.'},
-  {I:ZONES[2], name:'Rei Floco',      robe:0x9fd8ff, cape:0xffffff, gem:0x4aa8ff, skin:0xffdcc0, beard:0xffffff, hello:'Brrr! Bem-vindo ao meu Vale Gelado. Aqui até a coroa é de gelo!'},
-  {I:ZONES[3], name:'Rei Magma',      robe:0x8a2a2a, cape:0xff6a1a, gem:0xff2f6d, skin:0xb57a50, beard:0xff8a2a, hello:'Hahaha! Ninguém aguenta o calor do meu vulcão. Você é corajoso!'},
-  {I:ZONES[4], name:'Rei Tritão',     robe:0x2b8a9e, cape:0x9a6bff, gem:0x7fffd4, skin:0x9fd4c8, beard:0x4ae0c8, hello:'Glub glub! Bem-vindo ao meu reino no fundo do mar.'},
-  {I:ZONES[5], name:'Rei Trovão',     robe:0xf4f0ff, cape:0x5c7ccf, gem:0xffe14d, skin:0xffdcc0, beard:0xe8e8f0, hello:'Do alto das nuvens eu vejo tudo! Que bom que você subiu.'},
-  {I:ZONES[6], name:'Rei Carvalho',   robe:0x2f6f5e, cape:0x8a5a3b, gem:0x3dffc8, skin:0xe8b48a, beard:0x56b84a, hello:'As árvores me contaram que você vinha. Bem-vindo à floresta!'},
-  {I:ZONES[7], name:'Rei Barbacinza', robe:0x2a2f45, cape:0x7a5638, gem:0xffd6f0, skin:0xbfe8ff, beard:0xc9c9c9, hello:'Uuuu... sou o rei fantasma deste navio. Mas sou bonzinho!'},
-  {I:ZONES[8], name:'Rei Craque',     robe:0x2b9e4a, cape:0xffd23f, gem:0x4aa8ff, skin:0x8a5a3b, beard:0x1d1630, hello:'Eu sou o rei do futebol! Bora fazer um golaço?', at:[30, -14]},
-  {I:ZONES[9], name:'Rei Coqueiro',   robe:0xff7a59, cape:0x4ae0c8, gem:0xffd23f, skin:0xc68a5a, beard:0xe0b860, hello:'Aloha! Bem-vindo à minha praia. Pode nadar à vontade!'},
-  {I:SNOW,     name:'Rei Iglu',       robe:0x4aa8ff, cape:0xffffff, gem:0x9fd8ff, skin:0xffcf9e, beard:0xffffff, hello:'Olá! Já desceu de tobogã? É o melhor brinquedo do meu reino!'},
-  {I:ELF,      name:'Rei Aurelion',   robe:0x6b3fc0, cape:0x3f9e3a, gem:0xff9ad8, skin:0xffdcc0, beard:null,     hello:'Seja bem-vindo ao Mundo dos Elfos, pequeno aventureiro.'},
-  {I:RESTO,    name:'Rei Banquete',   robe:0xe8402c, cape:0xffffff, gem:0xffd23f, skin:0xffcf9e, beard:0x8a5a3b, hello:'Hummm! Já provou a pizza do meu restaurante? É a melhor!', at:[-24, 0]},
 ];
 const kings = [];
 function kingSpot(K){
