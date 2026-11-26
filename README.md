@@ -1,18 +1,26 @@
 # Ilha dos Cristais
 
-Jogo 3D de simulador no navegador: pegue cristais, venda na praça, compre melhorias e desbloqueie novas áreas.
+Jogo 3D de simulador no navegador: pegue cristais, venda para os vendedores das barracas, compre melhorias, choque ovos de pets e desbloqueie novas ilhas.
 
 **Jogar:** https://alrojr-png.github.io/ilha-dos-cristais/
 
 ## Como jogar
-- **Computador:** `W A S D` andar · `Espaço` pular · arraste o mouse para girar a câmera · rodinha para zoom · `L` abre a loja
-- **Celular:** joystick no lado esquerdo · arraste o lado direito para girar a câmera · botão PULAR
+- **Computador:** `W A S D` andar · `Espaço` pular · arraste o mouse para girar a câmera · rodinha para zoom · `L` loja · `P` pets · `K` skins · `E` conversar · `Shift` shift lock · `F` ou clique para atacar (na arena)
+- **Celular:** joystick no lado esquerdo · arraste o lado direito para girar a câmera · botões PULAR, Conversar e ATACAR
 
 ## O que tem
-- 4 áreas: Campo Verde, Dunas Douradas, Vale Gelado e Cratera de Lava
+- Tela inicial com o botão JOGAR
+- Oceano com a Ilha Central e 6 fases:
+  - Campo Verde, Dunas Douradas, Vale Gelado e Cratera de Lava (ligadas por pontes)
+  - Reino Submerso, no fundo do mar (entra pelo redemoinho)
+  - Reino das Nuvens, no céu (sobe pelo pé de feijão gigante)
+- Arena de Batalha grátis (portal de pedra na Ilha Central): ondas de Gelecas, Goblins, Ogros e o chefão Rei Ogro, com espada, barra de vida e moedas de prêmio
+- Barracas de feira com vendedores para vender cristais, comprar melhorias, pets e skins
 - Cristal dourado que vale 10x
 - Loja com 4 melhorias: mochila, velocidade, pulo e ímã
+- 3 ovos com 12 pets que aumentam o valor dos cristais
+- 9 skins (roupas do boneco)
 - Renascer para multiplicar o valor dos cristais
-- Progresso salvo no navegador
+- Progresso salvo no navegador (e na nuvem, quando aberto pelo claude.ai)
 
 Feito com [Three.js](https://threejs.org/) em um único arquivo HTML.
