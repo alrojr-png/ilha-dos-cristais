@@ -990,15 +990,28 @@ scene.add(player);
 const SKINS = [
   {id:'classico',  name:'Clássico',         price:0,       shirt:0xff6b35, pants:0x2b4c7e, hair:0x3a2a20, pack:0x7b4fd6},
   {id:'esporte',   name:'Esportista',       price:500,     shirt:0x3ddc84, pants:0xf4f4f4, hair:0x3a2a20, pack:0x2b4c7e, acc:'cap', accC:0xe8402c},
+  {id:'surfista',  name:'Surfista',         price:1000,    shirt:0x4ae0c8, pants:0xffd23f, hair:0xe0b860, pack:0xff7ac8, acc:'shades'},
   {id:'ninja',     name:'Ninja',            price:2500,    shirt:0x22222c, pants:0x22222c, hair:0x22222c, pack:0x3a3a48, acc:'ninja', accC:0xe8402c},
+  {id:'bombeiro',  name:'Bombeiro',         price:6000,    shirt:0xe8402c, pants:0x2a2a35, hair:0x3a2a20, pack:0xffd23f, acc:'fire'},
   {id:'astro',     name:'Astronauta',       price:12000,   shirt:0xf4f4f4, pants:0xe0e0e8, hair:0x3a2a20, pack:0xc9ccd6, acc:'astro'},
+  {id:'chef',      name:'Cozinheiro',       price:20000,   shirt:0xffffff, pants:0x2a2a35, hair:0x6b4a2b, pack:0xc9ccd6, acc:'chef'},
   {id:'pirata',    name:'Pirata',           price:30000,   shirt:0xc0392b, pants:0x1d1630, hair:0x3a2a20, pack:0x8a5a3b, acc:'pirate'},
+  {id:'vampiro',   name:'Vampiro',          price:50000,   shirt:0x2a1c2e, pants:0x1d1630, hair:0x111118, pack:0x6b1d2a, skin:0xe8e0f0, acc:'vampire'},
   {id:'mago',      name:'Mago',             price:80000,   shirt:0x6b3fc0, pants:0x4a2a8a, hair:0xd8d8d8, pack:0x2b1d55, acc:'wizard', accC:0x6b3fc0},
+  {id:'abelha',    name:'Abelhinha',        price:120000,  shirt:0xffd23f, pants:0x1d1630, hair:0x1d1630, pack:0xffb000, acc:'bee'},
   {id:'cavaleiro', name:'Cavaleiro',        price:200000,  shirt:0xa9b4c2, pants:0x6b7a8f, hair:0x3a2a20, pack:0x8a5a3b, acc:'knight', noHair:1},
+  {id:'dino',      name:'Dinossauro',       price:350000,  shirt:0x56b84a, pants:0x3f9e3a, hair:0x56b84a, pack:0x3f8f35, acc:'dino', accC:0x56b84a, noHair:1},
   {id:'robo',      name:'Robô',             price:500000,  shirt:0xb8c2cc, pants:0x7d8794, hair:0x7d8794, pack:0x4aa8ff, skin:0x9aa6b2, acc:'robot'},
+  {id:'gelo',      name:'Guardião do Gelo', price:900000,  shirt:0x9fd8ff, pants:0x4aa8ff, hair:0xf4f8ff, pack:0xcfe4f8, acc:'ice'},
   {id:'rei',       name:'Rei dos Cristais', price:1500000, shirt:0xffcc33, pants:0x6b3fc0, hair:0x3a2a20, pack:0xc0392b, acc:'king'},
+  {id:'heroi',     name:'Super-herói',      price:3000000, shirt:0x2b6cd4, pants:0xe8402c, hair:0x1d1630, pack:0xe8402c, acc:'hero'},
+  {id:'anjo',      name:'Anjo das Nuvens',  price:8000000, shirt:0xffffff, pants:0xf4f0ff, hair:0xffe7a0, pack:0xbfe8ff, acc:'angel'},
+  {id:'lava',      name:'Cavaleiro de Lava', price:20000000, shirt:0x3a2a2e, pants:0x221a26, hair:0x221a26, pack:0xff6a1a, acc:'lava', noHair:1},
+  {id:'arcoiris',  name:'Lenda Arco-íris',  price:50000000, shirt:0xff5a8a, pants:0x4aa8ff, hair:0xb07cff, pack:0x3ddc84, acc:'rainbow'},
 ];
-const ACC_NAME = {cap:'Boné', ninja:'Faixa e máscara', astro:'Capacete espacial', pirate:'Chapéu e tapa-olho', wizard:'Chapéu de mago e barba', knight:'Elmo com pluma', robot:'Antena e visor', king:'Coroa e capa'};
+const ACC_NAME = {cap:'Boné', ninja:'Faixa e máscara', astro:'Capacete espacial', pirate:'Chapéu e tapa-olho', wizard:'Chapéu de mago e barba', knight:'Elmo com pluma', robot:'Antena e visor', king:'Coroa e capa',
+  shades:'Óculos de sol', fire:'Capacete de bombeiro', chef:'Chapéu de cozinheiro', vampire:'Capa e dentinhos', bee:'Anteninhas e asas', dino:'Capuz de dinossauro e rabo',
+  ice:'Coroa de gelo', hero:'Máscara e capa', angel:'Auréola e asas', lava:'Elmo com chifres de fogo', rainbow:'Arco-íris na cabeça'};
 const PM = {shirt:new THREE.MeshLambertMaterial(), pants:new THREE.MeshLambertMaterial(), skin:new THREE.MeshLambertMaterial(), hair:new THREE.MeshLambertMaterial(), pack:new THREE.MeshLambertMaterial()};
 let hairMesh = null;
 {
@@ -1029,6 +1042,45 @@ function buildAcc(sk){
     [[.33, .33], [-.33, .33], [.33, -.33], [-.33, -.33], [0, .38]].forEach(([x, z]) => ap(.14, .22, .14, 0xffcc33, x, 2.99, z));
     const g = new THREE.Mesh(new THREE.OctahedronGeometry(.12, 0), mat(0x34f0b0)); g.position.set(0, 2.82, .45); accG.add(g);
     ap(1.12, 1.7, .08, 0xc0392b, 0, 1.18, -.7); ap(1.15, .16, .62, 0xffffff, 0, 1.96, -.12);
+  }
+  const add = (m, x, y, z) => { m.position.set(x, y, z); accG.add(m); return m; };
+  const glow = c => new THREE.MeshBasicMaterial({color:c});
+  if (sk.acc === 'shades'){ ap(.74, .16, .05, 0x1d1630, 0, 2.39, .39); ap(.06, .06, .42, 0x1d1630, .38, 2.42, .19); ap(.06, .06, .42, 0x1d1630, -.38, 2.42, .19); ap(.24, .08, .03, 0x4ae0c8, -.17, 2.41, .42); ap(.24, .08, .03, 0x4ae0c8, .17, 2.41, .42); }
+  if (sk.acc === 'fire'){ ap(.9, .32, .9, 0xe8402c, 0, 2.84, 0); ap(1.15, .06, 1.25, 0xe8402c, 0, 2.7, -.06); ap(.26, .26, .05, 0xffd23f, 0, 2.84, .46); ap(.12, .2, .9, 0xc0392b, 0, 3.05, 0); }
+  if (sk.acc === 'chef'){ ap(.84, .16, .84, 0xffffff, 0, 2.76, 0); [[0, 0], [.22, .2], [-.22, .2], [.22, -.2], [-.22, -.2]].forEach(([x, z]) => add(new THREE.Mesh(new THREE.SphereGeometry(.34, 10, 8), mat(0xffffff)), x, 3.08, z)); ap(.5, .14, .05, 0xe8402c, 0, 1.88, .29); }
+  if (sk.acc === 'vampire'){ ap(1.15, .55, .08, 0xc0392b, 0, 2.05, -.32); ap(1.12, 1.7, .08, 0x1d1630, 0, 1.18, -.7); ap(.06, .1, .05, 0xffffff, -.08, 2.09, .39); ap(.06, .1, .05, 0xffffff, .08, 2.09, .39); }
+  if (sk.acc === 'bee'){
+    [-1, 1].forEach(s => { ap(.06, .45, .06, 0x1d1630, s * .2, 2.92, .1).rotation.z = -s * .3; add(new THREE.Mesh(new THREE.SphereGeometry(.1, 8, 6), mat(0x1d1630)), s * .28, 3.15, .1); });
+    ap(1.07, .16, .57, 0x1d1630, 0, 1.25, 0); ap(1.07, .16, .57, 0x1d1630, 0, 1.6, 0);
+    const wm = new THREE.MeshLambertMaterial({color:0xffffff, transparent:true, opacity:.6});
+    [-1, 1].forEach(s => { const w = add(new THREE.Mesh(boxGeo, wm), s * .5, 1.85, -.72); w.scale.set(.75, .55, .05); w.rotation.z = s * .35; });
+  }
+  if (sk.acc === 'dino'){
+    ap(.88, .52, .86, c, 0, 2.62, -.04); ap(.9, .14, .3, 0xffffff, 0, 2.62, .32);
+    [[2.95, .15], [2.95, -.2], [2.65, -.5], [2.2, -.5]].forEach(([y, z]) => ap(.12, .26, .26, 0xffd23f, 0, y, z));
+    ap(.45, .45, .9, c, 0, .85, -.75); ap(.3, .3, .5, c, 0, .7, -1.35);
+  }
+  if (sk.acc === 'ice'){
+    ap(.86, .14, .86, 0xcfe4f8, 0, 2.76, 0);
+    [[0, .38, .42], [.32, .2, .3], [-.32, .2, .3], [.32, -.25, .26], [-.32, -.25, .26]].forEach(([x, z, h]) => { const sp = add(new THREE.Mesh(new THREE.ConeGeometry(.1, h * 1.4, 5), iceMat), x, 2.84 + h * .7, z); sp.castShadow = true; });
+    ap(1.12, 1.6, .08, 0x9fd8ff, 0, 1.2, -.7);
+  }
+  if (sk.acc === 'hero'){ ap(.8, .17, .05, 0x1d1630, 0, 2.39, .385); ap(.12, .08, .03, 0xffffff, -.17, 2.39, .41); ap(.12, .08, .03, 0xffffff, .17, 2.39, .41); ap(1.12, 1.8, .08, 0xe8402c, 0, 1.12, -.7); ap(.42, .42, .05, 0xffd23f, 0, 1.55, .29); ap(.2, .2, .06, 0xe8402c, 0, 1.55, .3); }
+  if (sk.acc === 'angel'){
+    const h = add(new THREE.Mesh(new THREE.TorusGeometry(.38, .06, 8, 24), glow(0xffe27a)), 0, 3.05, 0); h.rotation.x = Math.PI / 2;
+    [-1, 1].forEach(s => { const w = ap(.8, 1.1, .1, 0xffffff, s * .55, 1.75, -.72); w.rotation.z = -s * .45; ap(.5, .6, .1, 0xf4f0ff, s * .85, 2.25, -.72).rotation.z = -s * .6; });
+  }
+  if (sk.acc === 'lava'){
+    ap(.9, .84, .9, 0x2a1c1c, 0, 2.33, 0);
+    add(new THREE.Mesh(boxGeo, glow(0xff6a1a)), 0, 2.4, .455).scale.set(.62, .1, .05);
+    [-1, 1].forEach(s => { ap(.14, .4, .14, 0xff6a1a, s * .42, 2.85, 0).rotation.z = -s * .4; });
+    [1.2, 1.65].forEach(y => add(new THREE.Mesh(boxGeo, glow(0xff6a1a)), 0, y, .285).scale.set(.8, .06, .02));
+  }
+  if (sk.acc === 'rainbow'){
+    [0xff4d4d, 0xff9a2a, 0xffe14d, 0x4ade80, 0x4aa8ff, 0x9a6bff].forEach((col, k) => {
+      add(new THREE.Mesh(new THREE.TorusGeometry(.75 - k * .07, .045, 6, 24, Math.PI), glow(col)), 0, 2.75, -.05);
+    });
+    [-1, 1].forEach(s => { add(new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 8), mat(0xffffff)), s * .62, 2.75, -.05); add(new THREE.Mesh(new THREE.SphereGeometry(.15, 10, 8), mat(0xffffff)), s * .85, 2.72, -.05); });
   }
 }
 let skinNow = null;

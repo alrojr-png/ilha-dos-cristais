@@ -19,7 +19,7 @@ Jogo 3D de simulador no navegador: pegue cristais, venda para os vendedores das 
 - Cristal dourado que vale 10x
 - Loja com 4 melhorias: mochila, velocidade, pulo e ímã
 - 3 ovos com 12 pets que aumentam o valor dos cristais
-- 9 skins (roupas do boneco)
+- 20 skins (roupas do boneco), de grátis até 50 milhões
 - Renascer para multiplicar o valor dos cristais
 - Progresso salvo no navegador (e na nuvem, quando aberto pelo claude.ai)
 
