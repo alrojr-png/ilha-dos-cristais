@@ -134,6 +134,7 @@ body.touch.arena #atk{display:block}
 #hurt{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(ellipse at center,rgba(255,20,60,0) 45%,rgba(255,20,60,.6) 100%)}
 #hurt.on{opacity:1;transition:none}
 #dive.arenaf{background:#3a0b18}
+#dive.minif{background:#b07cff}
 @keyframes rise{to{transform:translate(-50%,-160%);opacity:0}}
 /* Loja */
 #shop,#pets,#skins{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -438,6 +439,8 @@ const BEACH = 2.5;
 const HUB = {cx:0, cz:0, r:26};
 const ARENA = {cx:640, cz:0, r:30};
 let inArena = false;
+const MINI = {cx:-640, cz:0, r:40};
+let inMini = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
 const seabed = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0x1b5a8a));
@@ -473,7 +476,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -492,6 +495,7 @@ function lockedAt(x, z){
   }
   if (under && !inIsle(SUB, x, z, -0.5)) return true;
   if (inArena && !inIsle(ARENA, x, z, -BEACH - 0.8)) return true;
+  if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   return false;
 }
 function palm(x, z){
@@ -1511,6 +1515,160 @@ function updateArena(dt, t){
   battleHud();
 }
 
+// ---------- Máquina de encolher + Mini Mundo ----------
+const miniFx = {glows:[], pads:[], coins:[], ants:[], bugs:[]};
+// máquina: entra andando no eixo x pela frente (lado de x menor)
+function sizeMachine(x, z, txt, css, c){
+  addBlock(x, -.05, z, 5.4, .25, 5.4, 0x3a2f5e, false);
+  [-1, 1].forEach(s => { addBlock(x, 0, z + s * 2.4, .9, 5.2, .9, 0xc9ccd6); addBlock(x, 1.2, z + s * 2.4 + s * .05, .95, .3, .95, c, false); addBlock(x, 3.2, z + s * 2.4 + s * .05, .95, .3, .95, c, false); });
+  addBlock(x, 5.2, z, 1.6, .9, 5.7, 0x7d8594, false);
+  const em = new THREE.Mesh(new THREE.ConeGeometry(.9, 1.6, 12), mat(0x9aa6b2)); em.rotation.x = Math.PI; em.position.set(x, 4.4, z); scene.add(em);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(.32, 12, 10), new THREE.MeshBasicMaterial({color:c})); tip.position.set(x, 3.55, z); scene.add(tip);
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, .1, 28), new THREE.MeshBasicMaterial({color:c})); ring.position.set(x, .12, z); scene.add(ring);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.25, 1.4, 3.4, 16, 1, true), new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:.22, side:THREE.DoubleSide, depthWrite:false}));
+  beam.position.set(x, 1.85, z); scene.add(beam);
+  miniFx.glows.push({tip, beam, ring});
+  // painel de controle atrás
+  addBlock(x + 2.9, 0, z, 1.2, 1.6, 2.6, 0x56606b);
+  addBlock(x + 2.6, 1.6, z, .6, .9, 2.4, 0x2a2145, false);
+  [[-.7, 0xff5470], [0, 0xffd23f], [.7, 0x3ddc84]].forEach(([dz, bc]) => addBlock(x + 2.28, 1.95, z + dz, .1, .25, .25, bc, false, new THREE.MeshBasicMaterial({color:bc})));
+  const l = label(txt, css, '#1d1630', 1024); l.position.set(x, 6.6, z); scene.add(l);
+  return {x, z};
+}
+const SHRINK = sizeMachine(16, -5, 'MÁQUINA DE ENCOLHER', '#b07cff', 0xb07cff);
+SHRINK.back = {x:12.5, z:-5};
+{
+  const M = MINI, X = (dx) => M.cx + dx, Z = (dz) => M.cz + dz;
+  islandBase(M, 0x5fbf3a, 0x8a6a45);
+  for (let k = 0; k < 14; k++){ const a = R() * Math.PI * 2, d = R() * (M.r - 6); addBlock(X(Math.cos(a) * d), -.97, Z(Math.sin(a) * d), rr(3, 7), 1, rr(3, 7), 0x6cc95a, false); }
+  // muralha de grama gigante em volta
+  const GR = [0x3f9e3a, 0x56b84a, 0x6cc95a, 0x2f8a35];
+  for (let k = 0; k < 120; k++){
+    const a = k / 120 * Math.PI * 2 + R() * .03, d = M.r + rr(-.5, 4), h = rr(10, 22);
+    const b = addBlock(X(Math.cos(a) * d), 0, Z(Math.sin(a) * d), rr(.7, 1.3), h, .35, pickR0(GR), false);
+    b.rotation.y = -a + Math.PI / 2; b.rotation.z = rr(-.12, .12);
+  }
+  // capim espalhado (com colisão pequena)
+  for (let k = 0, n = 0; k < 200 && n < 30; k++){
+    const a = R() * Math.PI * 2, d = 8 + R() * (M.r - 12), x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d);
+    if (Math.hypot(x - X(0), z - Z(30)) < 9 || Math.hypot(x - X(12), z - Z(30)) < 7 || occupied(x, z, 1.5)) continue;
+    n++; const h = rr(5, 12), b = addBlock(x, 0, z, .8, h, .35, pickR0(GR), false); b.rotation.y = R() * 3; b.rotation.z = rr(-.15, .15);
+    colliders.push({minX:x - .4, maxX:x + .4, minZ:z - .4, maxZ:z + .4, bottom:0, top:h});
+  }
+  // flor gigante com folhas de plataforma
+  const flower = (fx, fz, petal, h) => {
+    addBlock(fx, 0, fz, 1.2, h, 1.2, 0x3f9e3a);
+    for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2, p = new THREE.Mesh(new THREE.SphereGeometry(2.2, 12, 8), mat(petal)); p.scale.set(1, .3, .6); p.position.set(fx + Math.cos(a) * 2.6, h + .3, fz + Math.sin(a) * 2.6); p.rotation.y = -a; scene.add(p); }
+    const mid = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, .8, 18), mat(0xffd23f)); mid.position.set(fx, h + .5, fz); scene.add(mid);
+    colliders.push({minX:fx - 4.6, maxX:fx + 4.6, minZ:fz - 4.6, maxZ:fz + 4.6, bottom:h - .2, top:h + .9});
+  };
+  const leaf = (lx, lz, top, ry) => { const b = addBlock(lx, top - .35, lz, 3.6, .35, 2.2, 0x56b84a); b.rotation.y = ry || 0; };
+  flower(X(-14), Z(6), 0xff7ac8, 14); leaf(X(-11), Z(6), 5); leaf(X(-14), Z(9.2), 8.5);
+  flower(X(20), Z(-20), 0xffffff, 11); leaf(X(17), Z(-20), 6.5);
+  // cogumelos que pulam alto
+  const bouncy = (bx, bz, cc) => {
+    addBlock(bx, 0, bz, 1.2, 1, 1.2, 0xfff1de);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(2.4, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(cc)); cap.scale.y = .45; cap.position.set(bx, 1, bz); scene.add(cap);
+    [[.9, .5], [-.8, .9], [.1, -1.2], [-1.3, -.4]].forEach(([a, b]) => { const d = new THREE.Mesh(new THREE.SphereGeometry(.35, 8, 6), mat(0xffffff)); d.scale.y = .4; d.position.set(bx + a, 1.85, bz + b); scene.add(d); });
+    colliders.push({minX:bx - 1.9, maxX:bx + 1.9, minZ:bz - 1.9, maxZ:bz + 1.9, bottom:1, top:1.5});
+    miniFx.pads.push({x:bx, z:bz, top:1.5, cap});
+  };
+  bouncy(X(-9), Z(11), 0xe8402c); bouncy(X(16), Z(-15), 0x4aa8ff); bouncy(X(-22), Z(-16), 0xb07cff); bouncy(X(4), Z(16), 0xffb000);
+  // lata de refrigerante e escada de bloquinhos de montar
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 9, 24), mat(0xe8402c)); can.position.set(X(16), 4.5, Z(2)); scene.add(can);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(3.22, 3.22, 2.2, 24), mat(0xffffff)); band.position.set(X(16), 4.6, Z(2)); scene.add(band);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, .2, 24), mat(0xc9ccd6)); lid.position.set(X(16), 9.05, Z(2)); scene.add(lid);
+  colliders.push({minX:X(16) - 2.6, maxX:X(16) + 2.6, minZ:Z(2) - 2.6, maxZ:Z(2) + 2.6, bottom:0, top:9.1});
+  const LEGO = [0xff5470, 0xffd23f, 0x4aa8ff, 0x3ddc84, 0xff8a2a, 0xb07cff, 0xffffff];
+  for (let i = 0; i < 7; i++){
+    const bx = X(3.4 + i * 1.6), h = 1.2 * (i + 1), c = LEGO[i];
+    addBlock(bx, 0, Z(2), 1.6, h, 2.6, c);
+    [-.6, .6].forEach(dz => { const s = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .25, 12), mat(c)); s.position.set(bx, h + .12, Z(2) + dz); scene.add(s); });
+  }
+  // lápis deitado
+  const pen = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 18, 6), mat(0xffd23f)); pen.rotation.z = Math.PI / 2; pen.position.set(X(-2), 1.2, Z(-20)); scene.add(pen);
+  const wood = new THREE.Mesh(new THREE.ConeGeometry(1.2, 3, 6), mat(0xf0cf9a)); wood.rotation.z = -Math.PI / 2; wood.position.set(X(8.5), 1.2, Z(-20)); scene.add(wood);
+  const lead = new THREE.Mesh(new THREE.ConeGeometry(.42, 1.05, 6), mat(0x2a2a35)); lead.rotation.z = -Math.PI / 2; lead.position.set(X(10.5), 1.2, Z(-20)); scene.add(lead);
+  const eraser = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2, 12), mat(0xff9ac0)); eraser.rotation.z = Math.PI / 2; eraser.position.set(X(-12), 1.2, Z(-20)); scene.add(eraser);
+  const ferr = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 1, 12), mat(0xc9ccd6)); ferr.rotation.z = Math.PI / 2; ferr.position.set(X(-10.6), 1.2, Z(-20)); scene.add(ferr);
+  colliders.push({minX:X(-13), maxX:X(8), minZ:Z(-21.1), maxZ:Z(-18.9), bottom:0, top:2.3});
+  // pedrinhas gigantes e gotas de orvalho
+  [[-24, 4], [24, 14], [-6, -30], [26, -6], [-28, 20]].forEach(([a, b]) => rock(X(a), Z(b), 0x9a9fae, 3));
+  [[-18, -8, 1.6], [10, 24, 1.2], [-30, -4, 1]].forEach(([a, b, r]) => { const d = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), new THREE.MeshPhongMaterial({color:0xbfe8ff, transparent:true, opacity:.5, shininess:140})); d.scale.y = .8; d.position.set(X(a), r * .75, Z(b)); scene.add(d); });
+  // moedas gigantes para pegar
+  const coinMat = new THREE.MeshPhongMaterial({color:0xffcc33, emissive:0xb07a00, emissiveIntensity:.35, shininess:100});
+  [[-14, 9.2, 10.2], [16, 2, 10.6], [-2, -20, 4], [-11, 6, 6.7], [17, -20, 8.2]].forEach(([a, b, y]) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .25, 20), coinMat); m.rotation.x = Math.PI / 2; m.position.set(X(a), y, Z(b)); scene.add(m);
+    miniFx.coins.push({m, x:X(a), y, z:Z(b), back:0});
+  });
+  // joaninha passeando e fila de formigas
+  const bug = new THREE.Group(); scene.add(bug);
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(2.2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xe8402c)); shell.scale.set(1, .8, 1.2); bug.add(shell);
+  [[.9, .9, 1], [-.9, .9, 1], [1.1, .7, -.8], [-1.1, .7, -.8], [0, 1.6, .1]].forEach(([a, y, b]) => { const d = new THREE.Mesh(new THREE.SphereGeometry(.45, 8, 6), mat(0x1d1630)); d.position.set(a, y, b); bug.add(d); });
+  const bh = new THREE.Mesh(new THREE.SphereGeometry(.9, 12, 8), mat(0x1d1630)); bh.position.set(0, .5, 2.4); bug.add(bh);
+  [-1, 1].forEach(s => { const e = new THREE.Mesh(new THREE.SphereGeometry(.22, 8, 6), mat(0xffffff)); e.position.set(s * .4, .8, 3.1); bug.add(e); });
+  miniFx.bugs.push({g:bug, cx:X(4), cz:Z(-4), r:9, sp:.25});
+  for (let k = 0; k < 7; k++){
+    const g = new THREE.Group(); scene.add(g);
+    [[0, .6, .9, .55], [0, .7, 0, .45], [0, .8, -1, .75]].forEach(([a, y, b, r]) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat(0x3a2018)); s.position.set(a, y, b); g.add(s); });
+    [-1, 1].forEach(s => [-.4, 0, .4].forEach(b => { const l = new THREE.Mesh(boxGeo, mat(0x2a1810)); l.scale.set(.9, .08, .08); l.position.set(s * .55, .3, b); l.rotation.z = s * -.5; g.add(l); }));
+    miniFx.ants.push({g, a0:k * .22, cx:X(-4), cz:Z(-2), r:24});
+  }
+  const ex = sizeMachine(X(12), Z(30), 'CRESCER', '#3ddc84', 0x3ddc84);
+  M.exit = ex; M.spawn = {x:X(0), z:Z(29)};
+}
+function pickR0(a){ return a[Math.floor(R() * a.length)]; }
+let miniAnim = null;
+function goMini(on){
+  if (diving) return; diving = true;
+  miniAnim = {t:0, on};
+  (on ? [880, 660, 440, 330] : [330, 440, 660, 880]).forEach((f, j) => setTimeout(() => beep(f, .16, 'sine', .07, on ? .7 : 1.4), j * 160));
+  setTimeout(() => $('dive').classList.add('minif', 'flash'), 800);
+  setTimeout(() => {
+    const to = on ? MINI.spawn : SHRINK.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = on ? 0 : Math.PI / 2; P.face = on ? Math.PI : -Math.PI / 2;
+    player.scale.setScalar(1); miniAnim = null;
+    inMini = on; lastIsland = -1;
+    banner(on ? 'Mini Mundo' : 'Ilha Central', on ? 'Você encolheu! Bem-vindo ao' : 'Você cresceu de novo! Voltou para a');
+    if (on) toast('Pule nos cogumelos e pegue as moedas gigantes!', 3500);
+    $('dive').classList.remove('flash'); setTimeout(() => $('dive').classList.remove('minif'), 450);
+    diving = false;
+  }, 1250);
+}
+function updateMini(dt, t){
+  if (miniAnim){
+    miniAnim.t += dt;
+    const k = Math.min(1, miniAnim.t / .8);
+    player.scale.setScalar(miniAnim.on ? 1 - .9 * k * k : 1 + 2 * k * k);
+    player.rotation.y += dt * 10 * k;
+  }
+  for (const g of miniFx.glows){ const p = .5 + Math.sin(t * 4) * .5; g.beam.material.opacity = .12 + p * .2; g.tip.scale.setScalar(.8 + p * .4); }
+  if (!inMini) return;
+  // cogumelos que pulam
+  for (const pd of miniFx.pads){
+    pd.cap.scale.y += (.45 - pd.cap.scale.y) * Math.min(1, dt * 10);
+    if (P.onGround && Math.abs(P.y - pd.top) < .02 && Math.hypot(P.x - pd.x, P.z - pd.z) < 2){
+      P.vy = 24; P.onGround = false; pd.cap.scale.y = .25; beep(220, .25, 'sine', .08, 3);
+    }
+  }
+  for (const c of miniFx.coins){
+    if (c.back > 0){ c.back -= dt; if (c.back <= 0) c.m.visible = true; continue; }
+    c.m.rotation.z += dt * 2.5; c.m.position.y = c.y + Math.sin(t * 2 + c.x) * .2;
+    if (Math.hypot(P.x - c.x, P.z - c.z) < 1.6 && Math.abs(P.y + 1.2 - c.y) < 2){
+      const rew = Math.round(100 * coinScale());
+      S.coins += rew; hud(); pulseCoins(); save();
+      floatText('+' + fmt(rew), c.x, c.y + 1.5, c.z, 'coin');
+      [659, 880, 1175].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
+      c.m.visible = false; c.back = 45;
+    }
+  }
+  for (const b of miniFx.bugs){ const a = t * b.sp; b.g.position.set(b.cx + Math.cos(a) * b.r, .1, b.cz + Math.sin(a) * b.r); b.g.rotation.y = -a; }
+  for (const an of miniFx.ants){
+    const a = t * .12 + an.a0; an.g.position.set(an.cx + Math.cos(a) * an.r, Math.abs(Math.sin(t * 14 + an.a0 * 9)) * .08, an.cz + Math.sin(a) * an.r); an.g.rotation.y = -a;
+  }
+}
+
 // ---------- Moradores das ilhas (só para enfeitar) ----------
 const SKINT = [0xffcf9e, 0xe8b48a, 0xc68a5a, 0x8a5a3b, 0xffdcc0];
 const HAIRS = [0x3a2a20, 0x1d1630, 0x8a5a3b, 0xe0b860, 0xc9c9c9, 0xc0392b];
@@ -1871,7 +2029,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (under) setUnder(false);
+  if (inArena) setArena(false); if (inSky) setSky(false); if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -2044,7 +2202,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail && !miniAnim){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -2073,6 +2231,8 @@ function step(now){
   if (SKY && !inSky && !diving && S.unlocked > SKY_I && P.y < 1 && Math.hypot(P.x - SKY.gate.x, P.z - SKY.gate.z) < 2) fly(true);
   if (inSky && !diving && P.y < 1 && Math.hypot(P.x - SKY.portal.x, P.z - SKY.portal.z) < 2) fly(false);
   updateShips(t);
+  if (!diving && !inMini && P.y < 1 && Math.abs(P.x - SHRINK.x) < 1.2 && Math.abs(P.z - SHRINK.z) < 1.2) goMini(true);
+  if (!diving && inMini && P.y < 1 && Math.abs(P.x - MINI.exit.x) < 1.2 && Math.abs(P.z - MINI.exit.z) < 1.2) goMini(false);
   if (sail) updateSail(dt);
   if (!diving && !inArena && P.y < 1 && Math.abs(P.x - ARENA_GATE.x) < 1.6 && Math.abs(P.z - ARENA_GATE.z) < .8) goArena(true);
   if (!diving && inArena && P.y < 1 && Math.abs(P.x - ARENA.exit.x) < 1.6 && Math.abs(P.z - ARENA.exit.z) < .8) goArena(false);
@@ -2093,6 +2253,7 @@ function step(now){
   updatePets(dt, t);
   updateArena(dt, t);
   updateVillagers(dt, t);
+  updateMini(dt, t);
 
   // câmera (na tela inicial ela gira devagar em volta do boneco)
   if (!playing) cam.yaw += dt * 0.12;
@@ -2208,7 +2369,7 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
   resize(); hud();
