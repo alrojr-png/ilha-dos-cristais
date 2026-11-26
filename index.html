@@ -75,6 +75,7 @@ body.shiftlock #cross{display:block}
 #dive{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .45s;background:radial-gradient(ellipse at center,rgba(40,140,220,0) 45%,rgba(4,30,60,.75) 100%)}
 body.under #dive{opacity:1}
 #dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}
+#dive.skyf{background:#fff}
 #talk{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
@@ -238,6 +239,7 @@ const ZONES = [
   {name:'Vale Gelado',     cx:88, cz:168, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
   {name:'Cratera de Lava', cx:0,  cz:168, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
   {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
+  {name:'Reino das Nuvens', cx:0, cz:-640, r:40, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -568,6 +570,8 @@ const NPCS = [
    hello:'Cuidado com a lava! Aqui na minha barraca é seguro. Quer vender ou comprar?'},
   {name:'Capitão Coral', color:0x9a6bff, css:'#9a6bff', shirt:0x2b4c7e, apron:0xd8cfb8, skin:0xffcf9e, hair:0xffffff, hat:'pirate', stache:1,
    hello:'Ahoy, marujo! Bem-vindo ao fundo do mar. O que deseja deste velho capitão?'},
+  {name:'Vovó Nimbus',   color:0x7fd0ff, css:'#bfe8ff', shirt:0xffffff, apron:0xbfe8ff, skin:0xffdcc0, hair:0xffffff, hat:'halo',
+   hello:'Bem-vindo ao céu, aventureiro! Aqui em cima as nuvens são fofinhas. O que vai querer?'},
 ];
 const stalls = [];
 function addStall(x, z, fx, fz, N){
@@ -601,6 +605,7 @@ function addStall(x, z, fx, fz, N){
   if (N.hat === 'turban'){ part(.94, .5, .9, N.hatC, 0, .9, 0, head); const gm = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), mat(0x34f0b0)); gm.position.set(0, .92, .47); head.add(gm); }
   if (N.hat === 'beanie'){ part(.86, .42, .84, N.hatC, 0, .86, 0, head); part(.88, .12, .86, 0xffffff, 0, .7, 0, head); const pom = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), mat(0xffffff)); pom.position.set(0, 1.15, 0); head.add(pom); }
   if (N.hat === 'helmet'){ part(.94, .36, .94, 0xffb000, 0, .86, 0, head); part(1.1, .06, 1.1, 0xffb000, 0, .7, .05, head); part(.22, .18, .1, 0xfff1a0, 0, .86, .48, head); }
+  if (N.hat === 'halo'){ part(.84, .22, .8, N.hair, 0, .78, -.02, head); part(.5, .4, .45, N.hair, 0, .95, -.3, head); const h = new THREE.Mesh(new THREE.TorusGeometry(.42, .07, 8, 24), new THREE.MeshBasicMaterial({color:0xffe27a})); h.rotation.x = Math.PI / 2; h.position.set(0, 1.3, 0); head.add(h); }
   if (N.hat === 'pirate'){ part(1.3, .12, .9, 0x1d1630, 0, .8, 0, head); part(.9, .45, .78, 0x1d1630, 0, 1.06, 0, head); part(.16, .16, .05, 0xffffff, 0, 1.08, .4, head); part(.84, .14, .8, N.hair, 0, .7, -.05, head); }
   const arms = [];
   [-1, 1].forEach(sd => {
@@ -666,12 +671,82 @@ function buildRealm(Z){
     ray.position.set(Z.cx + Math.cos(a) * d, 12, Z.cz + Math.sin(a) * d); ray.rotation.z = .22; scene.add(ray); realmFx.rays.push(ray);
   }
 }
-function portalUp(x, z){
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, .14, 28), new THREE.MeshBasicMaterial({color:0x7fe8ff}));
+function portalUp(x, z, txt = 'SUBIR', c = 0x7fe8ff, css = '#7fe8ff', fg = '#06243f', colC = 0xbff4ff){
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, .14, 28), new THREE.MeshBasicMaterial({color:c}));
   ring.position.set(x, .07, z); scene.add(ring);
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 26, 20, 1, true), new THREE.MeshBasicMaterial({color:0xbff4ff, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false}));
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 26, 20, 1, true), new THREE.MeshBasicMaterial({color:colC, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false}));
   col.position.set(x, 13, z); scene.add(col);
-  const l = label('SUBIR', '#7fe8ff', '#06243f', 384); l.position.set(x, 4.4, z); scene.add(l);
+  const l = label(txt, css, fg, txt.length > 6 ? 768 : 384); l.position.set(x, 4.4, z); scene.add(l);
+}
+
+// ---------- Reino das Nuvens (céu) ----------
+const SKY = ZONES.find(Z => Z.sky), SKY_I = ZONES.indexOf(SKY);
+const cloudMat = new THREE.MeshLambertMaterial({color:0xffffff});
+function cloudPuff(x, y, z, s = 1){
+  const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  const n = 4 + Math.floor(R() * 3);
+  for (let k = 0; k < n; k++){
+    const b = new THREE.Mesh(new THREE.SphereGeometry(rr(1.2, 2.2) * s, 12, 8), cloudMat);
+    b.position.set(rr(-2.4, 2.4) * s, rr(-.3, .6) * s, rr(-1.4, 1.4) * s); b.scale.y = .7; g.add(b);
+  }
+  return g;
+}
+// Pé de feijão gigante na Ilha Central: a entrada do céu
+function buildSkyGate(Z){
+  const BX = -13, BZ = 13, H = 72;
+  const stalk = new THREE.Mesh(new THREE.CylinderGeometry(.9, 1.5, H, 10), mat(0x3f9e3a)); stalk.position.set(BX, H / 2, BZ); stalk.castShadow = true; scene.add(stalk);
+  colliders.push({minX:BX - 1.3, maxX:BX + 1.3, minZ:BZ - 1.3, maxZ:BZ + 1.3, bottom:0, top:H});
+  for (let k = 0; k < 28; k++){
+    const a = k * 1.15, y = 2 + k * 2.5;
+    const lf = new THREE.Mesh(new THREE.SphereGeometry(1.3, 10, 6), mat(k % 2 ? 0x56b84a : 0x6cc95a));
+    lf.scale.set(1.7, .22, .9); lf.position.set(BX + Math.cos(a) * 2, y, BZ + Math.sin(a) * 2); lf.rotation.y = -a; scene.add(lf);
+  }
+  cloudPuff(BX, H, BZ, 3.2); cloudPuff(BX + 14, H - 6, BZ - 8, 2.2); cloudPuff(BX - 10, H - 10, BZ + 9, 2);
+  Z.gate = {x:-9.5, z:9.5};
+  Z.back = {x:-6, z:6.5};
+  portalUp(Z.gate.x, Z.gate.z, 'SUBIR AO CÉU', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8);
+}
+const skyFx = {};
+function buildSky(Z){
+  // rocha flutuante embaixo da ilha
+  const under = new THREE.Mesh(new THREE.ConeGeometry(Z.r + BEACH + 2, 34, 14), mat(0x9a8fb0));
+  under.rotation.x = Math.PI; under.position.set(Z.cx, -21, Z.cz); scene.add(under);
+  for (let k = 0; k < 16; k++){ const a = k / 16 * Math.PI * 2; cloudPuff(Z.cx + Math.cos(a) * (Z.r + 3), rr(-3, -1.5), Z.cz + Math.sin(a) * (Z.r + 3), rr(1, 1.6)); }
+  // mar de nuvens lá embaixo e nuvens no alto
+  for (let k = 0; k < 120; k++){ const a = R() * Math.PI * 2, d = Z.r + 12 + R() * 230; cloudPuff(Z.cx + Math.cos(a) * d, rr(-30, -16), Z.cz + Math.sin(a) * d, rr(2, 4.5)); }
+  for (let k = 0; k < 26; k++){ const a = R() * Math.PI * 2, d = R() * 200; cloudPuff(Z.cx + Math.cos(a) * d, rr(22, 45), Z.cz + Math.sin(a) * d, rr(1.5, 3)); }
+  // ilhotas flutuantes
+  for (let k = 0; k < 9; k++){
+    const a = k / 9 * Math.PI * 2 + R() * .3, d = Z.r + rr(14, 55), y = rr(-6, 14), s = rr(3, 7);
+    const g = new THREE.Group(); g.position.set(Z.cx + Math.cos(a) * d, y, Z.cz + Math.sin(a) * d); scene.add(g);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(s, s, .8, 16), mat(0x7cc94f)); g.add(top);
+    const rk = new THREE.Mesh(new THREE.ConeGeometry(s, s * 2.2, 10), mat(0x9a8fb0)); rk.rotation.x = Math.PI; rk.position.y = -s * 1.1 - .4; g.add(rk);
+    if (R() < .7){ const tr = new THREE.Mesh(boxGeo, mat(0x8a5a3b)); tr.scale.set(.5, 2, .5); tr.position.y = 1.4; g.add(tr); const lv = new THREE.Mesh(boxGeo, mat(0xff9ad8)); lv.scale.set(2.2, 1.8, 2.2); lv.position.y = 3.2; g.add(lv); }
+    bobbers.push({m:g, base:y, ph:R() * 6, amp:.8});
+  }
+}
+// decorações do céu
+function skyPillar(x, z){ const h = rr(3, 6); addBlock(x, 0, z, 1.4, .4, 1.4, 0xe6e0f5); addBlock(x, .4, z, 1, h, 1, 0xffffff); addBlock(x, .4 + h, z, 1.5, .4, 1.5, 0xffd23f, false); }
+function cloudBush(x, z){ const g = cloudPuff(x, .6, z, .45); g.children.forEach(b => b.castShadow = true); }
+function skyTree(x, z){ const h = 2 + R() * 1.5; addBlock(x, 0, z, .7, h, .7, 0xf4ecd8); addBlock(x, h, z, 2.8, 2.2, 2.8, [0xff9ad8, 0xbfa8ff, 0x9fe6ff][Math.floor(R() * 3)]); addBlock(x, h + 2.2, z, 1.5, .9, 1.5, 0xffffff, false); }
+function temple(x, z){
+  addBlock(x, 0, z, 7, .8, 7, 0xe6e0f5);
+  [[-2.6, -2.6], [2.6, -2.6], [-2.6, 2.6], [2.6, 2.6]].forEach(([a, b]) => addBlock(x + a, .8, z + b, .9, 4, .9, 0xffffff));
+  addBlock(x, 4.8, z, 7.4, .6, 7.4, 0xffffff);
+  cone(5.4, 1.8, 0xffd23f, x, 5.4, z, 4).rotation.y = Math.PI / 4;
+}
+function rainbow(x, z){
+  [0xff4d4d, 0xff9a2a, 0xffe14d, 0x4ade80, 0x4aa8ff, 0x9a6bff].forEach((c, k) => {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(9 - k * .55, .28, 6, 36, Math.PI), new THREE.MeshBasicMaterial({color:c}));
+    t.position.set(x, 0, z); scene.add(t);
+  });
+}
+function balloon(x, z){
+  const y = rr(7, 13), g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  const c = [0xff5a8a, 0xffd23f, 0x5cc8ff, 0xb07cff][Math.floor(R() * 4)];
+  const b = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 12), mat(c)); b.scale.y = 1.15; g.add(b);
+  const bk = new THREE.Mesh(boxGeo, mat(0x8a5a3b)); bk.scale.set(.9, .7, .9); bk.position.y = -2.9; g.add(bk);
+  bobbers.push({m:g, base:y, ph:R() * 6, amp:.7});
 }
 const CORAL = [0xff6f91, 0xff9a4d, 0xb07cff, 0xffd23f, 0x4ae0c8];
 function coral(x, z){
@@ -747,9 +822,9 @@ function spawnBubble(x, y, z){
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
-  const prev = i ? ZONES[i-1] : HUB;
+  const prev = i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
@@ -757,6 +832,7 @@ ZONES.forEach((Z, i) => {
   Z.spawn = {x: Z.cx - dx * (Z.r - 6) + dz * 4, z: Z.cz - dz * (Z.r - 6) - dx * 4};
   const entry = {x: Z.cx - dx * Z.r, z: Z.cz - dz * Z.r};
   if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
+  if (Z.sky){ Z.portal = {x: Z.spawn.x - 8, z: Z.spawn.z - 4}; portalUp(Z.portal.x, Z.portal.z, 'DESCER', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
   for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
   const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
@@ -764,6 +840,7 @@ ZONES.forEach((Z, i) => {
   const spot = (m = 4, pad = 2.2) => { for (let t = 0; t < 40; t++){ const [x, z] = rnd(m); if (clear(x, z) && !occupied(x, z, pad)) return [x, z]; } return null; };
   if (i === 3) volcano(Z.cx, Z.cz);
   if (Z.sub){ const s = spot(14, 7.5); if (s) ship(s[0], s[1], i); }
+  if (Z.sky){ const s = spot(14, 9); if (s) rainbow(s[0], s[1]); }
   if (i === 0){ const s = spot(8, 3.5); if (s) windmill(s[0], s[1]); }
   const KINDS = [
     [[tree,12],[bush,10],[flowers,14],[mushroom,6],[rock,4],[hut,2],[fence,4]],
@@ -771,12 +848,13 @@ ZONES.forEach((Z, i) => {
     [[pine,14],[snowman,4],[iceSpike,8],[igloo,2],[rock,5]],
     [[obsidian,14],[lavaPool,10],[rock,7],[skull,4]],
     [[coral,24],[seaweed,34],[starfish,12],[clam,4],[chest,4],[rock,8],[anchor,2],[jelly,10],[fishSchool,8]],
+    [[temple,2],[skyPillar,12],[cloudBush,18],[skyTree,12],[flowers,12],[rock,4],[balloon,5]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
-    const big = fn === hut || fn === igloo || fn === pyramid;
+    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -785,14 +863,14 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5][i];
   for (let k = 0; k < 4; k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
     for (let st = 0; st < n; st++) addBlock(x + st*2.2*dir, 0, z, 2.2, (st+1)*1.2, 2.2, stepColor);
     zonePlatforms[i].push({x: x + (n-1)*2.2*dir, z, top: n*1.2});
   }
-  if (Z.sub){
+  if (Z.gate){
     const dome = new THREE.Mesh(new THREE.SphereGeometry(6.5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide}));
     dome.position.set(Z.gate.x, -0.5, Z.gate.z); scene.add(dome);
     const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
@@ -1011,10 +1089,33 @@ function dive(down){
     fx.classList.remove('flash'); diving = false;
   }, 500);
 }
+let inSky = false;
+function setSky(on){
+  inSky = on;
+  scene.background.set(on ? 0xc8ecff : 0x8fd6ff);
+  scene.fog.color.set(on ? 0xc8ecff : 0x8fd6ff); scene.fog.near = on ? 70 : 90; scene.fog.far = on ? 300 : 260;
+  hemi.color.set(0xffffff); hemi.groundColor.set(on ? 0xbfd8ff : 0x6a5a8a); hemi.intensity = on ? .9 : .75;
+  sun.color.set(on ? 0xfff6e0 : 0xfff1d6); sun.intensity = on ? .95 : .85;
+  water.visible = seabed.visible = !on;
+}
+function fly(up){
+  if (diving) return; diving = true;
+  const fx = $('dive'); fx.classList.add('skyf', 'flash');
+  beep(up ? 330 : 660, .8, 'triangle', .08, up ? 3 : .33);
+  setTimeout(() => {
+    const to = up ? SKY.spawn : SKY.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = up ? 0 : Math.PI * .75;
+    lastIsland = up ? SKY_I : -1;
+    setSky(up);
+    fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('skyf'), 450); diving = false;
+  }, 500);
+}
 function splash(){
   const sp = lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
   Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0});
-  toast('Tchibum! Você caiu no mar'); beep(220, .35, 'sine', .07, .35);
+  if (inSky){ toast('Ops! Você caiu das nuvens'); beep(500, .5, 'sine', .07, .3); }
+  else { toast('Tchibum! Você caiu no mar'); beep(220, .35, 'sine', .07, .35); }
 }
 
 // ---------- Entrada ----------
@@ -1397,7 +1498,9 @@ function step(now){
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
   if (SUB && !under && !diving && S.unlocked > SUB_I && P.y < -0.2 && Math.hypot(P.x - SUB.gate.x, P.z - SUB.gate.z) < 6) dive(true);
   if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
-  if (P.y < -1.8 && !diving) splash();
+  if (SKY && !inSky && !diving && S.unlocked > SKY_I && P.y < 1 && Math.hypot(P.x - SKY.gate.x, P.z - SKY.gate.z) < 2) fly(true);
+  if (inSky && !diving && P.y < 1 && Math.hypot(P.x - SKY.portal.x, P.z - SKY.portal.z) < 2) fly(false);
+  if (P.y < (inSky ? -22 : -1.8) && !diving) splash();
 
   // boneco
   player.position.set(P.x, P.y, P.z);
@@ -1423,7 +1526,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; banner(zi < 0 ? 'Ilha Central' : (ZONES[zi].sub ? '' : 'Ilha ') + ZONES[zi].name, zi < 0 ? 'Voltou para a' : ZONES[zi].sub ? 'Você mergulhou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
@@ -1518,6 +1621,7 @@ function start(data){
   if (data && data.P) Object.assign(P, data.P);
   if (!landAt(P.x, P.z) || lockedAt(P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
+  if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
   resize(); hud();
   cloudInit();
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
@@ -1528,5 +1632,3 @@ window.claude?.hot?.snapshot?.(() => ({S, P:{x:P.x, y:P.y, z:P.z}}));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
 </script>
-</body>
-</html>
