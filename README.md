@@ -17,6 +17,7 @@ Jogo 3D de simulador no navegador: pegue cristais, venda para os vendedores das 
 - Arena de Batalha grátis (portal de pedra na Ilha Central): ondas de Gelecas, Goblins, Ogros e o chefão Rei Ogro, com espada, barra de vida e moedas de prêmio
 - Barracas de feira com vendedores para vender cristais, comprar melhorias, pets e skins
 - Moradores andando por todas as ilhas, com roupas do lugar, que acenam e dizem oi
+- Navios em 5 portos (Ilha Central, Campo Verde, Dunas, Vale Gelado e Cratera de Lava) para viajar direto entre as ilhas já abertas
 - Cristal dourado que vale 10x
 - Loja com 4 melhorias: mochila, velocidade, pulo e ímã
 - 3 ovos com 12 pets que aumentam o valor dos cristais

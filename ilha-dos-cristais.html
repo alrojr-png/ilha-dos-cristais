@@ -71,7 +71,7 @@ body.under #dive{opacity:1}
 #dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}
 #dive.skyf{background:#fff}
 /* Tela inicial */
-body.intro .hud,body.intro #talkBtn,body.intro #talk,body.intro #stick{display:none!important}
+body.intro .hud,body.intro #talkBtn,body.intro #talk,body.intro #ship,body.intro #stick{display:none!important}
 #intro{position:fixed;inset:0;z-index:20;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(29,22,48,.25) 0%,rgba(29,22,48,.72) 100%);transition:opacity .5s}
 #intro.out{opacity:0;pointer-events:none}
 #intro .logo{display:block;width:clamp(64px,12vw,96px);margin:0 auto 6px;animation:float 2.6s ease-in-out infinite}
@@ -85,11 +85,15 @@ body.touch #intro small{display:none}
 @keyframes float{50%{transform:translateY(-10px) rotate(6deg)}}
 @keyframes beat{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){#intro .logo,#playBtn{animation:none}}
-#talk{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
+#talk,#ship{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
-#talkFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:var(--ink);border:2px solid rgba(0,0,0,.3);flex:none}
-#talkName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
+#shipFace{background:#4aa8ff}
+#ship p{margin:8px 0 12px;font-size:17px;font-weight:800;line-height:1.4}
+#ship small{display:block;margin-top:8px;text-align:right;font-size:11px;font-weight:800;color:var(--muted)}
+body.touch #ship small{display:none}
+#talkFace,#shipFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:var(--ink);border:2px solid rgba(0,0,0,.3);flex:none}
+#talkName,#shipName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
 #talkTxt{margin:8px 0 12px;font-size:17px;font-weight:800;line-height:1.4;min-height:2.8em}
 .talkopts{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .talkopts .btn{font-size:16px;padding:9px 8px}
@@ -235,6 +239,12 @@ body.touch.arena #atk{display:block}
     <button class="btn" type="button" data-act="bye">Tchau</button>
   </div>
   <small>Teclas 1 · 2 · 3 · 4 · 5</small>
+</div>
+<div id="ship" hidden role="dialog" aria-labelledby="shipName">
+  <div class="talkhead"><span id="shipFace">⚓</span><b id="shipName">Marujo Bento</b></div>
+  <p>Ahoy! Meu navio leva você para qualquer ilha. Para onde vamos?</p>
+  <div class="talkopts" id="shipOpts"></div>
+  <small>Teclas 1 · 2 · 3 · 4 · 5 · Esc fecha</small>
 </div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <button class="hud btn" id="atk" type="button">ATACAR</button>
@@ -926,9 +936,119 @@ ZONES.forEach((Z, i) => {
   }
 });
 
+// ---------- Navios entre as ilhas ----------
+const DOCKS = [
+  {name:'Ilha Central',    zi:-1, I:HUB,      dir:[0, -1]},
+  {name:'Campo Verde',     zi:0,  I:ZONES[0], dir:[-1, 0]},
+  {name:'Dunas Douradas',  zi:1,  I:ZONES[1], dir:[1, 0]},
+  {name:'Vale Gelado',     zi:2,  I:ZONES[2], dir:[1, 0]},
+  {name:'Cratera de Lava', zi:3,  I:ZONES[3], dir:[-1, 0]},
+];
+function buildShip(k){
+  const g = new THREE.Group();
+  // casco
+  part(3.6, 1.5, 8.6, 0x8a5a3b, 0, .25, 0, g); part(3.66, .22, 8.66, 0xffffff, 0, .62, 0, g);
+  part(2.6, 1.3, 1.8, 0x8a5a3b, 0, .35, 5, g); part(1.4, 1.1, 1.2, 0x8a5a3b, 0, .45, 6.2, g);
+  part(3.3, .1, 8.4, 0xc9a06a, 0, 1.02, 0, g); part(2.3, .1, 1.7, 0xc9a06a, 0, 1.02, 5, g);
+  [-1, 1].forEach(s => part(.15, .5, 8.4, 0x6b4a2b, s * 1.72, 1.3, 0, g));
+  // cabine
+  part(2.4, 1.5, 2.4, 0xf4ecd8, 0, 1.8, -2.7, g); part(2.7, .25, 2.7, [0xc0392b, 0x2b6cd4, 0x3ddc84, 0xffb000, 0xb07cff][k], 0, 2.67, -2.7, g);
+  [-1, 1].forEach(s => part(.05, .5, .7, 0x9fdcff, s * 1.22, 1.95, -2.7, g));
+  // mastro, vela e bandeira
+  part(.28, 6.5, .28, 0x5a3d22, 0, 4.3, 1.2, g);
+  part(3.2, 3.2, .08, 0xfff8ec, 0, 4.9, 1.38, g); part(3.22, .45, .1, 0xff5470, 0, 4.9, 1.39, g);
+  part(1, .55, .05, 0x4aa8ff, .5, 7.3, 1.2, g);
+  // capitão
+  const c = new THREE.Group(); c.position.set(.9, 1.07, -.7); c.rotation.y = Math.PI; c.scale.setScalar(.9); g.add(c);
+  [-1, 1].forEach(s => { part(.46, .97, .5, 0x2b4c7e, s * .27, .485, 0, c); part(.34, .95, .4, 0xffffff, s * .7, 1.45, 0, c); });
+  part(1.05, .95, .55, 0xffffff, 0, 1.45, 0, c); part(1.07, .16, .57, 0x2b4c7e, 0, 1.82, 0, c);
+  part(.78, .74, .74, 0xe8b48a, 0, 2.32, 0, c); part(.8, .3, .1, 0xc9c9c9, 0, 2.08, .37, c);
+  part(.12, .16, .05, 0x1d1630, -.17, 2.38, .38, c); part(.12, .16, .05, 0x1d1630, .17, 2.38, .38, c);
+  part(.86, .22, .84, 0xffffff, 0, 2.78, 0, c); part(.7, .08, .45, 0x1d1630, 0, 2.7, .55, c);
+  return g;
+}
+DOCKS.forEach((D, k) => {
+  const [dx, dz] = D.dir, I = D.I, e0 = I.r + BEACH - 2, e1 = I.r + BEACH + 10;
+  bridge(I.cx + dx * e0, I.cz + dz * e0, I.cx + dx * e1, I.cz + dz * e1);
+  D.board = {x:I.cx + dx * (e1 - 1.6), z:I.cz + dz * (e1 - 1.6)};
+  D.home = {x:I.cx + dx * (e1 + 5.4), z:I.cz + dz * (e1 + 5.4)};
+  D.out = Math.atan2(dx, dz); D.head = D.out; D.inside = false; D.ph = k;
+  D.ship = buildShip(k); D.ship.position.set(D.home.x, -0.5, D.home.z); D.ship.rotation.y = D.out; scene.add(D.ship);
+  const post = I.r + BEACH + 1;
+  addBlock(I.cx + dx * post - dz * 3.6, 0, I.cz + dz * post + dx * 3.6, .3, 3, .3, 0x5a3d22, false);
+  const l = label('NAVIOS', '#4aa8ff', '#06243f', 512); l.position.set(I.cx + dx * post - dz * 3.6, 3.6, I.cz + dz * post + dx * 3.6); scene.add(l);
+});
+const shipEl = document.getElementById('ship');
+let sail = null, shipDock = null, nearDock = null;
+const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+function openShipMenu(D){
+  if (sail || !shopEl.hidden || !petsEl.hidden || !skinsEl.hidden || !talkEl.hidden) return;
+  if (shiftLock) setShiftLock(false);
+  shipDock = D;
+  $('shipOpts').innerHTML = DOCKS.filter(o => o !== D).map((o, k) => {
+    const ok = o.zi < S.unlocked;
+    return `<button class="btn ${ok ? 'go' : ''}" type="button" data-dock="${DOCKS.indexOf(o)}" ${ok ? '' : 'disabled'}>${ok ? '' : '🔒 '}${o.name}</button>`;
+  }).join('') + '<button class="btn" type="button" data-dock="-1">Ficar aqui</button>';
+  shipEl.hidden = false;
+  beep(500, .08, 'triangle', .05, 1.2);
+  const b = shipEl.querySelector('button:not([disabled])'); if (b) b.focus();
+}
+function closeShipMenu(){ if (shipEl.hidden) return; shipEl.hidden = true; canvas.focus(); }
+shipEl.addEventListener('click', e => {
+  const b = e.target.closest('button[data-dock]'); if (!b) return;
+  initAudio();
+  const i = +b.dataset.dock;
+  if (i < 0){ closeShipMenu(); toast('Marujo Bento: Quando quiser, é só voltar!'); return; }
+  startSail(shipDock, DOCKS[i]);
+});
+function startSail(from, to){
+  closeShipMenu();
+  sail = {from, to, ph:'out', t:0, h0:from.head};
+  cam.yaw = from.out + Math.PI;
+  beep(150, .9, 'sawtooth', .05, 1); setTimeout(() => beep(150, .9, 'sawtooth', .05, 1), 1000);
+  toast(`Partiu ${to.name}!`, 2500);
+}
+// chamada no laço do jogo enquanto o navio navega: o boneco fica em pé no convés
+function updateSail(dt){
+  const s = sail; s.t += dt;
+  const D = s.ph === 'out' ? s.from : s.to, sh = D.ship, T = 3.2;
+  if (s.ph === 'out'){
+    let da = D.out - s.h0; da = Math.atan2(Math.sin(da), Math.cos(da));
+    sh.rotation.y = s.h0 + da * ease(Math.min(1, s.t / .9));
+    const k = Math.max(0, (s.t - .6) / (T - .6)), dist = 30 * k * k;
+    sh.position.x = D.home.x + D.dir[0] * dist; sh.position.z = D.home.z + D.dir[1] * dist;
+    if (s.t > T - .45 && !s.fade){ s.fade = true; $('dive').classList.add('flash'); }
+    if (s.t >= T){
+      sh.position.x = D.home.x; sh.position.z = D.home.z; sh.rotation.y = D.out; D.head = D.out;
+      const E = s.to; E.head = E.out + Math.PI; E.ship.rotation.y = E.head;
+      Object.assign(s, {ph:'in', t:0, fade:false});
+      cam.yaw = E.out;
+      setTimeout(() => $('dive').classList.remove('flash'), 150);
+    }
+  } else {
+    const k = Math.min(1, s.t / T), dist = 30 * (1 - k) * (1 - k);
+    sh.position.x = D.home.x + D.dir[0] * dist; sh.position.z = D.home.z + D.dir[1] * dist;
+    if (k >= 1){
+      sail = null; D.inside = true;
+      Object.assign(P, {x:D.board.x, y:0, z:D.board.z, vy:0, onGround:true});
+      P.face = D.out + Math.PI; cam.yaw = D.out + .7; cam.pitch = Math.max(cam.pitch, .6); lastIsland = D.zi;
+      banner((D.zi < 0 ? '' : 'Ilha ') + D.name, 'Você chegou na');
+      [523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .06, 1.2), j * 90));
+      return;
+    }
+  }
+  const h = sh.rotation.y;
+  Object.assign(P, {x:sh.position.x + Math.sin(h) * 3, z:sh.position.z + Math.cos(h) * 3, y:sh.position.y + 1.07, vy:0, onGround:true});
+  P.face = h;
+}
+function updateShips(t){
+  DOCKS.forEach((D, k) => { D.ship.position.y = -0.5 + Math.sin(t * 1.2 + k) * .08; D.ship.rotation.z = Math.sin(t * .9 + k) * .03; });
+}
+
 // Coisas no mar
 for (let k = 0, n = 0; k < 600 && n < 40; k++){
   const x = rr(-90, 190), z = rr(-80, 260);
+  if (DOCKS.some(D => Math.hypot(x - D.home.x, z - D.home.z) < 16 || Math.hypot(x - D.home.x - D.dir[0] * 22, z - D.home.z - D.dir[1] * 22) < 16)) continue;
   if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8) || (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 14)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
   n++;
   if (n <= 26) seaRock(x, z); else if (n <= 36) buoy(x, z, n % 2 ? 0xe8402c : 0xffd23f); else boat(x, z, R() * 6);
@@ -1571,6 +1691,12 @@ addEventListener('keydown', e => {
     if (n){ e.preventDefault(); talkAct(n); }
     return;
   }
+  if (!shipEl.hidden){
+    const m = /^(Digit|Numpad)([1-9])$/.exec(e.code);
+    if (m){ e.preventDefault(); const b = $('shipOpts').querySelectorAll('button')[+m[2] - 1]; if (b && !b.disabled) b.click(); }
+    if (e.code === 'Escape') closeShipMenu();
+    return;
+  }
   if (e.target.closest && e.target.closest('#shop,#pets,#skins,#hatch') && e.code !== 'Escape') return;
   if (!document.getElementById('hatch').hidden) return;
   keys[e.code] = true;
@@ -1578,6 +1704,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyL') toggleShop();
   if (e.code === 'KeyP') togglePets();
   if (e.code === 'KeyE' && nearStall && shopEl.hidden && petsEl.hidden && skinsEl.hidden) openTalk(nearStall);
+  else if (e.code === 'KeyE' && nearDock) openShipMenu(nearDock);
   if (e.code === 'ShiftLeft' && !e.repeat && shopEl.hidden && petsEl.hidden && skinsEl.hidden) setShiftLock(!shiftLock);
   if (e.code === 'Escape'){ toggleShop(false); togglePets(false); toggleSkins(false); }
   if (e.code === 'KeyK') toggleSkins();
@@ -1899,7 +2026,7 @@ function talkAct(act){
   if (act === 'bye'){ closeTalk(); toast(`${talkStall.N.name}: Até mais!`); }
 }
 talkEl.addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (b){ initAudio(); talkAct(b.dataset.act); } });
-talkBtn.addEventListener('click', () => { initAudio(); if (nearStall) openTalk(nearStall); });
+talkBtn.addEventListener('click', () => { initAudio(); if (nearStall) openTalk(nearStall); else if (nearDock) openShipMenu(nearDock); });
 
 // ---------- Laço do jogo ----------
 let last = performance.now(), saveT = 0, fullWarn = 0, combo = 0, comboT = 0, zoneNow = -1, gemSoundT = 0;
@@ -1917,7 +2044,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && shipEl.hidden && !sail){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -1945,6 +2072,8 @@ function step(now){
   if (under && !diving && Math.hypot(P.x - SUB.portal.x, P.z - SUB.portal.z) < 2) dive(false);
   if (SKY && !inSky && !diving && S.unlocked > SKY_I && P.y < 1 && Math.hypot(P.x - SKY.gate.x, P.z - SKY.gate.z) < 2) fly(true);
   if (inSky && !diving && P.y < 1 && Math.hypot(P.x - SKY.portal.x, P.z - SKY.portal.z) < 2) fly(false);
+  updateShips(t);
+  if (sail) updateSail(dt);
   if (!diving && !inArena && P.y < 1 && Math.abs(P.x - ARENA_GATE.x) < 1.6 && Math.abs(P.z - ARENA_GATE.z) < .8) goArena(true);
   if (!diving && inArena && P.y < 1 && Math.abs(P.x - ARENA.exit.x) < 1.6 && Math.abs(P.z - ARENA.exit.z) < .8) goArena(false);
   if (P.y < (inSky ? -22 : -1.8) && !diving) splash();
@@ -2056,7 +2185,16 @@ function step(now){
   }
   if (!nearStall && !talkEl.hidden) closeTalk();
   if (talkEl.hidden) talkStall = null;
-  talkBtn.hidden = !nearStall || !talkEl.hidden || !shopEl.hidden || !petsEl.hidden || !skinsEl.hidden;
+  // portos dos navios
+  nearDock = null;
+  for (const D of DOCKS){
+    const on = !sail && Math.hypot(P.x - D.board.x, P.z - D.board.z) < 2.2 && P.y < 1.5;
+    if (on) nearDock = D;
+    if (on && !D.inside) openShipMenu(D);
+    D.inside = on || (sail && sail.to === D);
+  }
+  if (!nearDock && !shipEl.hidden) closeShipMenu();
+  talkBtn.hidden = !(nearStall || nearDock) || !talkEl.hidden || !shipEl.hidden || !shopEl.hidden || !petsEl.hidden || !skinsEl.hidden;
 
   gateCheck();
   if (now > saveT){ saveT = now + 3000; save(); }
