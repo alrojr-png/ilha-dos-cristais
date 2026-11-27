@@ -428,16 +428,16 @@ body.touch .pw b{display:none}
 'use strict';
 // ---------- Dados do mundo ----------
 const ZONES = [
-  {name:'Campo Verde',     cx:0,  cz:80,  r:34, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
-  {name:'Dunas Douradas',  cx:88, cz:80,  r:34, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
-  {name:'Vale Gelado',     cx:88, cz:168, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
-  {name:'Cratera de Lava', cx:0,  cz:168, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
+  {name:'Campo Verde',     cx:0,  cz:128, r:34, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
+  {name:'Dunas Douradas',  cx:141, cz:128, r:34, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
+  {name:'Vale Gelado',     cx:141, cz:269, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
+  {name:'Cratera de Lava', cx:0,  cz:269, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
   {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
   {name:'Reino das Nuvens', cx:0, cz:-640, r:40, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
   {name:'Floresta Mítica', cx:-640, cz:-640, r:55, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
   {name:'Navio Abandonado', cx:640, cz:640, r:40, ground:0x9a8a64, edge:0x7d6e4e, beach:0x6b5e44, gem:0xffd6f0, value:100000, price:10000000, wreck:true},
   {name:'Estádio de Futebol', cx:-400, cz:80, r:44, ground:0xa7adb8, edge:0x8a909c, beach:0xd9d2bf, gem:0xffe14d, value:250000, price:25000000, stadium:true},
-  {name:'Praia do Sol', cx:88, cz:-4, r:32, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
+  {name:'Praia do Sol', cx:141, cz:-6, r:32, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
   {name:'Lua', cx:380, cz:360, r:40, ground:0xc4c4cc, edge:0x9a9aa4, beach:0x8a8a94, gem:0xd8f0ff, value:1500000, price:150000000, moon:true, from:9},
   {name:'Marte', cx:-380, cz:360, r:40, ground:0xc1562e, edge:0x8a3a22, beach:0x9a4428, gem:0xff6a3d, value:4000000, price:400000000, mars:true, from:10},
   {name:'Buraco Negro', cx:380, cz:640, r:40, ground:0x2e2346, edge:0x1a1228, beach:0x3a2a55, gem:0xc77dff, value:10000000, price:1000000000, hole:true, from:11},
@@ -647,7 +647,7 @@ const SNOW = {cx:-640, cz:640, r:50};
 let inSnow = false;
 const RESTO = {cx:380, cz:-320, r:40};
 // Ilha dos Portais: não tem ponte, só dá para chegar de barco
-const PORT = {cx:-130, cz:40, r:26, name:'Ilha dos Portais'};
+const PORT = {cx:-208, cz:64, r:26, name:'Ilha dos Portais'};
 PORT.spawn = {x:PORT.cx + 18, z:PORT.cz};
 let inResto = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
@@ -1937,7 +1937,7 @@ ZONES.forEach((Z, i) => {
 
 // Coisas no mar
 for (let k = 0, n = 0; k < 600 && n < 40; k++){
-  const x = rr(-90, 190), z = rr(-80, 260);
+  const x = rr(-150, 310), z = rr(-130, 430);
   if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8) || (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 14)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
   n++;
   if (n <= 26) seaRock(x, z); else if (n <= 36) buoy(x, z, n % 2 ? 0xe8402c : 0xffd23f); else boat(x, z, R() * 6);
@@ -3229,7 +3229,8 @@ questEl.addEventListener('click', e => {
 });
 
 // ---------- Barco que você pilota (libera no nível 10) ----------
-const BOAT_LV = 1, BOAT_C = {x:44, z:84, r:240};
+const BOAT_LV = 1, BOAT_SEA = 100;
+const boatIsles = () => [HUB, PORT].concat(ZONES.filter(I => !(I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole)));
 const myBoat = (() => {
   let a = -Math.PI * .75, post = null;
   for (let k = 0; k < 24; k++){
@@ -3291,7 +3292,7 @@ function boatHit(x, z, h){
   for (const [lx, lz] of [[0, 4.7], [-1, 3], [1, 3], [-1.3, 0], [1.3, 0], [-1.3, -2.6], [1.3, -2.6], [0, -3.3]]){
     const wx = x + sh * lz + ch * lx, wz = z + ch * lz - sh * lx;
     if (landAt(wx, wz)) return 'land';
-    if (Math.hypot(wx - BOAT_C.x, wz - BOAT_C.z) > BOAT_C.r) return 'edge';
+    if (boatIsles().every(I => Math.hypot(wx - I.cx, wz - I.cz) - I.r - BEACH > BOAT_SEA)) return 'edge';
   }
   return null;
 }
