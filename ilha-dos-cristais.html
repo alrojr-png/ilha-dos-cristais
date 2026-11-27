@@ -544,7 +544,7 @@ const fmt = n => {
   return (n/1e9).toFixed(1).replace('.', ',') + ' bi';
 };
 
-const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0});
+const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0, found:[], secret:null});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
 // Contas: ficam na nuvem do jogo (db "contas/<nome>": hash da senha + save), então funcionam em qualquer PC.
@@ -3539,7 +3539,7 @@ function drawMap(){
   }
   // outros jogadores (multiplayer)
   if (typeof others !== 'undefined') for (const o of others.values()){
-    if (!onMap(o.x, o.z)) continue;
+    if (!onMap(o.x, o.z) || secretAt(o.x, o.z, o.y)) continue;
     g.beginPath(); g.arc(X(o.x), Y(o.z), 6, 0, Math.PI * 2); g.fillStyle = '#4aa8ff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
     tag(o.x, o.z, o.name || 'Jogador', -16, 'rgba(31,111,184,.9)', 11);
   }
@@ -3575,7 +3575,7 @@ function compassTargets(){
   if (realm){ for (const e of realm.exits) t.push({x:e.x, z:e.z, ic:e.ic}); return t; }
   if (!driving) t.push({x:myBoat.x, z:myBoat.z, ic:'🚤'});
   for (const kg of kings) t.push({x:kg.x, z:kg.z, ic:'👑'});
-  if (typeof others !== 'undefined') for (const o of others.values()) t.push({x:o.x, z:o.z, ic:'🔵'});
+  if (typeof others !== 'undefined') for (const o of others.values()) if (!secretAt(o.x, o.z, o.y)) t.push({x:o.x, z:o.z, ic:'🔵'});
   return t;
 }
 function drawCompass(){
@@ -3626,7 +3626,7 @@ function drawMini(){
   for (const st of stalls) if (near(st.tx, st.tz)) g.fillText('🏪', X(st.tx), Y(st.tz));
   if (!realm){ for (const kg of kings) if (near(kg.x, kg.z)) g.fillText('👑', X(kg.x), Y(kg.z)); if (!driving && near(myBoat.x, myBoat.z)) g.fillText('🚤', X(myBoat.x), Y(myBoat.z)); }
   else for (const e of realm.exits) if (near(e.x, e.z)) g.fillText(e.ic, X(e.x), Y(e.z));
-  if (typeof others !== 'undefined') for (const o of others.values()){ if (!near(o.x, o.z)) continue; g.beginPath(); g.arc(X(o.x), Y(o.z), 7, 0, Math.PI * 2); g.fillStyle = '#4aa8ff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke(); }
+  if (typeof others !== 'undefined') for (const o of others.values()){ if (!near(o.x, o.z) || secretAt(o.x, o.z, o.y)) continue; g.beginPath(); g.arc(X(o.x), Y(o.z), 7, 0, Math.PI * 2); g.fillStyle = '#4aa8ff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke(); }
   // você, no meio
   const a = P.face, c0 = W / 2, tip = (r, ang) => [c0 + Math.sin(ang) * r, c0 + Math.cos(ang) * r];
   g.beginPath(); g.moveTo(...tip(20, a)); g.lineTo(...tip(12, a + 2.5)); g.lineTo(...tip(5, a + Math.PI)); g.lineTo(...tip(12, a - 2.5)); g.closePath();
@@ -4712,7 +4712,7 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars || inHole) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
@@ -5138,6 +5138,7 @@ function step(now){
   updateSnow(dt, t);
   updateInv(dt, t);
   updateMulti(dt, t);
+  updateSecrets(dt, t);
   if (!diving && !inInv && P.y < 1 && Math.hypot(P.x - INV.gate.x, P.z - INV.gate.z) < 1.4) goInv(true);
   if (!diving && inInv && P.y < 1 && Math.hypot(P.x - INV.exit.x, P.z - INV.exit.z) < 1.6) goInv(false);
   updateResto(dt, t);
@@ -5262,6 +5263,156 @@ function step(now){
 }
 
 function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+
+// ---------- Passagens secretas ----------
+// Em cada ilha, um morrinho de pedra com túnel por dentro. As entradas são paredes falsas (com cipós) que dá para atravessar.
+// Lá dentro: corredor em curva, sala escondida com baú (moedas 1x por dia) e uma saída secreta.
+// Com você dentro, o teto e as paredes ficam transparentes só para você; quem está fora não te vê (nem no mapa).
+const SECRETS = [];
+const SECRET_H = 3.4;
+const dayStr = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+function secretRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function secretAvoid(){
+  const pts = [[0, 8]];
+  const grab = o => { if (!o || typeof o !== 'object') return; for (const k in o){ const v = o[k]; if (v && typeof v === 'object' && typeof v.x === 'number' && typeof v.z === 'number') pts.push([v.x, v.z]); } };
+  [HUB, PORT, CASTLE, MINI, ELF, INV, SNOW, RESTO, ARENA, ...ZONES].forEach(grab);
+  for (const st of stalls) pts.push([st.tx, st.tz]);
+  if (myBoat && myBoat.stops) myBoat.stops.forEach(grab);
+  pts.push([CASTLE.cx, CASTLE.cz + 5], [PORT.spawn.x, PORT.spawn.z], [CASTLE.spawn.x, CASTLE.spawn.z]);
+  return pts;
+}
+function buildSecret(I, name, wallC, topC, seed){
+  const rnd = secretRng(seed), avoid = secretAvoid();
+  const HX = 6, HZ = 5, M = 1.4;
+  let spot = null;
+  for (let t = 0; t < 600 && !spot; t++){
+    const a = rnd() * Math.PI * 2, d = (.2 + rnd() * .75) * (I.r - 9);
+    const cx = I.cx + Math.cos(a) * d, cz = I.cz + Math.sin(a) * d;
+    if (Math.hypot(Math.abs(cx - I.cx) + HX, Math.abs(cz - I.cz) + HZ) > I.r - 1.5) continue;
+    const x0 = cx - HX - M, x1 = cx + HX + M, z0 = cz - HZ - M, z1 = cz + HZ + M;
+    if (colliders.some(c => c.maxX > x0 && c.minX < x1 && c.maxZ > z0 && c.minZ < z1)) continue;
+    if (avoid.some(([px, pz]) => Math.hypot(Math.max(x0 - px, 0, px - x1), Math.max(z0 - pz, 0, pz - z1)) < 5)) continue;
+    if (I.stadium && Math.abs(cx - I.cx) < stad.HW + HX + 5 && Math.abs(cz - I.cz) < stad.HL + HZ + 5) continue;
+    if (SECRETS.some(q => Math.abs(q.cx - cx) < 20 && Math.abs(q.cz - cz) < 20)) continue;
+    spot = [cx, cz];
+  }
+  if (!spot) return;
+  const [cx, cz] = spot, sx = rnd() < .5 ? 1 : -1, sz = rnd() < .5 ? 1 : -1;
+  // enfeites pequenos sem colisão (flores, grama, guarda-sóis) que ficariam dentro do morro somem
+  const bx = new THREE.Box3(), sz3 = new THREE.Vector3();
+  for (const o of scene.children){
+    if (o.isLight || o.isSprite || o === player || !o.visible) continue;
+    const px = o.position.x, pz = o.position.z;
+    if (px < cx - HX - .3 || px > cx + HX + .3 || pz < cz - HZ - .3 || pz > cz + HZ + .3 || o.position.y > SECRET_H + 1) continue;
+    bx.setFromObject(o).getSize(sz3);
+    if (Math.max(sz3.x, sz3.z) < 5 && sz3.y < 8) o.visible = false;
+  }
+  const W = (x, z) => [cx + sx * x, cz + sz * z];
+  const wm = new THREE.MeshLambertMaterial({color:wallC, transparent:true, opacity:1});
+  const tm = new THREE.MeshLambertMaterial({color:topC, transparent:true, opacity:1});
+  const fade = [];
+  // bloco em coordenadas locais (xa..xb, za..zb), espelhado conforme sx/sz
+  const blk = (xa, xb, za, zb, y, h, m, col, c) => {
+    const [ax, az] = W(xa, za), [bx, bz] = W(xb, zb);
+    const mesh = addBlock((ax + bx) / 2, y, (az + bz) / 2, Math.abs(bx - ax), h, Math.abs(bz - az), c || 0, col, m);
+    return mesh;
+  };
+  const wall = (xa, xb, za, zb, col = true) => fade.push(blk(xa, xb, za, zb, 0, SECRET_H, wm, col));
+  // paredes de fora (com dois buracos cobertos por paredes falsas)
+  wall(-6, 6, 4.2, 5);                   // norte
+  wall(-6, -3.6, -5, -4.2); wall(-1.6, 6, -5, -4.2); // sul
+  wall(5.2, 6, -4.2, 4.2);               // leste
+  wall(-6, -5.2, -4.2, 2.4);             // oeste
+  wall(-6, -5.2, 2.4, 4.2, false);       // ENTRADA falsa (oeste)
+  wall(-3.6, -1.6, -5, -4.2, false);     // SAÍDA falsa (sul)
+  // paredes de dentro: corredor em curva até a sala
+  wall(-5.2, 2.6, 1.6, 2.4);
+  wall(1.8, 2.6, -2.6, 1.6);
+  // teto (dá para ficar em cima)
+  fade.push(blk(-6, 6, -5, 5, SECRET_H, .5, tm, true));
+  // cipós nas paredes falsas (a dica!)
+  const vine = 0x2f8a3a;
+  for (let k = 0; k < 5; k++){ const z = 2.6 + k * .36, h = 1.4 + ((k * 7) % 3) * .5; blk(-6.08, -6.02, z, z + .14, SECRET_H - h, h, null, false, vine); }
+  for (let k = 0; k < 5; k++){ const x = -3.4 + k * .36, h = 1.4 + ((k * 5) % 3) * .5; blk(x, x + .14, -5.08, -5.02, SECRET_H - h, h, null, false, vine); }
+  // enfeites no teto (para parecer um morrinho)
+  const deco = new THREE.Group(); scene.add(deco);
+  for (let k = 0; k < 6; k++){
+    const [x, z] = W(-4.5 + rnd() * 9, -3.5 + rnd() * 7), sc = .6 + rnd() * .9;
+    const b = new THREE.Mesh(boxGeo, mat(k % 3 ? topC : wallC)); b.scale.set(sc * 1.4, sc, sc * 1.2); b.position.set(x, SECRET_H + .5 + sc / 2, z); b.rotation.y = rnd() * 3; b.castShadow = true; deco.add(b);
+  }
+  // chão escuro de dentro
+  blk(-5.2, 5.2, -4.2, 4.2, 0, .04, null, false, 0x3a2e28);
+  // lanternas
+  const lampM = new THREE.MeshBasicMaterial({color:0xffd86a});
+  [[-4.6, 3.3], [4.6, 3.3], [4.6, -3.6], [-.4, 1.1], [-4.6, -3.6]].forEach(([x, z]) => { blk(x - .07, x + .07, z - .07, z + .07, 1.9, .6, null, false, 0x5a4030); blk(x - .16, x + .16, z - .16, z + .16, 2.5, .3, lampM, false); });
+  // sala: tapete, caixotes, banquinho
+  blk(-4.4, -.8, -3.4, .8, .04, .03, null, false, 0x8a2a3a);
+  blk(.6, 1.6, -3.9, -2.9, 0, .9, null, false, 0x9a6b3f); blk(.8, 1.5, -2.8, -2.1, 0, .6, null, false, 0x8a5a30);
+  blk(-1.6, -.6, .7, 1.4, 0, .45, null, false, 0x6b4a2b);
+  // baú
+  const [chx, chz] = W(-4.3, -1.6);
+  const chest = new THREE.Group(); chest.position.set(chx, 0, chz); chest.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(chest);
+  part(1.1, .55, .7, 0x8a5a30, 0, .28, 0, chest); part(1.14, .1, .74, 0xffcc33, 0, .5, 0, chest);
+  const lid = new THREE.Group(); lid.position.set(0, .56, -.35); chest.add(lid);
+  part(1.1, .3, .7, 0x9a6b3f, 0, .15, .35, lid); part(.2, .22, .06, 0xffcc33, 0, .1, .72, lid);
+  const shine = new THREE.Mesh(new THREE.OctahedronGeometry(.18, 0), new THREE.MeshBasicMaterial({color:0xffe27a})); shine.position.set(0, .7, 0); chest.add(shine);
+  const [ix0, iz0] = W(-5.2, -4.2), [ix1, iz1] = W(5.2, 4.2), [ox0, oz0] = W(-6, -5), [ox1, oz1] = W(6, 5);
+  SECRETS.push({id:SECRETS.length, name, I, cx, cz, sx, sz, wm, tm, deco, lid, shine, chx, chz, f:1,
+    ix0:Math.min(ix0, ix1), ix1:Math.max(ix0, ix1), iz0:Math.min(iz0, iz1), iz1:Math.max(iz0, iz1),
+    ox0:Math.min(ox0, ox1), ox1:Math.max(ox0, ox1), oz0:Math.min(oz0, oz1), oz1:Math.max(oz0, oz1), near:false});
+}
+[[HUB, 'Ilha Central', 0x8a8f9c, 0x7cc94f], [PORT, 'Ilha dos Portais', 0x7a7a90, 0x6cc46a], [CASTLE, 'Ilha do Castelo', 0x9a9aa6, 0x7cc94f],
+ ...ZONES.map(Z => [Z, Z.name, Z.edge, Z.ground]),
+ [MINI, 'Mini Mundo', 0x8a6a4a, 0x6cc95a], [ELF, 'Mundo dos Elfos', 0x8a7a5a, 0x6cc46a], [INV, 'Mundo Invertido', 0x5a3a7a, 0x8a5ab0],
+ [SNOW, 'Montanha de Neve', 0xa9c8ea, 0xf4f8ff], [RESTO, 'Restaurante', 0xb0a090, 0x7cc94f]
+].forEach(([I, name, wc, tc], k) => buildSecret(I, name, wc, tc, 9001 + k * 7919));
+// cristais que nasceram dentro das paredes vão para outro lugar
+for (const g of gems) if (g.active && SECRETS.some(q => g.x > q.ox0 - .5 && g.x < q.ox1 + .5 && g.z > q.oz0 - .5 && g.z < q.oz1 + .5) && occupied(g.x, g.z, .6)) placeGem(g);
+function secretAt(x, z, y){
+  if (y > SECRET_H - .2) return null;
+  for (const q of SECRETS) if (x > q.ix0 && x < q.ix1 && z > q.iz0 && z < q.iz1) return q;
+  return null;
+}
+let inSecret = null;
+function updateSecrets(dt, t){
+  const here = playing ? secretAt(P.x, P.z, P.y) : null;
+  if (here !== inSecret){
+    if (here){
+      if (!S.found) S.found = [];
+      if (!S.found.includes(here.id)){
+        S.found.push(here.id); save();
+        toast(`🤫 Passagem secreta! (${S.found.length}/${SECRETS.length} achadas)`, 3500);
+        [392, 494, 587, 784].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .05, 1.2), j * 90));
+      } else toast('🤫 Escondido na passagem secreta', 1800);
+    }
+    inSecret = here;
+  }
+  const today = dayStr();
+  if (!S.secret || S.secret.day !== today) S.secret = {day:today, got:[]};
+  for (const q of SECRETS){
+    const want = q === here ? .16 : 1;
+    if (q.f !== want){
+      q.f += (want - q.f) * Math.min(1, dt * 8); if (Math.abs(q.f - want) < .01) q.f = want;
+      q.wm.opacity = q.tm.opacity = q.f; q.wm.depthWrite = q.tm.depthWrite = q.f > .95; q.deco.visible = q.f > .6;
+    }
+    const got = S.secret.got.includes(q.id);
+    q.lid.rotation.x += ((got ? -1.15 : 0) - q.lid.rotation.x) * Math.min(1, dt * 6);
+    q.shine.visible = !got; if (!got){ q.shine.rotation.y = t * 2; q.shine.position.y = .85 + Math.sin(t * 3) * .1; }
+  }
+  if (here){
+    const near = Math.hypot(P.x - here.chx, P.z - here.chz) < 1.6;
+    if (near && !here.near){
+      if (!S.secret.got.includes(here.id)){
+        const v = Math.round(300 * coinScale());
+        S.coins += v; S.secret.got.push(here.id); save(); hud(); pulseCoins();
+        floatText('+' + fmt(v), P.x, P.y + 3.4, P.z, 'coin');
+        [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .06, 1.3), j * 80));
+        toast(`💰 Baú secreto: +${fmt(v)} moedas!`, 3000);
+      } else toast('O baú está vazio. Volte amanhã!', 2200);
+    }
+    here.near = near;
+  }
+}
 addEventListener('resize', resize);
 
 function start(data){
