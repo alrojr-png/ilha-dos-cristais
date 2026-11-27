@@ -3755,15 +3755,17 @@ const sharkM = (() => {
 const sharkFin = (() => { const g = new THREE.Group(); const f = part(.35, 1.7, 1.5, 0x6b7a8f, 0, .5, 0, g); f.rotation.x = -.35; g.visible = false; scene.add(g); return g; })();
 const shark = {on:false, t:0, side:1, warnT:0, finA:0};
 function isleName(i){ return i === -2 ? 'Ilha dos Portais' : i === -3 ? 'Ilha do Castelo' : i < 0 ? 'Ilha Central' : ZONES[i].name; }
-function startShark(){
+function startShark(fly = false){
   if (shark.on) return;
-  shark.on = true; shark.t = 0; shark.side = Math.random() < .5 ? 1 : -1;
+  shark.on = true; shark.fly = fly; shark.t = 0; shark.side = Math.random() < .5 ? 1 : -1;
+  if (fly) shark.at = {x:P.x, y:P.y, z:P.z, h:P.face};
   myBoat.v = 0; sharkFin.visible = false;
   toast('🦈 TUBARÃO!', 1800);
   [110, 117, 110, 117].forEach((f, j) => setTimeout(() => beep(f, .28, 'sawtooth', .07, .9), j * 260));
 }
 function updateShark(dt, t){
-  const B0 = myBoat, fx = Math.sin(B0.h), fz = Math.cos(B0.h), rx = Math.cos(B0.h), rz = -Math.sin(B0.h);
+  const B0 = shark.fly ? shark.at : myBoat, fx = Math.sin(B0.h), fz = Math.cos(B0.h), rx = Math.cos(B0.h), rz = -Math.sin(B0.h);
+  const peak = shark.fly ? Math.max(6.5, B0.y + 2.6) : 6.5; // voando: o tubarão pula até a sua altura
   shark.t += dt;
   const T = shark.t, S1 = 1.3, S2 = 2.2, S3 = 3.1;
   const G = sharkM.g; G.visible = true;
@@ -3778,26 +3780,31 @@ function updateShark(dt, t){
     // pulo por cima do barco, boca aberta, nhac!
     const k = (T - S1) / (S2 - S1), sx = shark.side;
     const px = B0.x + rx * sx * (7 - 14 * k), pz = B0.z + rz * sx * (7 - 14 * k);
-    G.position.set(px, -1.5 + Math.sin(k * Math.PI) * 6.5, pz);
+    G.position.set(px, -1.5 + Math.sin(k * Math.PI) * (peak + 1.5) * (shark.fly ? 1 : 6.5 / (peak + 1.5)), pz);
     G.rotation.set(0, Math.atan2(-rx * sx, -rz * sx), 0);
     sharkM.body.rotation.x = (k - .5) * 1.3;
     sharkM.jaw.rotation.x = k < .45 ? .9 : k < .55 ? .9 - (k - .45) * 9 : 0;
     if (k >= .5 && !shark.ate){
-      shark.ate = true; hideMe = true; boatM.g.visible = false;
+      shark.ate = true; hideMe = true; if (!shark.fly) boatM.g.visible = false;
       const h = $('hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 250);
       beep(90, .35, 'square', .09, .5); setTimeout(() => beep(70, .3, 'square', .08, .5), 120);
-      floatText('NHAC!', B0.x, 3.5, B0.z, 'dmg');
+      floatText('NHAC!', B0.x, shark.fly ? B0.y + 2 : 3.5, B0.z, 'dmg');
     }
   } else if (T < S3){
     const k = (T - S2) / (S3 - S2);
-    G.position.y = -1.5 - k * 4; sharkM.body.rotation.x = .65;
-    if (!shark.splashed){ shark.splashed = true; for (let q = 0; q < 8; q++) spawnWake(G.position.x + (Math.random() - .5) * 4, G.position.z + (Math.random() - .5) * 4); beep(220, .4, 'sine', .07, .35); }
+    G.position.y = shark.fly ? Math.max(-5.5, G.position.y - dt * (20 + 30 * k)) : -1.5 - k * 4; sharkM.body.rotation.x = .65;
+    if (!shark.splashed && G.position.y < -1){ shark.splashed = true; for (let q = 0; q < 8; q++) spawnWake(G.position.x + (Math.random() - .5) * 4, G.position.z + (Math.random() - .5) * 4); beep(220, .4, 'sine', .07, .35); }
   } else {
     // volta para a última ilha, com o barco parado na plaquinha de lá
     G.visible = false; sharkM.body.rotation.x = 0; shark.on = false; shark.ate = false; shark.splashed = false;
-    driving = false; hideMe = false; boatM.g.visible = true;
-    const name = isleName(lastIsland), st = myBoat.stops.find(q => q.name === name) || myBoat.stops[0];
-    Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0, steer:0});
+    hideMe = false;
+    const name = isleName(lastIsland);
+    if (shark.fly){ shark.fly = false; heroFly = true; setHeroFly(false); }
+    else {
+      driving = false; boatM.g.visible = true;
+      const st = myBoat.stops.find(q => q.name === name) || myBoat.stops[0];
+      Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0, steer:0});
+    }
     const sp = lastIsland === -2 ? PORT.spawn : lastIsland === -3 ? CASTLE.spawn : lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
     Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0, onGround:true});
     cam.yaw = Math.PI; banner(name, '🦈 O tubarão te cuspiu de volta na');
@@ -3816,6 +3823,29 @@ function updateSharkWarn(dt, t){
     sharkFin.position.set(B0.x + Math.cos(shark.finA) * 9, -.5 + Math.sin(t * 3) * .08, B0.z + Math.sin(shark.finA) * 9);
     sharkFin.rotation.y = -shark.finA;
     if (performance.now() > shark.warnT){ shark.warnT = performance.now() + 6000; toast('🦈 Tem tubarão por aqui... volte para perto das ilhas!', 3000); beep(110, .3, 'sawtooth', .05, .9); }
+  }
+}
+
+// voando com a skin de herói sobre o mar aberto (só no mar da superfície)
+function inSpecialWorld(){ return under || inSky || inForest || inMoon || inMars || inHole || inArena || inMini || inElf || inInv || inSnow || inResto; }
+function updateSharkFly(dt, t){
+  if (shark.on && shark.fly){
+    updateShark(dt, t);
+    if (shark.on){ Object.assign(P, {x:shark.at.x, y:shark.at.y, z:shark.at.z, vy:0}); } // paralisado de medo
+    return;
+  }
+  if (shark.on || driving) return;
+  const over = heroFly && !inSpecialWorld() && !landAt(P.x, P.z);
+  if (!over){ sharkFin.visible = false; return; }
+  const d = seaDist(P.x, P.z);
+  if (d > BOAT_SEA){ startShark(true); return; }
+  const warn = d > BOAT_SEA - 22;
+  sharkFin.visible = warn;
+  if (warn){
+    shark.finA += dt * 1.4;
+    sharkFin.position.set(P.x + Math.cos(shark.finA) * 9, -.5 + Math.sin(t * 3) * .08, P.z + Math.sin(shark.finA) * 9);
+    sharkFin.rotation.y = -shark.finA;
+    if (performance.now() > shark.warnT){ shark.warnT = performance.now() + 6000; toast('🦈 Tem tubarão aqui embaixo... nem voando você escapa! Volte para perto das ilhas!', 3200); beep(110, .3, 'sawtooth', .05, .9); }
   }
 }
 function boardBoat(){
@@ -4258,6 +4288,7 @@ function spawnHeroTrail(){
 }
 function updateHeroTrail(dt){ for (const m of heroTrail){ if (m.life <= 0) continue; m.life -= dt; m.mesh.material.opacity = Math.max(0, m.life / .6); m.mesh.scale.setScalar(.4 + m.life); m.mesh.rotation.y += dt * 6; if (m.life <= 0) m.mesh.visible = false; } }
 function setHeroFly(on){
+  if (shark.on && shark.fly) return;
   if (on && (!isHero() || driving || diving || arrest.on || flipping || !playing)){ if (!isHero()) toast('Só quem veste a skin Super-herói pode voar!', 2200); return; }
   if (heroFly === on) return;
   heroFly = on;
@@ -4273,6 +4304,7 @@ let flyTip = false;
 let fightOn = false, fightCd = 0;
 const OUCH = ['Ai!', 'Ui!', 'Ei!', 'Socorro!', 'Para com isso!', 'Ai, ai!', 'Mamãe!'];
 const KNIGHT_SAY = ['Sem bagunça!', 'Ei, respeito!', 'Cuidado, hein!', 'Eu sou da guarda!'];
+const KING_OOPS_HERO = ['Ai! Calma, Super-herói, eu sou do bem!', 'Opa! Essa super força escapou de novo, herói?', 'Ui! Tudo bem, herói, foi sem querer. Obrigado por proteger o reino!', 'Ei, herói! Guarde esses socos para os vilões!'];
 const KING_OOPS = ['Ai! Cuidado com essa espada, guarda! Foi sem querer, né?', 'Opa, guarda! Treinando perto do Rei de novo?', 'Ui! Tudo bem, meu fiel cavaleiro, acidentes acontecem.', 'Ei, guarda! Mais atenção nesse treino, hein!'];
 function setFight(on){
   fightOn = on;
@@ -4294,8 +4326,8 @@ function fightAttack(){
   P.face = Math.atan2(best.x - P.x, best.z - P.z); player.rotation.y = P.face;
   if (kind === 'king'){
     // disfarce: vestido de cavaleiro, o Rei acha que foi um guarda que bateu sem querer
-    if (S.skin === 'cavaleiro'){
-      const fala = KING_OOPS[Math.floor(Math.random() * KING_OOPS.length)];
+    if (S.skin === 'cavaleiro' || S.skin === 'heroi'){
+      const L = S.skin === 'heroi' ? KING_OOPS_HERO : KING_OOPS, fala = L[Math.floor(Math.random() * L.length)];
       floatText('😅', best.x, 5.4, best.z, 'emo2');
       toast('👑 Rei Cristóvão: ' + fala, 3000);
       beep(330, .12, 'triangle', .05, .8);
@@ -5330,7 +5362,7 @@ function step(now){
   if (keys.KeyD || keys.ArrowRight) ix += 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (stick.id !== null){ ix += stick.x; iz -= stick.y; }
-  if (arrest.on){ ix = 0; iz = 0; jumpBuf = 0; }
+  if (arrest.on || (shark.on && shark.fly)){ ix = 0; iz = 0; jumpBuf = 0; }
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
@@ -5378,6 +5410,7 @@ function step(now){
   if (!diving && !inMini && P.y < 1 && Math.abs(P.x - SHRINK.x) < 1.2 && Math.abs(P.z - SHRINK.z) < 1.2) goMini(true);
   if (!diving && inMini && P.y < 1 && Math.abs(P.x - MINI.exit.x) < 1.2 && Math.abs(P.z - MINI.exit.z) < 1.2) goMini(false);
   if (driving) updateDrive(dt, ix, iz, t);
+  else updateSharkFly(dt, t);
   updateMyBoat(dt, t);
   if (STAD && !diving && S.unlocked > STAD_I && P.y < 1 && Math.hypot(P.x - STAD.gate.x, P.z - STAD.gate.z) < 2) goStadium(true);
   if (STAD && !diving && lastIsland === STAD_I && P.y < 1 && Math.hypot(P.x - STAD.portal.x, P.z - STAD.portal.z) < 2) goStadium(false);
