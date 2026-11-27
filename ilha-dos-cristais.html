@@ -2071,10 +2071,13 @@ const SKINS = [
   {id:'anjo',      name:'Anjo das Nuvens',  price:8000000, shirt:0xffffff, pants:0xf4f0ff, hair:0xffe7a0, pack:0xbfe8ff, acc:'angel'},
   {id:'lava',      name:'Cavaleiro de Lava', price:20000000, shirt:0x3a2a2e, pants:0x221a26, hair:0x221a26, pack:0xff6a1a, acc:'lava', noHair:1},
   {id:'arcoiris',  name:'Lenda Arco-íris',  price:50000000, shirt:0xff5a8a, pants:0x4aa8ff, hair:0xb07cff, pack:0x3ddc84, acc:'rainbow'},
+  // exclusiva: só aparece e só funciona na conta do dono
+  {id:'criador',   name:'Criador da Ilha',  price:0, only:'altor', shirt:0x1d1630, pants:0xffcc33, hair:0x1d1630, pack:0x34f0b0, acc:'creator'},
 ];
+const skinOk = (k, who) => !!k && (!k.only || k.only === who);
 const ACC_NAME = {cap:'Boné', ninja:'Faixa e máscara', astro:'Capacete espacial', pirate:'Chapéu e tapa-olho', wizard:'Chapéu de mago e barba', knight:'Elmo com pluma', robot:'Antena e visor', king:'Coroa e capa',
   shades:'Óculos de sol', fire:'Capacete de bombeiro', chef:'Chapéu de cozinheiro', vampire:'Capa e dentinhos', bee:'Anteninhas e asas', dino:'Capuz de dinossauro e rabo',
-  ice:'Coroa de gelo', hero:'Máscara e capa', angel:'Auréola e asas', lava:'Elmo com chifres de fogo', rainbow:'Arco-íris na cabeça'};
+  ice:'Coroa de gelo', hero:'Máscara e capa', angel:'Auréola e asas', lava:'Elmo com chifres de fogo', rainbow:'Arco-íris na cabeça', creator:'Coroa de cristais, capa e cristal flutuante · só sua!'};
 const PM = {shirt:new THREE.MeshLambertMaterial(), pants:new THREE.MeshLambertMaterial(), skin:new THREE.MeshLambertMaterial(), hair:new THREE.MeshLambertMaterial(), pack:new THREE.MeshLambertMaterial()};
 let hairMesh = null;
 {
@@ -2082,31 +2085,31 @@ let hairMesh = null;
   player.traverse(o => { if (!o.isMesh) return; for (const [c, k] of swapM) if (o.material === mat(c)){ o.material = PM[k]; if (k === 'hair') hairMesh = o; } });
 }
 const accG = new THREE.Group(); player.add(accG);
-function buildAcc(sk){
-  accG.clear();
-  const ap = (w, h, d, c, x, y, z) => part(w, h, d, c, x, y, z, accG), c = sk.accC;
+function buildAcc(sk, G = accG){
+  G.clear(); G.userData.spin = [];
+  const ap = (w, h, d, c, x, y, z) => part(w, h, d, c, x, y, z, G), c = sk.accC;
   if (sk.acc === 'cap'){ ap(.86, .22, .84, c, 0, 2.76, 0); ap(.7, .08, .45, c, 0, 2.68, .55); ap(.2, .1, .2, 0xffffff, 0, 2.9, 0); }
   if (sk.acc === 'ninja'){ ap(.82, .16, .8, c, 0, 2.56, 0); ap(.1, .36, .08, c, .15, 2.42, -.43); ap(.1, .3, .08, c, -.05, 2.38, -.45); ap(.8, .3, .06, 0x22222c, 0, 2.13, .385); }
   if (sk.acc === 'astro'){
-    const h = new THREE.Mesh(new THREE.SphereGeometry(.72, 18, 14), new THREE.MeshPhongMaterial({color:0x9fdcff, transparent:true, opacity:.32, shininess:140, depthWrite:false})); h.position.set(0, 2.33, 0); accG.add(h);
+    const h = new THREE.Mesh(new THREE.SphereGeometry(.72, 18, 14), new THREE.MeshPhongMaterial({color:0x9fdcff, transparent:true, opacity:.32, shininess:140, depthWrite:false})); h.position.set(0, 2.33, 0); G.add(h);
     ap(.92, .14, .92, 0xc9ccd6, 0, 1.96, 0); ap(.3, .2, .05, 0x4aa8ff, .25, 1.6, .29); ap(.2, .2, .05, 0xe8402c, -.25, 1.65, .29);
   }
   if (sk.acc === 'pirate'){ ap(1.24, .12, .88, 0x1d1630, 0, 2.74, 0); ap(.82, .38, .74, 0x1d1630, 0, 2.96, 0); ap(.16, .16, .05, 0xffffff, 0, 2.98, .38); ap(.17, .17, .05, 0x1d1630, .17, 2.37, .39); ap(.8, .05, .05, 0x1d1630, 0, 2.5, .385); }
   if (sk.acc === 'wizard'){
     ap(1.25, .08, 1.25, c, 0, 2.72, 0);
-    const hat = new THREE.Mesh(new THREE.ConeGeometry(.55, 1.5, 8), mat(c)); hat.position.set(0, 3.5, 0); hat.rotation.z = .12; hat.castShadow = true; accG.add(hat);
-    const st = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), mat(0xffd23f)); st.position.set(.12, 3.3, .33); accG.add(st);
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(.55, 1.5, 8), mat(c)); hat.position.set(0, 3.5, 0); hat.rotation.z = .12; hat.castShadow = true; G.add(hat);
+    const st = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), mat(0xffd23f)); st.position.set(.12, 3.3, .33); G.add(st);
     ap(.62, .5, .1, 0xd8d8d8, 0, 1.98, .4);
   }
   if (sk.acc === 'knight'){ ap(.9, .84, .9, 0xa9b4c2, 0, 2.33, 0); ap(.62, .08, .05, 0x1d1630, 0, 2.38, .455); ap(.12, .45, .7, 0xe8402c, 0, 2.95, -.05); }
-  if (sk.acc === 'robot'){ ap(.08, .4, .08, 0x7d8794, 0, 2.88, 0); const b = new THREE.Mesh(new THREE.SphereGeometry(.13, 10, 8), new THREE.MeshBasicMaterial({color:0xff5470})); b.position.set(0, 3.12, 0); accG.add(b); ap(.62, .16, .05, 0x4aa8ff, 0, 2.38, .39); ap(.12, .3, .3, 0x7d8794, .42, 2.32, 0); ap(.12, .3, .3, 0x7d8794, -.42, 2.32, 0); }
+  if (sk.acc === 'robot'){ ap(.08, .4, .08, 0x7d8794, 0, 2.88, 0); const b = new THREE.Mesh(new THREE.SphereGeometry(.13, 10, 8), new THREE.MeshBasicMaterial({color:0xff5470})); b.position.set(0, 3.12, 0); G.add(b); ap(.62, .16, .05, 0x4aa8ff, 0, 2.38, .39); ap(.12, .3, .3, 0x7d8794, .42, 2.32, 0); ap(.12, .3, .3, 0x7d8794, -.42, 2.32, 0); }
   if (sk.acc === 'king'){
     ap(.86, .2, .86, 0xffcc33, 0, 2.8, 0);
     [[.33, .33], [-.33, .33], [.33, -.33], [-.33, -.33], [0, .38]].forEach(([x, z]) => ap(.14, .22, .14, 0xffcc33, x, 2.99, z));
-    const g = new THREE.Mesh(new THREE.OctahedronGeometry(.12, 0), mat(0x34f0b0)); g.position.set(0, 2.82, .45); accG.add(g);
+    const g = new THREE.Mesh(new THREE.OctahedronGeometry(.12, 0), mat(0x34f0b0)); g.position.set(0, 2.82, .45); G.add(g);
     ap(1.12, 1.7, .08, 0xc0392b, 0, 1.18, -.7); ap(1.15, .16, .62, 0xffffff, 0, 1.96, -.12);
   }
-  const add = (m, x, y, z) => { m.position.set(x, y, z); accG.add(m); return m; };
+  const add = (m, x, y, z) => { m.position.set(x, y, z); G.add(m); return m; };
   const glow = c => new THREE.MeshBasicMaterial({color:c});
   if (sk.acc === 'shades'){ ap(.74, .16, .05, 0x1d1630, 0, 2.39, .39); ap(.06, .06, .42, 0x1d1630, .38, 2.42, .19); ap(.06, .06, .42, 0x1d1630, -.38, 2.42, .19); ap(.24, .08, .03, 0x4ae0c8, -.17, 2.41, .42); ap(.24, .08, .03, 0x4ae0c8, .17, 2.41, .42); }
   if (sk.acc === 'fire'){ ap(.9, .32, .9, 0xe8402c, 0, 2.84, 0); ap(1.15, .06, 1.25, 0xe8402c, 0, 2.7, -.06); ap(.26, .26, .05, 0xffd23f, 0, 2.84, .46); ap(.12, .2, .9, 0xc0392b, 0, 3.05, 0); }
@@ -2145,10 +2148,22 @@ function buildAcc(sk){
     });
     [-1, 1].forEach(s => { add(new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 8), mat(0xffffff)), s * .62, 2.75, -.05); add(new THREE.Mesh(new THREE.SphereGeometry(.15, 10, 8), mat(0xffffff)), s * .85, 2.72, -.05); });
   }
+  if (sk.acc === 'creator'){
+    const gm = new THREE.MeshPhongMaterial({color:0x34f0b0, emissive:0x1fbf88, emissiveIntensity:.6, shininess:120, flatShading:true});
+    ap(.88, .16, .88, 0xffcc33, 0, 2.78, 0);
+    [[0, .4, .5], [.3, .26, .36], [-.3, .26, .36], [.38, -.12, .3], [-.38, -.12, .3], [0, -.4, .3]].forEach(([x, z, h]) => add(new THREE.Mesh(new THREE.ConeGeometry(.11, h, 5), gm), x, 2.86 + h / 2, z));
+    ap(1.14, 1.8, .08, 0x1fbf88, 0, 1.12, -.7); ap(1.18, .12, .1, 0xffcc33, 0, 2.02, -.68); ap(1.18, .1, .1, 0xffcc33, 0, .24, -.72);
+    ap(.42, .42, .05, 0xffcc33, 0, 1.55, .29);
+    add(new THREE.Mesh(new THREE.OctahedronGeometry(.14, 0), gm), 0, 1.55, .33);
+    const big = add(new THREE.Mesh(new THREE.OctahedronGeometry(.32, 0), new THREE.MeshPhongMaterial({color:0xffd84a, emissive:0xffb000, emissiveIntensity:.7, shininess:140, flatShading:true})), 0, 3.85, 0);
+    big.scale.y = 1.4; G.userData.spin.push(big);
+    const ring = add(new THREE.Mesh(new THREE.TorusGeometry(1.05, .06, 8, 40), glow(0xffcc33)), 0, .08, 0); ring.rotation.x = Math.PI / 2; G.userData.spin.push(ring);
+  }
 }
 let skinNow = null;
 function applySkin(){
-  const sk = SKINS.find(k => k.id === S.skin) || SKINS[0];
+  let sk = SKINS.find(k => k.id === S.skin);
+  if (!skinOk(sk, ACC)) sk = SKINS[0];
   skinNow = S.skin;
   PM.shirt.color.setHex(sk.shirt); PM.pants.color.setHex(sk.pants); PM.hair.color.setHex(sk.hair); PM.pack.color.setHex(sk.pack); PM.skin.color.setHex(sk.skin ?? SKIN);
   if (hairMesh) hairMesh.visible = !sk.noHair;
@@ -4559,6 +4574,7 @@ function buildAvatar(skinId){
   part(.12, .16, .05, 0x1d1630, -.17, 2.36, .38, g); part(.12, .16, .05, 0x1d1630, .17, 2.36, .38, g);
   part(.3, .06, .05, 0xb5524a, 0, 2.14, .38, g);
   part(.8, .8, .36, K.pack, 0, 1.5, -.45, g);
+  const ag = new THREE.Group(); g.add(ag); buildAcc(K, ag);
   const L = {};
   [['armL', -.7, 1.9, K.shirt], ['armR', .7, 1.9, K.shirt], ['legL', -.27, .97, K.pants], ['legR', .27, .97, K.pants]].forEach(([k, x, y, c]) => {
     const pv = new THREE.Group(); pv.position.set(x, y, 0); g.add(pv);
@@ -4567,7 +4583,7 @@ function buildAvatar(skinId){
     L[k] = pv;
   });
   scene.add(g);
-  return {g, L};
+  return {g, L, ag};
 }
 const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null;
 function netName(pr){ return typeof pr.n === 'string' && pr.n.trim() ? pr.n.trim().slice(0, 16) : 'Jogador'; }
@@ -4575,16 +4591,18 @@ function setOther(peer){
   const pr = peer.presence || {}, x = num(pr.x, -800, 800), y = num(pr.y, -60, 80), z = num(pr.z, -800, 800);
   if (x === null || y === null || z === null) return;
   let o = others.get(peer.peer);
-  const sk = typeof pr.sk === 'string' && SKINS.some(k => k.id === pr.sk) ? pr.sk : 'classico', name = netName(pr);
+  const name = netName(pr), K = typeof pr.sk === 'string' ? SKINS.find(k => k.id === pr.sk) : null, sk = skinOk(K, name) ? K.id : 'classico';
   if (o && o.sk !== sk){ scene.remove(o.g); o = null; others.delete(peer.peer); }
   if (!o){
     const a = buildAvatar(sk);
     o = Object.assign(a, {sk, x, y, z, tx:x, ty:y, tz:z, f:0, tf:0, walk:0, name:'', tag:null});
     others.set(peer.peer, o);
   }
-  if (o.name !== name){
+  if (o.name !== name || o.tagSk !== sk){
     if (o.tag) o.g.remove(o.tag);
-    o.tag = label(name, '#2a2145', '#ffffff', 512); o.tag.scale.multiplyScalar(.7); o.tag.position.y = 3.7; o.g.add(o.tag); o.name = name;
+    const vip = SKINS.find(k => k.id === sk).only;
+    o.tag = vip ? label('👑 ' + name + ' · Criador', '#ffcc33', '#2a1650', 768) : label(name, '#2a2145', '#ffffff', 512);
+    o.tag.scale.multiplyScalar(.7); o.tag.position.y = vip ? 4.6 : 3.7; o.g.add(o.tag); o.name = name; o.tagSk = sk;
   }
   o.tx = x; o.ty = y; o.tz = z; o.tf = num(pr.f, -10, 10) || 0;
 }
@@ -4619,7 +4637,9 @@ function sendPresence(force){
   if (!force && j === netLast) return;
   netLast = j; net.presence(pr).catch(() => {});
 }
+function spinAcc(G, t){ const sp = G.userData.spin; if (sp) for (const m of sp){ if (m.geometry.type === 'TorusGeometry') m.rotation.z = t * 1.5; else { m.rotation.y = t * 2; m.position.y = 3.85 + Math.sin(t * 2.5) * .12; } } }
 function updateMulti(dt, t){
+  spinAcc(accG, t);
   if (!net) return;
   netT -= dt; if (netT <= 0){ netT = .1; sendPresence(false); }
   const k = Math.min(1, dt * 10);
@@ -4630,7 +4650,7 @@ function updateMulti(dt, t){
     o.walk += ((d > .05 ? 1 : 0) - o.walk) * k;
     const sw = Math.sin(t * 10) * .7 * o.walk;
     o.L.armL.rotation.x = sw; o.L.armR.rotation.x = -sw; o.L.legL.rotation.x = -sw; o.L.legR.rotation.x = sw;
-    o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.f;
+    o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.f; spinAcc(o.ag, t);
     o.g.visible = Math.abs(o.x - P.x) < 150 && Math.abs(o.z - P.z) < 150;
   }
 }
@@ -4784,7 +4804,8 @@ function toggleSkins(force){
   if (open){ if (shiftLock) setShiftLock(false); shopEl.hidden = true; petsEl.hidden = true; renderSkins(); $('closeSkins').focus(); } else canvas.focus();
 }
 function renderSkins(){
-  $('skinList').innerHTML = SKINS.map(k => {
+  SKINS.forEach(k => { if (k.only && k.only === ACC && !S.skins.includes(k.id)) S.skins.push(k.id); });
+  $('skinList').innerHTML = SKINS.filter(k => skinOk(k, ACC)).map(k => {
     const own = S.skins.includes(k.id), on = S.skin === k.id;
     return `<div class="skincard ${on ? 'on' : ''}"><div class="doll" aria-hidden="true"><i class="b" style="background:${hx(k.shirt)}"></i><i class="l" style="background:${hx(k.pants)}"></i><i class="h" style="background:${hx(k.skin ?? SKIN)}"></i>${k.noHair ? '' : `<i class="hr" style="background:${hx(k.hair)}"></i>`}</div>
       <b>${k.name}</b><span>${k.acc ? ACC_NAME[k.acc] : 'Roupa de sempre'}</span>
@@ -4793,7 +4814,7 @@ function renderSkins(){
 }
 $('skinList').addEventListener('click', e => {
   const b = e.target.closest('button[data-skin]'); if (!b) return;
-  const k = SKINS.find(q => q.id === b.dataset.skin); if (!k) return;
+  const k = SKINS.find(q => q.id === b.dataset.skin); if (!skinOk(k, ACC)) return;
   if (!S.skins.includes(k.id)){
     if (S.coins < k.price) return;
     S.coins -= k.price; S.skins.push(k.id); pulseCoins();
