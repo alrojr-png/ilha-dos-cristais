@@ -755,6 +755,8 @@ const NPCS = [
    hello:'Prrriii! Bem-vindo ao estádio, craque! Chute a bola no gol para ganhar moedas. O que vai querer?'},
   {name:'Salva-vidas Nina', color:0xff5a5a, css:'#ff5a5a', shirt:0xe8402c, apron:0xffd23f, skin:0xe8b48a, hair:0xe0b860, hat:'cap', hatC:0xffd23f,
    hello:'Oi! Que sol bonito, né? Passe protetor e aproveite a praia. O que vai querer?'},
+  {name:'Elfa Lírio',    color:0xff9ad8, css:'#ff9ad8', shirt:0x6b3fc0, apron:0xffd6f0, skin:0xffdcc0, hair:0xffe7a0, hat:'wreath',
+   hello:'Olá, viajante! Os cristais élficos brilham cor-de-rosa e valem muito. Quer vender os seus?'},
 ];
 const stalls = [];
 function addStall(x, z, fx, fz, N){
@@ -1594,16 +1596,16 @@ const gemMats = ZONES.map(Z => new THREE.MeshPhongMaterial({color:Z.gem, emissiv
 const goldMat = new THREE.MeshPhongMaterial({color:0xffd23f, emissive:0xffb000, emissiveIntensity:.5, shininess:120, flatShading:true});
 const gems = [];
 function placeGem(g){
-  const Z = ZONES[g.zone];
+  const Z = g.realm || ZONES[g.zone];
   g.golden = R() < 0.04;
-  g.mesh.material = g.golden ? goldMat : gemMats[g.zone];
+  g.mesh.material = g.golden ? goldMat : (g.realm ? g.realm.mat : gemMats[g.zone]);
   g.mesh.scale.setScalar(g.golden ? 1.3 : 1);
-  const plats = zonePlatforms[g.zone];
+  const plats = g.realm ? g.realm.plats : zonePlatforms[g.zone];
   if (plats.length && Math.random() < 0.18){
     const p = plats[Math.floor(Math.random()*plats.length)];
     g.x = p.x; g.z = p.z; g.baseY = p.top + 0.9;
   } else {
-    for (let t = 0; t < 30; t++){ const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (Z.r - 1.5); g.x = Z.cx + Math.cos(a) * d; g.z = Z.cz + Math.sin(a) * d; if (!occupied(g.x, g.z, 0.7)) break; }
+    for (let t = 0; t < 30; t++){ const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (Z.r - 1.5); g.x = Z.cx + Math.cos(a) * d; g.z = Z.cz + Math.sin(a) * d; if (!occupied(g.x, g.z, 0.7) && !(Z.avoid && Z.avoid(g.x, g.z))) break; }
     g.baseY = 0.9;
   }
   g.mesh.position.set(g.x, g.baseY, g.z);
@@ -2410,6 +2412,18 @@ function mushHouse(mx, mz, capC){
     const wings = [-1, 1].map(sd => { const w = new THREE.Mesh(new THREE.PlaneGeometry(.5, .32), wingM); w.position.x = sd * .25; const pv = new THREE.Group(); pv.add(w); g.add(pv); return {pv, sd}; });
     const a = R() * Math.PI * 2, d = R() * 32;
     elfFx.fairies.push({g, wings, cx:X(Math.cos(a) * d), cz:Z(Math.sin(a) * d), r:rr(2, 6), y:rr(2, 7), sp:rr(.4, .9) * (R() < .5 ? 1 : -1), ph:R() * 6});
+  }
+  // barraca da Elfa Lírio perto da chegada (para vender os cristais élficos)
+  addStall(X(-11), Z(31), 1, 0, NPCS.find(N => N.name === 'Elfa Lírio'));
+  // cristais élficos cor-de-rosa (valem 1,5x os da Floresta Mítica)
+  const realm = {cx:E.cx, cz:E.cz, r:38, value:FOREST.value * 1.5,
+    mat:new THREE.MeshPhongMaterial({color:0xff7ad8, emissive:0xff5ac8, emissiveIntensity:.45, shininess:110, flatShading:true}),
+    plats:[[-22, -8], [22, -8], [-24, 18], [24, 18]].flatMap(([a, b]) => [[2.4, 2.4], [-2.4, -2.4]].map(([u, v]) => ({x:X(a + u), z:Z(b + v), top:5.5})))
+      .concat([{x:X(-4), z:Z(-27), top:7}, {x:X(4), z:Z(-27), top:7}]),
+    avoid:(x, z) => Math.hypot(x - X(0), z - Z(6)) < 7 || Math.hypot(x - E.exit.x, z - E.exit.z) < 3.5};
+  for (let k = 0; k < 50; k++){
+    const m = new THREE.Mesh(gemGeo, realm.mat); m.castShadow = true; scene.add(m);
+    const g = {mesh:m, zone:FOREST_I, realm, phase:Math.random() * 6, active:true}; placeGem(g); gems.push(g);
   }
 }
 // ---------- Montanha de Neve (grátis, só para explorar) ----------
@@ -3976,7 +3990,7 @@ function step(now){
       m.scale.multiplyScalar(0.94);
       if (d < 0.6){
         g.active = false; m.visible = false; g.respawnAt = now + 3500 + Math.random() * 3000;
-        const val = ZONES[g.zone].value * (g.golden ? 10 : 1) * mult;
+        const val = (g.realm || ZONES[g.zone]).value * (g.golden ? 10 : 1) * mult;
         S.bag++; S.bagVal += val;
         quest('gems'); if (g.golden) quest('gold');
         combo++; comboT = now + 900;
