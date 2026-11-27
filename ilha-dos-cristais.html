@@ -220,6 +220,15 @@ body.alarm #alarm{animation:alarmBlink .45s steps(2) infinite}
 @keyframes spinScreen{0%{transform:rotate(0) scale(1.9)}100%{transform:rotate(360deg) scale(1.9)}}
 @media (prefers-reduced-motion:reduce){#game.spin{animation:none}body.alarm #alarm{animation:none;opacity:.6}}
 @media (prefers-reduced-motion:reduce){#game.flipIn,#game.flipOut{animation-duration:.01s}}
+/* Bússola e minimapa */
+#compass{top:calc(64px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);pointer-events:none}
+#compass canvas{display:block;width:min(440px,52vw);height:auto;pointer-events:none}
+body.arena #compass{display:none}
+#minimap{top:calc(64px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px))}
+#minimap canvas{display:block;width:150px;height:150px;border-radius:50%;border:3px solid var(--line);box-shadow:0 4px 0 rgba(0,0,0,.35);cursor:pointer;background:#2a86d4}
+#minimap canvas:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+@media (max-width:700px){#minimap canvas{width:104px;height:104px}#compass{top:calc(58px + env(safe-area-inset-top,0px))}}
+body.touch.arena #minimap{display:none}
 /* Mapa */
 #mapBtn{background:#3ddc84;border-color:#1f9e58;color:#0d2a1a}
 .mapsheet{width:min(680px,100%)}
@@ -345,6 +354,8 @@ body.touch .pw b{display:none}
   <button class="btn" id="soundBtn" type="button" aria-pressed="true">Som: ligado</button>
 </div>
 
+<div class="hud" id="compass" aria-hidden="true"><canvas id="compassCv" width="440" height="46"></canvas></div>
+<div class="hud" id="minimap"><canvas id="miniCv" width="300" height="300" role="button" tabindex="0" aria-label="Minimapa. Clique para abrir o mapa grande"></canvas></div>
 <div class="hud" id="lvlup" aria-live="polite"><b id="lvlupTxt"></b><small id="lvlupSub"></small></div>
 <div class="hud" id="banner"><small id="bannerSub">Você entrou em</small><b id="bannerTxt"></b></div>
 <div class="hud" id="toast" role="status"></div>
@@ -468,6 +479,9 @@ const ZONES = [
   {name:'Marte', cx:-380, cz:360, r:40, ground:0xc1562e, edge:0x8a3a22, beach:0x9a4428, gem:0xff6a3d, value:4000000, price:400000000, mars:true, from:10},
   {name:'Buraco Negro', cx:380, cz:640, r:40, ground:0x2e2346, edge:0x1a1228, beach:0x3a2a55, gem:0xc77dff, value:10000000, price:1000000000, hole:true, from:11},
 ];
+// para liberar cada fase: cristais da mochila e nível mínimo (a primeira já vem liberada)
+const UNLOCK = [[0, 1], [10, 2], [30, 4], [60, 6], [100, 8], [200, 10], [350, 13], [600, 16], [1000, 20], [1500, 25], [2500, 30], [4000, 40], [6000, 50]];
+ZONES.forEach((Z, i) => { const u = UNLOCK[Math.min(i, UNLOCK.length - 1)]; Z.gems = u[0]; Z.lvl = u[1]; });
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
   speed: {name:'Tênis veloz',    color:'#ff8a5c', letter:'V', base:25, mult:2.1,  max:10, eff:l=>`Velocidade ${speedOf(l).toFixed(1)}`},
@@ -1954,13 +1968,13 @@ ZONES.forEach((Z, i) => {
   if (Z.gate){
     const dome = new THREE.Mesh(new THREE.SphereGeometry(6.5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide}));
     dome.position.set(Z.gate.x, -0.5, Z.gate.z); scene.add(dome);
-    const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
+    const l = label(`${Z.name}: ${fmt(Z.gems)} cristais · nível ${Z.lvl}`, '#2a2145', '#fff8ec', 1024);
     l.position.set(Z.gate.x, 8, Z.gate.z); scene.add(l);
     gateMeshes[i] = [dome, l];
   } else if (i > 0){
     const wall = new THREE.Mesh(new THREE.CylinderGeometry(Z.r + BEACH + 1.2, Z.r + BEACH + 1.2, 13, 56, 1, true), new THREE.MeshBasicMaterial({color:Z.gem, transparent:true, opacity:.22, depthWrite:false, side:THREE.DoubleSide}));
     wall.position.set(Z.cx, 6, Z.cz); scene.add(wall);
-    const l = label(`${Z.name}: ${fmt(Z.price)} moedas`, '#2a2145', '#fff8ec', 1024);
+    const l = label(`${Z.name}: ${fmt(Z.gems)} cristais · nível ${Z.lvl}`, '#2a2145', '#fff8ec', 1024);
     l.position.set(Z.cx - dx * (Z.r + BEACH + 3), 6.5, Z.cz - dz * (Z.r + BEACH + 3)); scene.add(l);
     gateMeshes[i] = [wall, l];
   }
@@ -3480,7 +3494,7 @@ function drawMap(){
     icon(myBoat.x, myBoat.z, '🚤', 24);
     for (const I of isles){
       const zi = ZONES.indexOf(I), locked = zi >= 0 && zi >= S.unlocked, nm = name(I);
-      tag(I.cx, I.cz, (locked ? '🔒 ' : (ISLE_EMOJI[nm] || '') + ' ') + nm + (locked ? ' · ' + fmt(I.price) : ''), -(I.r * k) - 4);
+      tag(I.cx, I.cz, (locked ? '🔒 ' : (ISLE_EMOJI[nm] || '') + ' ') + nm + (locked ? ' · 💎' + fmt(I.gems) + ' · nv ' + I.lvl : ''), -(I.r * k) - 4);
     }
   }
   // outros jogadores (multiplayer)
@@ -3509,6 +3523,83 @@ function drawMap(){
   const gemsLeft = gems.filter(gm => gm.active && inside(gm.x, gm.z) && (realm || (here !== null && here >= 0 && gm.zone === here && !gm.realm))).length;
   $('mapHint').textContent = realm ? `Você está em: ${hereName}. A saída está marcada em verde.` : here === null ? `Você está ${hereName}. A seta vermelha é você.` : `Você está ${({'Campo Verde':'no', 'Vale Gelado':'no', 'Dunas Douradas':'nas'})[hereName] || 'na'} ${hereName}. A seta vermelha é você e aponta para onde você olha.` + (gemsLeft ? ` Tem ${gemsLeft} cristais aqui agora.` : '');
 }
+
+// ---------- Bússola (no topo) e minimapa (no canto) ----------
+const compCv = document.getElementById('compassCv'), compG = compCv.getContext('2d');
+const miniCv = document.getElementById('miniCv'), miniG = miniCv.getContext('2d');
+let hudMapT = 0;
+const DIRS = [[0, 'N'], [45, 'NE'], [90, 'L'], [135, 'SE'], [180, 'S'], [225, 'SO'], [270, 'O'], [315, 'NO']];
+const bearing = (x, z) => (Math.atan2(x - P.x, -(z - P.z)) * 180 / Math.PI + 360) % 360;
+function compassTargets(){
+  const realm = mapRealm(), t = [];
+  if (realm){ for (const e of realm.exits) t.push({x:e.x, z:e.z, ic:e.ic}); return t; }
+  if (!driving) t.push({x:myBoat.x, z:myBoat.z, ic:'🚤'});
+  for (const kg of kings) t.push({x:kg.x, z:kg.z, ic:'👑'});
+  if (typeof others !== 'undefined') for (const o of others.values()) t.push({x:o.x, z:o.z, ic:'🔵'});
+  return t;
+}
+function drawCompass(){
+  const W = compCv.width, H = compCv.height, g = compG, head = ((-cam.yaw * 180 / Math.PI) % 360 + 360) % 360, ppd = W / 150;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = 'rgba(29,22,48,.78)'; g.beginPath(); if (g.roundRect) g.roundRect(1, 1, W - 2, H - 2, 14); else g.rect(1, 1, W - 2, H - 2); g.fill();
+  g.lineWidth = 2; g.strokeStyle = 'rgba(91,74,143,.9)'; g.stroke();
+  const xOf = d => { let dd = ((d - head + 540) % 360) - 180; return W / 2 + dd * ppd; };
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let d = 0; d < 360; d += 15){
+    const x = xOf(d); if (x < 6 || x > W - 6) continue;
+    const lab = DIRS.find(q => q[0] === d);
+    g.fillStyle = 'rgba(255,248,236,.55)'; g.fillRect(x - 1, lab ? 4 : 6, 2, lab ? 9 : 5);
+    if (lab){ g.font = `900 ${lab[1].length === 1 ? 17 : 13}px Nunito, sans-serif`; g.fillStyle = lab[1] === 'N' ? '#ff5470' : '#fff8ec'; g.fillText(lab[1], x, 27); }
+  }
+  for (const t of compassTargets()){
+    const b = bearing(t.x, t.z), x = xOf(b), dist = Math.hypot(t.x - P.x, t.z - P.z);
+    const cx = Math.max(14, Math.min(W - 14, x)), off = x !== cx;
+    g.globalAlpha = off ? .55 : 1; g.font = '16px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.fillText(t.ic, cx, 12);
+    if (!off && dist > 8){ g.font = '900 10px Nunito, sans-serif'; g.fillStyle = '#ffcc33'; g.fillText(Math.round(dist) + 'm', cx, 39); }
+    g.globalAlpha = 1;
+  }
+  g.fillStyle = '#ffcc33'; g.beginPath(); g.moveTo(W / 2 - 7, H - 1); g.lineTo(W / 2 + 7, H - 1); g.lineTo(W / 2, H - 9); g.closePath(); g.fill();
+}
+function drawMini(){
+  const W = miniCv.width, g = miniG, RAD = 60, k = (W / 2) / RAD, realm = mapRealm();
+  const X = x => W / 2 + (x - P.x) * k, Y = z => W / 2 + (z - P.z) * k;
+  const near = (x, z, m = 4) => Math.abs(x - P.x) < RAD + m && Math.abs(z - P.z) < RAD + m;
+  g.save(); g.clearRect(0, 0, W, W); g.beginPath(); g.arc(W / 2, W / 2, W / 2, 0, Math.PI * 2); g.clip();
+  g.fillStyle = realm ? (inMoon || inHole ? '#0a0818' : inMars ? '#c98a5a' : inSky ? '#bfe8ff' : under ? '#0b4a78' : '#1f6fb8') : '#2a86d4'; g.fillRect(0, 0, W, W);
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const isles = realm ? [realm.I] : [HUB, PORT, CASTLE].concat(ZONES.filter(I => !(I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole)));
+  for (const I of isles){
+    if (!near(I.cx, I.cz, I.r + 6)) continue;
+    const zi = ZONES.indexOf(I), locked = zi >= 0 && zi >= S.unlocked;
+    g.beginPath(); g.arc(X(I.cx), Y(I.cz), (I.r + BEACH) * k, 0, Math.PI * 2); g.fillStyle = I.beach !== undefined ? hex(I.beach) : '#f3dfa2'; g.fill();
+    g.beginPath(); g.arc(X(I.cx), Y(I.cz), I.r * k, 0, Math.PI * 2);
+    g.fillStyle = I === HUB ? '#9d8bd6' : I === PORT ? '#7fc4d6' : I === CASTLE ? '#6fbf4a' : I.ground !== undefined ? hex(I.ground) : '#7cc94f'; g.fill();
+    if (locked){ g.fillStyle = 'rgba(20,10,40,.45)'; g.fill(); }
+  }
+  for (const c of colliders){
+    if (c.bottom > 1.5) continue; const w = c.maxX - c.minX, d = c.maxZ - c.minZ; if (w > 60 || d > 60) continue;
+    if (!near((c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2)) continue;
+    g.fillStyle = `rgba(40,28,20,${c.top > 5 ? .6 : .35})`; g.fillRect(X(c.minX), Y(c.minZ), Math.max(1.5, w * k), Math.max(1.5, d * k));
+  }
+  for (const gm of gems){ if (!gm.active || !gm.mesh.visible || !near(gm.x, gm.z)) continue; const cc = gm.mesh.material.color; g.fillStyle = `rgb(${cc.r * 255 | 0},${cc.g * 255 | 0},${cc.b * 255 | 0})`; g.fillRect(X(gm.x) - 2.5, Y(gm.z) - 2.5, 5, 5); }
+  g.font = '20px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const st of stalls) if (near(st.tx, st.tz)) g.fillText('🏪', X(st.tx), Y(st.tz));
+  if (!realm){ for (const kg of kings) if (near(kg.x, kg.z)) g.fillText('👑', X(kg.x), Y(kg.z)); if (!driving && near(myBoat.x, myBoat.z)) g.fillText('🚤', X(myBoat.x), Y(myBoat.z)); }
+  else for (const e of realm.exits) if (near(e.x, e.z)) g.fillText(e.ic, X(e.x), Y(e.z));
+  if (typeof others !== 'undefined') for (const o of others.values()){ if (!near(o.x, o.z)) continue; g.beginPath(); g.arc(X(o.x), Y(o.z), 7, 0, Math.PI * 2); g.fillStyle = '#4aa8ff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke(); }
+  // você, no meio
+  const a = P.face, c0 = W / 2, tip = (r, ang) => [c0 + Math.sin(ang) * r, c0 + Math.cos(ang) * r];
+  g.beginPath(); g.moveTo(...tip(20, a)); g.lineTo(...tip(12, a + 2.5)); g.lineTo(...tip(5, a + Math.PI)); g.lineTo(...tip(12, a - 2.5)); g.closePath();
+  g.fillStyle = '#ff3b5c'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke();
+  // para onde a câmera olha
+  const vx = -Math.sin(cam.yaw), vz = -Math.cos(cam.yaw);
+  g.beginPath(); g.moveTo(c0, c0); g.arc(c0, c0, W * .42, Math.atan2(vz, vx) - .45, Math.atan2(vz, vx) + .45); g.closePath(); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill();
+  g.restore();
+  g.fillStyle = 'rgba(29,22,48,.85)'; g.beginPath(); g.arc(W / 2, 22, 16, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ff5470'; g.font = '900 20px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', W / 2, 23);
+}
+miniCv.addEventListener('click', () => { initAudio(); toggleMap(true); });
+miniCv.addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'Space'){ e.preventDefault(); toggleMap(true); } });
 function setMapZoom(d){ mapZoom = Math.max(0, Math.min(MAP_ZOOMS.length - 1, mapZoom + d)); document.getElementById('mapOut').disabled = mapZoom === 0; document.getElementById('mapIn').disabled = mapZoom === MAP_ZOOMS.length - 1; drawMap(); }
 document.getElementById('mapIn').addEventListener('click', () => setMapZoom(1));
 document.getElementById('mapOut').addEventListener('click', () => setMapZoom(-1));
@@ -4529,15 +4620,18 @@ function gateCheck(){
   if (near){
     const Z = ZONES[i];
     $('gateName').textContent = Z.name;
-    $('gateInfo').textContent = `Custa ${fmt(Z.price)} moedas · cristais valem ${fmt(Z.value * gemMult())} cada`;
-    $('gateBtn').disabled = S.coins < Z.price;
-    $('gateBtn').textContent = S.coins < Z.price ? `Faltam ${fmt(Z.price - S.coins)}` : 'Desbloquear';
+    const lvOk = S.level >= Z.lvl, gemOk = S.bag >= Z.gems;
+    $('gateInfo').textContent = `Precisa de ${fmt(Z.gems)} cristais na mochila e nível ${Z.lvl} · você tem ${fmt(S.bag)} cristais e está no nível ${fmt(S.level)}`;
+    $('gateBtn').disabled = !lvOk || !gemOk;
+    $('gateBtn').textContent = !lvOk ? `Precisa nível ${Z.lvl}` : !gemOk ? `Faltam ${fmt(Z.gems - S.bag)} 💎` : 'Desbloquear';
   }
   gateEl.hidden = !near;
 }
 $('gateBtn').addEventListener('click', () => {
-  const Z = ZONES[S.unlocked]; if (!Z || S.coins < Z.price) return;
-  S.coins -= Z.price; S.unlocked++; save(); hud(); gateCheck();
+  const Z = ZONES[S.unlocked]; if (!Z || S.bag < Z.gems || S.level < Z.lvl) return;
+  // paga com cristais da mochila (o valor guardado diminui junto)
+  if (Z.gems > 0){ S.bagVal = S.bag > 0 ? S.bagVal * (S.bag - Z.gems) / S.bag : 0; S.bag -= Z.gems; }
+  S.unlocked++; save(); hud(); gateCheck();
   beep(440, .12, 'triangle', .08, 2); setTimeout(() => beep(660, .2, 'triangle', .08, 2), 120);
   banner(Z.name, 'Desbloqueado!'); canvas.focus();
 });
@@ -4979,6 +5073,7 @@ function step(now){
   updateResto(dt, t);
   updateKings(dt, t);
   if (!mapEl.hidden){ mapT -= dt; if (mapT <= 0){ mapT = .1; drawMap(); } }
+  hudMapT -= dt; if (hudMapT <= 0 && playing){ hudMapT = .08; drawCompass(); drawMini(); }
   for (let k = 0; k < castleFx.flags.length; k++) castleFx.flags[k].rotation.y = Math.sin(t * 2.4 + k) * .25;
   for (let k = 0; k < castleFx.torches.length; k++) castleFx.torches[k].scale.set(1, .8 + Math.sin(t * 14 + k * 2) * .25, 1);
   updateStadium(dt, t);
