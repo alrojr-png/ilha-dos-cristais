@@ -471,19 +471,19 @@ body.touch .pw b{display:none}
 'use strict';
 // ---------- Dados do mundo ----------
 const ZONES = [
-  {name:'Campo Verde',     cx:0,  cz:128, r:34, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
-  {name:'Dunas Douradas',  cx:141, cz:128, r:34, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
-  {name:'Vale Gelado',     cx:141, cz:269, r:34, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
-  {name:'Cratera de Lava', cx:0,  cz:269, r:34, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
-  {name:'Reino Submerso',  cx:0,  cz:640, r:40, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
-  {name:'Reino das Nuvens', cx:0, cz:-640, r:40, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
-  {name:'Floresta Mítica', cx:-640, cz:-640, r:55, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
-  {name:'Navio Abandonado', cx:640, cz:640, r:40, ground:0x9a8a64, edge:0x7d6e4e, beach:0x6b5e44, gem:0xffd6f0, value:100000, price:10000000, wreck:true},
-  {name:'Estádio de Futebol', cx:-400, cz:80, r:44, ground:0xa7adb8, edge:0x8a909c, beach:0xd9d2bf, gem:0xffe14d, value:250000, price:25000000, stadium:true},
-  {name:'Praia do Sol', cx:141, cz:-6, r:32, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
-  {name:'Lua', cx:380, cz:360, r:40, ground:0xc4c4cc, edge:0x9a9aa4, beach:0x8a8a94, gem:0xd8f0ff, value:1500000, price:150000000, moon:true, from:9},
-  {name:'Marte', cx:-380, cz:360, r:40, ground:0xc1562e, edge:0x8a3a22, beach:0x9a4428, gem:0xff6a3d, value:4000000, price:400000000, mars:true, from:10},
-  {name:'Buraco Negro', cx:380, cz:640, r:40, ground:0x2e2346, edge:0x1a1228, beach:0x3a2a55, gem:0xc77dff, value:10000000, price:1000000000, hole:true, from:11},
+  {name:'Campo Verde',     cx:0,  cz:128, r:48, ground:0x7cc94f, edge:0x4f9a35, beach:0xf3dfa2, gem:0x34f0b0, value:1,   price:0},
+  {name:'Dunas Douradas',  cx:141, cz:128, r:48, ground:0xf0cf7a, edge:0xc9a04c, beach:0xfbe9bd, gem:0xff8a2a, value:6,   price:150},
+  {name:'Vale Gelado',     cx:141, cz:269, r:48, ground:0xeaf4ff, edge:0xa9c8ea, beach:0xcfe4f8, gem:0x4aa8ff, value:40,  price:2500},
+  {name:'Cratera de Lava', cx:0,  cz:269, r:48, ground:0x4a3434, edge:0x2a1c1c, beach:0x2a1c1c, gem:0xff2f6d, value:300, price:40000},
+  {name:'Reino Submerso',  cx:0,  cz:640, r:56, ground:0xd9c48f, edge:0xc4ad78, beach:0xb8a070, gem:0x9a6bff, value:2000, price:250000, sub:true},
+  {name:'Reino das Nuvens', cx:0, cz:-640, r:56, ground:0xf4f7ff, edge:0xdfe6f5, beach:0xe9eefa, gem:0xff5ad0, value:15000, price:2000000, sky:true},
+  {name:'Floresta Mítica', cx:-640, cz:-640, r:77, ground:0x3f7a4a, edge:0x2f5f3a, beach:0x4a6a4a, gem:0x3dffc8, value:40000, price:4000000, forest:true},
+  {name:'Navio Abandonado', cx:640, cz:640, r:56, ground:0x9a8a64, edge:0x7d6e4e, beach:0x6b5e44, gem:0xffd6f0, value:100000, price:10000000, wreck:true},
+  {name:'Estádio de Futebol', cx:-400, cz:80, r:62, ground:0xa7adb8, edge:0x8a909c, beach:0xd9d2bf, gem:0xffe14d, value:250000, price:25000000, stadium:true},
+  {name:'Praia do Sol', cx:141, cz:-6, r:45, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
+  {name:'Lua', cx:380, cz:360, r:56, ground:0xc4c4cc, edge:0x9a9aa4, beach:0x8a8a94, gem:0xd8f0ff, value:1500000, price:150000000, moon:true, from:9},
+  {name:'Marte', cx:-380, cz:360, r:56, ground:0xc1562e, edge:0x8a3a22, beach:0x9a4428, gem:0xff6a3d, value:4000000, price:400000000, mars:true, from:10},
+  {name:'Buraco Negro', cx:380, cz:640, r:56, ground:0x2e2346, edge:0x1a1228, beach:0x3a2a55, gem:0xc77dff, value:10000000, price:1000000000, hole:true, from:11},
 ];
 // para liberar cada fase: cristais da mochila e nível mínimo (a primeira já vem liberada)
 const UNLOCK = [[0, 1], [10, 2], [30, 4], [60, 6], [100, 8], [200, 10], [350, 13], [600, 16], [1000, 20], [1500, 25], [2500, 30], [4000, 40], [6000, 50]];
@@ -680,24 +680,25 @@ function label(text, bg, fg, w = 512){
 
 // ---------- Oceano ----------
 const BEACH = 2.5;
-const HUB = {cx:0, cz:0, r:26};
-const ARENA = {cx:640, cz:0, r:30};
+const ISLE_DENS = 1.6; // ilhas 1,4x mais largas: mais enfeites e cristais por ilha
+const HUB = {cx:0, cz:0, r:36};
+const ARENA = {cx:640, cz:0, r:42};
 let inArena = false;
-const MINI = {cx:-640, cz:0, r:40};
+const MINI = {cx:-640, cz:0, r:56};
 let inMini = false;
-const ELF = {cx:640, cz:-640, r:45};
+const ELF = {cx:640, cz:-640, r:63};
 let inElf = false;
 // Mundo Invertido (grátis): tudo de cabeça para baixo, entrada por portal na Ilha dos Portais
-const INV = {cx:-380, cz:-320, r:40};
+const INV = {cx:-380, cz:-320, r:56};
 let inInv = false, flipping = false;
-const SNOW = {cx:-640, cz:640, r:50};
+const SNOW = {cx:-640, cz:640, r:70};
 let inSnow = false;
-const RESTO = {cx:380, cz:-320, r:40};
+const RESTO = {cx:380, cz:-320, r:56};
 // Ilha dos Portais: não tem ponte, só dá para chegar de barco
-const PORT = {cx:-208, cz:64, r:26, name:'Ilha dos Portais'};
+const PORT = {cx:-208, cz:64, r:36, name:'Ilha dos Portais'};
 PORT.spawn = {x:PORT.cx + 18, z:PORT.cz};
 // Ilha do Castelo: grátis, só de barco; o Rei Cristóvão mora lá
-const CASTLE = {cx:-150, cz:200, r:30, name:'Ilha do Castelo'};
+const CASTLE = {cx:-150, cz:200, r:42, name:'Ilha do Castelo'};
 CASTLE.spawn = {x:CASTLE.cx, z:CASTLE.cz - 20};
 let inResto = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
@@ -1927,7 +1928,7 @@ ZONES.forEach((Z, i) => {
   if (Z.forest){ Z.portal = {x: Z.spawn.x - 4, z: Z.spawn.z + 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO CÉU', 0xfff6c8, '#fff6c8', '#2a2145', 0xfff6c8); }
   if (Z.sky){ Z.portal = {x: Z.spawn.x - 8, z: Z.spawn.z - 4}; portalUp(Z.portal.x, Z.portal.z, 'DESCER', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8); }
   const rnd = m => { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * (Z.r - m); return [Z.cx + Math.cos(a) * d, Z.cz + Math.sin(a) * d]; };
-  if (!Z.stadium) for (let k = 0; k < 16; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
+  if (!Z.stadium) for (let k = 0; k < 26; k++){ const [x, z] = rnd(5); addBlock(x, -0.97, z, rr(2,5), 1, rr(2,5), Z.edge, false); }
   const next = ZONES[i+1], exit = next ? {x: Z.cx + Math.sign(next.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(next.cz - Z.cz) * Z.r} : null;
   const exits2 = ZONES.filter(W => W.from === i).map(W => ({x: Z.cx + Math.sign(W.cx - Z.cx) * Z.r, z: Z.cz + Math.sign(W.cz - Z.cz) * Z.r}));
   const clear = (x, z) => exits2.every(e => Math.hypot(x - e.x, z - e.z) > 8) && Math.hypot(x - px, z - pz) > 7 && Math.hypot(x - Z.spawn.x, z - Z.spawn.z) > 5 && Math.hypot(x - entry.x, z - entry.z) > 8 && (!exit || Math.hypot(x - exit.x, z - exit.z) > 8) && (!Z.portal || Math.hypot(x - Z.portal.x, z - Z.portal.z) > 5);
@@ -1951,7 +1952,7 @@ ZONES.forEach((Z, i) => {
     [[habitat,2],[solarPanel,4],[rover,1],[radarDish,1],[moonFlag,1],[crater,6],[rock,16],[marsSpire,6]],
     [[crashedRocket,1],[voidSpike,16],[warpRing,5],[rock,10],[crater,4]],
   ][i];
-  for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
+  for (const [fn, n0] of KINDS) for (let k = 0, n = n0 > 2 ? Math.round(n0 * ISLE_DENS) : n0; k < n; k++){
     const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree || fn === lifeguard || fn === volley || fn === kiosk || fn === lander || fn === rover || fn === radarDish || fn === habitat || fn === solarPanel || fn === crashedRocket;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
@@ -2016,7 +2017,7 @@ function placeGem(g){
   g.mesh.position.set(g.x, g.baseY, g.z);
   g.mesh.visible = true; g.active = true; g.flying = false;
 }
-ZONES.forEach((Z, zi) => { for (let k = 0; k < (Z.forest ? 64 : Z.wreck || Z.stadium ? 50 : 42); k++){
+ZONES.forEach((Z, zi) => { for (let k = 0, n = Math.round((Z.forest ? 64 : Z.wreck || Z.stadium ? 50 : 42) * ISLE_DENS); k < n; k++){
   const m = new THREE.Mesh(gemGeo, gemMats[zi]); m.castShadow = true; scene.add(m);
   const g = {mesh:m, zone:zi, phase:Math.random()*6, active:true}; placeGem(g); gems.push(g);
 }});
@@ -2763,8 +2764,8 @@ function mushHouse(mx, mz, capC){
   const E = ELF, X = d => E.cx + d, Z = d => E.cz + d;
   islandBase(E, 0x6cc46a, 0x8a7a5a);
   // portal na Floresta Mítica (lado oeste, longe da chegada)
-  let px = FOREST.cx - 51, pz = FOREST.cz;
-  for (let a = 1; a < 50 && occupied(px, pz, 3); a++){ const ang = Math.PI + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .06; px = FOREST.cx + Math.cos(ang) * 51; pz = FOREST.cz + Math.sin(ang) * 51; }
+  let px = FOREST.cx - (FOREST.r - 4), pz = FOREST.cz;
+  for (let a = 1; a < 50 && occupied(px, pz, 3); a++){ const ang = Math.PI + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .06; px = FOREST.cx + Math.cos(ang) * (FOREST.r - 4); pz = FOREST.cz + Math.sin(ang) * (FOREST.r - 4); }
   E.gate = {x:px, z:pz}; E.back = {x:px + 5, z:pz};
   portalUp(px, pz, 'MUNDO DOS ELFOS', 0xff9ad8, '#ff9ad8', '#2a2145', 0xffd6f0);
   [-1, 1].forEach(sd => { addBlock(px, 0, pz + sd * 3.4, .9, 5.5, .9, 0xf4ecd8, false); [1, 2.5, 4].forEach(y => { const f = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshBasicMaterial({color:y === 2.5 ? 0xffe27a : 0xff9ad8})); f.position.set(px + .5, y, pz + sd * 3.4); scene.add(f); }); });
@@ -2823,7 +2824,7 @@ function mushHouse(mx, mz, capC){
   // barraca da Elfa Lírio perto da chegada (para vender os cristais élficos)
   addStall(X(-11), Z(31), 1, 0, NPCS.find(N => N.name === 'Elfa Lírio'));
   // cristais élficos cor-de-rosa (valem 1,5x os da Floresta Mítica)
-  const realm = {cx:E.cx, cz:E.cz, r:38, value:FOREST.value * 1.5,
+  const realm = {cx:E.cx, cz:E.cz, r:53, value:FOREST.value * 1.5,
     mat:new THREE.MeshPhongMaterial({color:0xff7ad8, emissive:0xff5ac8, emissiveIntensity:.45, shininess:110, flatShading:true}),
     plats:[[-22, -8], [22, -8], [-24, 18], [24, 18]].flatMap(([a, b]) => [[2.4, 2.4], [-2.4, -2.4]].map(([u, v]) => ({x:X(a + u), z:Z(b + v), top:5.5})))
       .concat([{x:X(-4), z:Z(-27), top:7}, {x:X(4), z:Z(-27), top:7}]),
@@ -3964,7 +3965,7 @@ function invPortal(x, z, face, txt, upside){
     invFx.rocks.push({m, y, ph:R() * 6, sp:rr(.3, .8)});
   }
   // cristais invertidos: valem 1,5x o cristal da fase mais nova que a pessoa já liberou
-  const realm = {cx:N.cx, cz:N.cz, r:38, get value(){ return ZONES[Math.max(0, Math.min(ZONES.length, S.unlocked) - 1)].value * 1.5; },
+  const realm = {cx:N.cx, cz:N.cz, r:53, get value(){ return ZONES[Math.max(0, Math.min(ZONES.length, S.unlocked) - 1)].value * 1.5; },
     mat:new THREE.MeshPhongMaterial({color:0x7fffd4, emissive:0x3fd8b0, emissiveIntensity:.5, shininess:110, flatShading:true}),
     plats:invPlats, avoid:(x, z) => Math.hypot(x - X(0), z - Z(0)) < 7 || Math.hypot(x - N.exit.x, z - N.exit.z) < 3.5 || Math.hypot(x - N.spawn.x, z - N.spawn.z) < 2.5};
   for (let k = 0; k < 50; k++){
