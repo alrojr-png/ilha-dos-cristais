@@ -2442,8 +2442,9 @@ let SNOW_GATE;
   const N = SNOW, X = d => N.cx + d, Z = d => N.cz + d;
   islandBase(N, 0xf4f8ff, 0xdfe8f5);
   // a montanha: degraus grandes, com escadas que dão a volta até o pico
-  const MX = 0, MZ = -8, SIZES = [40, 32, 25, 18, 12, 7], TH = 2.5;
-  const FACES = [[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1], [-1, 0]];
+  const MX = 0, MZ = -8, SIZES = [42, 38, 34, 30, 26, 22, 19, 16, 13, 10, 7], TH = 2.5;
+  // escadas no sul, oeste e norte (o leste é do tobogã)
+  const FACES = [[0, 1], [-1, 0], [0, -1]];
   SIZES.forEach((sz, i) => {
     const y0 = i * TH, top = y0 + TH;
     addBlock(X(MX), y0, Z(MZ), sz, TH, sz, i % 2 ? 0x8a97ab : 0x7d8aa0);
@@ -2451,9 +2452,9 @@ let SNOW_GATE;
     // montinhos de neve na borda
     for (let k = 0; k < sz / 2; k++){ const u = -sz / 2 + .8 + k * 2; [[u, sz / 2], [u, -sz / 2], [sz / 2, u], [-sz / 2, u]].forEach(([a, b]) => { if (R() < .5) addBlock(X(MX + a * 1.005), top - .5, Z(MZ + b * 1.005), .5, .5, .5, 0xffffff, false); }); }
     // escada encostada na face, subindo de lado
-    const [fx, fz] = FACES[i], half = sz / 2 + .8, steps = 5;
+    const [fx, fz] = FACES[i % FACES.length], half = sz / 2 + .8, steps = 5;
     for (let k = 0; k < steps; k++){
-      const h = TH / steps * (k + 1), along = (-4 + k * 1.1) * (i % 2 ? -1 : 1);
+      const h = TH / steps * (k + 1), a0 = i ? Math.min(4, SIZES[i - 1] / 2 - 1.6) : 4, along = (-a0 + k * 1.1) * (i % 2 ? -1 : 1);
       const sx = fx ? MX + fx * half : MX + along, sz2 = fz ? MZ + fz * half : MZ + along;
       addBlock(X(sx), y0, Z(sz2), fx ? 1.6 : 1.1, h, fz ? 1.6 : 1.1, k % 2 ? 0xa8b4c6 : 0x98a6ba);
       addBlock(X(sx), y0 + h - .02, Z(sz2), fx ? 1.6 : 1.1, .1, fz ? 1.6 : 1.1, 0xffffff, false);
@@ -2472,7 +2473,7 @@ let SNOW_GATE;
   const flag = new THREE.Mesh(boxGeo, mat(0xe8402c)); flag.scale.set(1.8, 1.1, .06); flag.position.set(X(MX - 1.05), TOP + 3.9, Z(MZ - 2)); scene.add(flag); snowFx.flag = flag;
   const tl = label('TOPO DA MONTANHA', '#ffffff', '#0b2a4a', 768); tl.position.set(X(MX), TOP + 6.2, Z(MZ)); scene.add(tl);
   // tobogã: do pico até lá embaixo
-  const sx0 = MX + 3.5, sx1 = MX + 30, run = 8;
+  const sx0 = MX + 3.5, sx1 = MX + 38, run = 7;
   N.sledStart = {x:X(MX + 2.2), z:Z(MZ)};
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, .12, 24), new THREE.MeshBasicMaterial({color:0x4aa8ff})); pad.position.set(N.sledStart.x, TOP + .1, N.sledStart.z); scene.add(pad);
   const sl = label('TOBOGÃ!', '#4aa8ff', '#ffffff', 384); sl.position.set(N.sledStart.x, TOP + 2.6, N.sledStart.z); scene.add(sl);
