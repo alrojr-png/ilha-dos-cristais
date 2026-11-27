@@ -3722,9 +3722,97 @@ function boatHit(x, z, h){
   for (const [lx, lz] of [[0, 4.7], [-1, 3], [1, 3], [-1.3, 0], [1.3, 0], [-1.3, -2.6], [1.3, -2.6], [0, -3.3]]){
     const wx = x + sh * lz + ch * lx, wz = z + ch * lz - sh * lx;
     if (landAt(wx, wz)) return 'land';
-    if (boatIsles().every(I => Math.hypot(wx - I.cx, wz - I.cz) - I.r - BEACH > BOAT_SEA)) return 'edge';
   }
   return null;
+}
+// ---------- Tubarão: onde antes acabava o mar ----------
+// Longe das ilhas (mais de BOAT_SEA m da praia) um tubarão pula, come você e te devolve para a última ilha.
+const seaDist = (x, z) => Math.min(...boatIsles().map(I => Math.hypot(x - I.cx, z - I.cz) - I.r - BEACH));
+const sharkM = (() => {
+  const g = new THREE.Group(), GR = 0x6b7a8f, BE = 0xe8edf2;
+  const body = new THREE.Group(); g.add(body);
+  part(2.2, 2, 6, GR, 0, 0, 0, body); part(1.9, .7, 5.6, BE, 0, -.75, .1, body);
+  part(1.8, 1.6, 1.6, GR, 0, -.05, 3.6, body); part(1.4, 1.1, 1, GR, 0, -.05, 4.6, body);
+  part(1.5, 1.4, 1.6, GR, 0, 0, -3.6, body); part(.9, .9, 1.4, GR, 0, 0, -4.9, body);
+  const fin = part(.3, 2, 1.6, GR, 0, 1.8, -.3, body); fin.rotation.x = -.35;
+  const tailU = part(.3, 2.4, 1, GR, 0, 1, -5.9, body); tailU.rotation.x = .6;
+  const tailD = part(.3, 1.6, .9, GR, 0, -.8, -5.8, body); tailD.rotation.x = -.6;
+  [-1, 1].forEach(sd => { const f = part(2, .25, 1.2, GR, sd * 1.7, -.6, 1.2, body); f.rotation.z = sd * -.35; });
+  [-1, 1].forEach(sd => { part(.08, .32, .32, 0x111118, sd * .91, .45, 3.9, body); part(.04, .1, .1, 0xffffff, sd * .94, .52, 3.95, body); });
+  // boca: maxilar de baixo abre
+  part(1.5, .25, .9, 0x8a1d2a, 0, -.45, 4.6, body);
+  for (let k = 0; k < 6; k++) part(.16, .26, .1, 0xffffff, -.6 + k * .24, -.42, 5.08, body);
+  const jaw = new THREE.Group(); jaw.position.set(0, -.6, 4.1); body.add(jaw);
+  part(1.4, .45, 1.3, BE, 0, -.25, .5, jaw);
+  for (let k = 0; k < 5; k++) part(.16, .24, .1, 0xffffff, -.5 + k * .25, .05, 1.1, jaw);
+  g.visible = false; scene.add(g);
+  return {g, body, jaw};
+})();
+const sharkFin = (() => { const g = new THREE.Group(); const f = part(.35, 1.7, 1.5, 0x6b7a8f, 0, .5, 0, g); f.rotation.x = -.35; g.visible = false; scene.add(g); return g; })();
+const shark = {on:false, t:0, side:1, warnT:0, finA:0};
+function isleName(i){ return i === -2 ? 'Ilha dos Portais' : i === -3 ? 'Ilha do Castelo' : i < 0 ? 'Ilha Central' : ZONES[i].name; }
+function startShark(){
+  if (shark.on) return;
+  shark.on = true; shark.t = 0; shark.side = Math.random() < .5 ? 1 : -1;
+  myBoat.v = 0; sharkFin.visible = false;
+  toast('🦈 TUBARÃO!', 1800);
+  [110, 117, 110, 117].forEach((f, j) => setTimeout(() => beep(f, .28, 'sawtooth', .07, .9), j * 260));
+}
+function updateShark(dt, t){
+  const B0 = myBoat, fx = Math.sin(B0.h), fz = Math.cos(B0.h), rx = Math.cos(B0.h), rz = -Math.sin(B0.h);
+  shark.t += dt;
+  const T = shark.t, S1 = 1.3, S2 = 2.2, S3 = 3.1;
+  const G = sharkM.g; G.visible = true;
+  if (T < S1){
+    // nada rodeando e chegando perto, só a barbatana para fora
+    const k = T / S1, a = k * Math.PI * 1.2, d = 16 - 11 * k;
+    const ox = Math.cos(a) * d * shark.side, oz = Math.sin(a) * d;
+    G.position.set(B0.x + rx * ox + fx * oz, -1.9, B0.z + rz * ox + fz * oz);
+    G.rotation.set(0, Math.atan2(B0.x - G.position.x, B0.z - G.position.z) + shark.side * 1.1, 0);
+    sharkM.jaw.rotation.x = 0;
+  } else if (T < S2){
+    // pulo por cima do barco, boca aberta, nhac!
+    const k = (T - S1) / (S2 - S1), sx = shark.side;
+    const px = B0.x + rx * sx * (7 - 14 * k), pz = B0.z + rz * sx * (7 - 14 * k);
+    G.position.set(px, -1.5 + Math.sin(k * Math.PI) * 6.5, pz);
+    G.rotation.set(0, Math.atan2(-rx * sx, -rz * sx), 0);
+    sharkM.body.rotation.x = (k - .5) * 1.3;
+    sharkM.jaw.rotation.x = k < .45 ? .9 : k < .55 ? .9 - (k - .45) * 9 : 0;
+    if (k >= .5 && !shark.ate){
+      shark.ate = true; hideMe = true; boatM.g.visible = false;
+      const h = $('hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 250);
+      beep(90, .35, 'square', .09, .5); setTimeout(() => beep(70, .3, 'square', .08, .5), 120);
+      floatText('NHAC!', B0.x, 3.5, B0.z, 'dmg');
+    }
+  } else if (T < S3){
+    const k = (T - S2) / (S3 - S2);
+    G.position.y = -1.5 - k * 4; sharkM.body.rotation.x = .65;
+    if (!shark.splashed){ shark.splashed = true; for (let q = 0; q < 8; q++) spawnWake(G.position.x + (Math.random() - .5) * 4, G.position.z + (Math.random() - .5) * 4); beep(220, .4, 'sine', .07, .35); }
+  } else {
+    // volta para a última ilha, com o barco parado na plaquinha de lá
+    G.visible = false; sharkM.body.rotation.x = 0; shark.on = false; shark.ate = false; shark.splashed = false;
+    driving = false; hideMe = false; boatM.g.visible = true;
+    const name = isleName(lastIsland), st = myBoat.stops.find(q => q.name === name) || myBoat.stops[0];
+    Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0, steer:0});
+    const sp = lastIsland === -2 ? PORT.spawn : lastIsland === -3 ? CASTLE.spawn : lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
+    Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0, onGround:true});
+    cam.yaw = Math.PI; banner(name, '🦈 O tubarão te cuspiu de volta na');
+    toast('🦈 Um tubarão te comeu! Não vá tão longe das ilhas.', 4000);
+  }
+}
+function updateSharkWarn(dt, t){
+  const B0 = myBoat;
+  if (!driving || shark.on){ sharkFin.visible = false; return; }
+  const d = seaDist(B0.x, B0.z);
+  if (d > BOAT_SEA){ startShark(); return; }
+  const warn = d > BOAT_SEA - 22;
+  sharkFin.visible = warn;
+  if (warn){
+    shark.finA += dt * 1.4;
+    sharkFin.position.set(B0.x + Math.cos(shark.finA) * 9, -.5 + Math.sin(t * 3) * .08, B0.z + Math.sin(shark.finA) * 9);
+    sharkFin.rotation.y = -shark.finA;
+    if (performance.now() > shark.warnT){ shark.warnT = performance.now() + 6000; toast('🦈 Tem tubarão por aqui... volte para perto das ilhas!', 3000); beep(110, .3, 'sawtooth', .05, .9); }
+  }
 }
 function boardBoat(){
   if (driving) return;
@@ -3737,7 +3825,7 @@ function boardBoat(){
   if (!boatTip){ boatTip = true; toast(document.body.classList.contains('touch') ? 'Joystick: para cima acelera, para os lados vira. Botão DESCER perto de uma ilha.' : 'W acelera · S freia/ré · A e D viram · Espaço buzina · E desce perto de uma ilha', 5200); }
 }
 function leaveBoat(){
-  if (!driving) return;
+  if (!driving || shark.on) return;
   let best = null, bd = 1e9;
   for (let d = 2.5; d <= 10; d += .75) for (let k = 0; k < 24; k++){
     const a = k / 24 * Math.PI * 2, x = myBoat.x + Math.sin(a) * d, z = myBoat.z + Math.cos(a) * d;
@@ -3751,6 +3839,8 @@ function leaveBoat(){
 }
 // chamada no laço do jogo enquanto você pilota
 function updateDrive(dt, ix, iz, t){
+  if (shark.on){ updateShark(dt, t); if (driving){ const by = boatM.g.position.y; Object.assign(P, {x:myBoat.x, z:myBoat.z, y:by + .97, vy:0, onGround:true}); } return; }
+  updateSharkWarn(dt, t);
   const B0 = myBoat, thr = Math.max(-1, Math.min(1, iz)), st = Math.max(-1, Math.min(1, ix)), MAXV = 20;
   if (thr > .1) B0.v += 15 * thr * dt; else if (thr < -.1) B0.v += 14 * thr * dt;
   B0.v -= B0.v * (Math.abs(thr) > .1 ? .12 : .7) * dt;
@@ -3767,7 +3857,6 @@ function updateDrive(dt, ix, iz, t){
   else {
     if (spd > 4) beep(110, .18, 'square', .06, .6);
     B0.v = -B0.v * .25;
-    if (hit === 'edge' && performance.now() > boatEdgeT){ boatEdgeT = performance.now() + 4000; toast('Aqui acaba o mar aberto! Volte para perto das ilhas.', 2600); }
   }
   if (B0.dist >= 1){ quest('boat', Math.floor(B0.dist)); B0.dist -= Math.floor(B0.dist); }
   if (jumpBuf > 0){ jumpBuf = 0; beep(330, .35, 'square', .06, 1); setTimeout(() => beep(262, .45, 'square', .06, 1), 180); }
