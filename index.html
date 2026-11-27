@@ -1701,6 +1701,8 @@ function applySkin(){
 const P = {x:0, y:0, z:8, vy:0, onGround:true, face:0, walk:0};
 const RAD = 0.45, HEIGHT = 2.75, STEP = 0.55;
 const cam = {yaw:Math.PI, pitch:0.42, dist:13};
+// pitch negativo = câmera baixa olhando para cima
+const PITCH_MIN = -1.15;
 
 // ---------- Pets 3D ----------
 function buildPet(k){
@@ -3464,7 +3466,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('mousemove', e => {
   if (!shiftLock || document.pointerLockElement !== canvas) return;
   cam.yaw -= e.movementX * 0.004;
-  cam.pitch = Math.min(1.25, Math.max(0.08, cam.pitch + e.movementY * 0.003));
+  cam.pitch = Math.min(1.25, Math.max(PITCH_MIN, cam.pitch + e.movementY * 0.003));
 });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 canvas.addEventListener('pointerdown', e => {
@@ -3485,7 +3487,7 @@ canvas.addEventListener('pointermove', e => {
     stick.x = dx/m; stick.y = dy/m; knob.style.transform = `translate(${dx}px,${dy}px)`;
   } else if (drag && e.pointerId === drag.id){
     cam.yaw -= (e.clientX - drag.x) * 0.006;
-    cam.pitch = Math.min(1.25, Math.max(0.08, cam.pitch + (e.clientY - drag.y) * 0.005));
+    cam.pitch = Math.min(1.25, Math.max(PITCH_MIN, cam.pitch + (e.clientY - drag.y) * 0.005));
     drag.x = e.clientX; drag.y = e.clientY;
   }
 });
@@ -4126,8 +4128,10 @@ function step(now){
   if (!playing) cam.yaw += dt * 0.12;
   shoulder += ((shiftLock ? 1.7 : 0) - shoulder) * Math.min(1, dt * 10);
   const tx = P.x - fz * shoulder, ty = P.y + 2, tz = P.z + fx * shoulder;
-  const cd = cam.dist + boatCam;
-  camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cd, ty + Math.sin(cam.pitch) * cd, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cd);
+  // olhando para cima a câmera chega perto do boneco para não entrar no chão; colada nele, o boneco some
+  const sp = Math.sin(cam.pitch), cd = sp < 0 ? Math.min(cam.dist + boatCam, 1.6 / -sp) : cam.dist + boatCam;
+  player.visible = cd > 2.4;
+  camera.position.set(tx + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cd, ty + sp * cd, tz + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cd);
   camera.lookAt(tx, ty, tz);
   sun.position.set(P.x + 18, 40, P.z - 12); sun.target.position.set(P.x, 0, P.z);
   updateEnv(dt, t);
