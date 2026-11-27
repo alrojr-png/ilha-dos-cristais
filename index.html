@@ -468,14 +468,17 @@ const hashTxt = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0, c
 const ACCOUNTS = {altor:{h:'jc1uoj17d5', key:SAVE_KEY, doc:'ilha-save'}};
 const ACC_KEY = 'ilha-dos-cristais-conta';
 let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (ACCOUNTS[a]) ACC = a; }catch(e){}
-const saveKey = () => ACC ? ACCOUNTS[ACC].key : SAVE_KEY + '-visitante';
-const cloudName = () => ACC ? ACCOUNTS[ACC].doc : 'ilha-save-visitante';
+// Visitante não salva nada: toda vez começa do zero. Só quem entra na conta guarda o progresso.
+const saveKey = () => ACCOUNTS[ACC].key;
+const cloudName = () => ACCOUNTS[ACC].doc;
+try{ localStorage.removeItem(SAVE_KEY + '-visitante'); }catch(e){} // save de visitante da versão anterior
 let cloudCol = null;
 // Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
 // (no artifact o localStorage pode ser apagado ou bloqueado pelo navegador).
 let cloudDoc = null, cloudLast = '', cloudBusy = false;
 const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.pets ? s.pets.length : 0) * 1e7 + (s.level || 1) * 1e5 + (s.coins || 0) + (s.bagVal || 0);
 function save(){
+  if (!ACC) return;
   try{ localStorage.setItem(saveKey(), JSON.stringify(S)); }catch(e){}
   cloudSave();
 }
@@ -486,7 +489,7 @@ function cloudSave(){
   cloudBusy = true;
   cloudDoc.set({save: j}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
 }
-function load(){ try{ const d = JSON.parse(localStorage.getItem(saveKey())); if (d) merge(d); }catch(e){} }
+function load(){ if (!ACC) return; try{ const d = JSON.parse(localStorage.getItem(saveKey())); if (d) merge(d); }catch(e){} }
 function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {});
   S.pets = Array.isArray(d.pets) ? d.pets.filter(p => p && PETS[p.k]) : [];
   S.equip = (Array.isArray(d.equip) ? d.equip : []).filter(id => S.pets.some(p => p.id === id)).slice(0, PET_SLOTS);
@@ -509,7 +512,7 @@ async function cloudInit(){
 }
 async function cloudOpen(){
   try{
-    if (!cloudCol) return;
+    if (!cloudCol || !ACC) return;
     const acc = ACC, doc = cloudCol.doc(cloudName());
     const snap = await doc.get();
     if (acc !== ACC) return; // trocou de conta enquanto carregava
