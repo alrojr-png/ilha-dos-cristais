@@ -649,6 +649,9 @@ const RESTO = {cx:380, cz:-320, r:40};
 // Ilha dos Portais: não tem ponte, só dá para chegar de barco
 const PORT = {cx:-208, cz:64, r:26, name:'Ilha dos Portais'};
 PORT.spawn = {x:PORT.cx + 18, z:PORT.cz};
+// Ilha do Castelo: grátis, só de barco; o Rei Cristóvão mora lá
+const CASTLE = {cx:-150, cz:200, r:30, name:'Ilha do Castelo'};
+CASTLE.spawn = {x:CASTLE.cx, z:CASTLE.cz - 20};
 let inResto = false;
 const water = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshPhongMaterial({color:0x2d8fdc, specular:0xbfe8ff, shininess:80, transparent:true, opacity:.86}));
 water.rotation.x = -Math.PI / 2; water.position.y = -0.5; water.receiveShadow = true; scene.add(water);
@@ -685,7 +688,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(PORT, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(INV, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(PORT, x, z) || inIsle(CASTLE, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(INV, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -693,6 +696,7 @@ function landAt(x, z){
 function islandAt(x, z){
   if (inIsle(HUB, x, z)) return -1;
   if (inIsle(PORT, x, z)) return -2;
+  if (inIsle(CASTLE, x, z)) return -3;
   for (let i = 0; i < ZONES.length; i++) if (inIsle(ZONES[i], x, z)) return i;
   return null;
 }
@@ -1938,7 +1942,7 @@ ZONES.forEach((Z, i) => {
 // Coisas no mar
 for (let k = 0, n = 0; k < 600 && n < 40; k++){
   const x = rr(-150, 310), z = rr(-130, 430);
-  if (inIsle(HUB, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8) || (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 14)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
+  if (inIsle(HUB, x, z, 8) || inIsle(CASTLE, x, z, 10) || inIsle(PORT, x, z, 8) || ZONES.some(Z => inIsle(Z, x, z, 8) || (Z.gate && Math.hypot(x - Z.gate.x, z - Z.gate.z) < 14)) || bridges.some(b => x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8)) continue;
   n++;
   if (n <= 26) seaRock(x, z); else if (n <= 36) buoy(x, z, n % 2 ? 0xe8402c : 0xffd23f); else boat(x, z, R() * 6);
 }
@@ -3076,8 +3080,83 @@ function updateResto(dt, t){
   }
 }
 // ---------- Reis das ilhas ----------
+// ---------- Ilha do Castelo ----------
+const castleFx = {flags:[], torches:[]};
+{
+  const C = CASTLE, X = d => C.cx + d, Z = d => C.cz + d, H = 13, WALL = 6, T = 1.2, STONE = 0xb8b0a0, DARK = 0x8f887a;
+  islandBase(C, 0x6fbf4a, 0xf3dfa2);
+  // muralhas com portão no lado sul (virado para o mar e para a Ilha Central)
+  addBlock(X(0), 0, Z(H), 2 * H, WALL, T, STONE);
+  addBlock(X(-H), 0, Z(0), T, WALL, 2 * H, STONE);
+  addBlock(X(H), 0, Z(0), T, WALL, 2 * H, STONE);
+  addBlock(X(-(H + 2.5) / 2), 0, Z(-H), H - 2.5, WALL, T, STONE);
+  addBlock(X((H + 2.5) / 2), 0, Z(-H), H - 2.5, WALL, T, STONE);
+  // ameias em cima das muralhas
+  for (let u = -H + 1; u <= H - 1; u += 2){
+    addBlock(X(u), WALL, Z(H), .9, .8, T + .1, DARK, false);
+    addBlock(X(-H), WALL, Z(u), T + .1, .8, .9, DARK, false);
+    addBlock(X(H), WALL, Z(u), T + .1, .8, .9, DARK, false);
+    if (Math.abs(u) > 3) addBlock(X(u), WALL, Z(-H), .9, .8, T + .1, DARK, false);
+  }
+  // portão: pilares altos e arco por cima (dá para passar por baixo)
+  [-1, 1].forEach(sd => addBlock(X(sd * 3.1), 0, Z(-H), 1.4, 8.4, 1.8, DARK));
+  addBlock(X(0), 5.2, Z(-H), 7.6, 3.2, 1.8, STONE);
+  for (let k = -2; k <= 2; k++) addBlock(X(k * .9), 4.7, Z(-H - .5), .14, .5, .14, 0x3a2a20, false);
+  const gl = label('CASTELO DO REI', '#ffcc33', '#3a2a00', 768); gl.position.set(X(0), 10, Z(-H - 1)); scene.add(gl);
+  // torres nos cantos
+  [[-1, -1, 0x2b6cd4], [1, -1, 0xc0392b], [-1, 1, 0xc0392b], [1, 1, 0x2b6cd4]].forEach(([a, b, roof]) => {
+    const tx = X(a * H), tz = Z(b * H);
+    const tw = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 10, 14), mat(STONE)); tw.position.set(tx, 5, tz); tw.castShadow = true; tw.receiveShadow = true; scene.add(tw);
+    for (let k = 0; k < 8; k++){ const ang = k / 8 * Math.PI * 2; addBlock(tx + Math.cos(ang) * 2.4, 10, tz + Math.sin(ang) * 2.4, .7, .7, .7, DARK, false); }
+    cone(3.1, 4.2, roof, tx, 10.6, tz, 14);
+    addBlock(tx, 14.8, tz, .1, 2, .1, 0x3a2a20, false);
+    const f = new THREE.Mesh(boxGeo, mat(0x7b4fd6)); f.scale.set(1.4, .8, .04); f.position.set(tx + .7, 16.3, tz); scene.add(f); castleFx.flags.push(f);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([u, v]) => addBlock(tx + u * 2.72, 6.5, tz + v * 2.72, u ? .06 : .5, .9, u ? .5 : .06, 0x1d1630, false));
+    colliders.push({minX:tx - 2.6, maxX:tx + 2.6, minZ:tz - 2.6, maxZ:tz + 2.6, bottom:0, top:10});
+  });
+  // escada por dentro até o alto da muralha oeste
+  for (let k = 0; k < 12; k++) addBlock(X(-H + 1.6), 0, Z(-7 + k * 1.1), 2, .5 * (k + 1), 1.1, k % 2 ? 0xa8a090 : 0x9a9282);
+  // castelo do meio (atrás do trono) com torre e bandeira
+  addBlock(X(0), 0, Z(10.2), 14, 8, 4.2, 0xcfc6b4);
+  for (let u = -6.5; u <= 6.5; u += 1.6) addBlock(X(u), 8, Z(10.2), .8, .8, 4.3, DARK, false);
+  addBlock(X(0), 0, Z(8.08), 2.4, 3.6, .1, 0x5a3d22, false);
+  const arc = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, .1, 16, 1, false, 0, Math.PI), mat(0x5a3d22)); arc.rotation.x = Math.PI / 2; arc.rotation.y = Math.PI / 2; arc.position.set(X(0), 3.6, Z(8.07)); scene.add(arc);
+  [[-4, 5.4], [4, 5.4], [-4, 2.6], [4, 2.6]].forEach(([u, y]) => addBlock(X(u), y, Z(8.08), 1.1, 1.4, .08, 0, false, new THREE.MeshBasicMaterial({color:0xffe27a})));
+  const kt = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 7, 14), mat(0xcfc6b4)); kt.position.set(X(0), 11.5, Z(10.5)); kt.castShadow = true; scene.add(kt);
+  cone(2.8, 4.6, 0x7b4fd6, X(0), 15, Z(10.5), 14);
+  addBlock(X(0), 19.6, Z(10.5), .12, 2.4, .12, 0x3a2a20, false);
+  const bf = new THREE.Mesh(boxGeo, mat(0xffcc33)); bf.scale.set(1.8, 1, .04); bf.position.set(X(.9), 21.4, Z(10.5)); scene.add(bf); castleFx.flags.push(bf);
+  // estandartes roxos com o cristal nas muralhas, por dentro
+  [[-8, H - .65], [8, H - .65], [-H + .65, -2], [H - .65, -2], [H - .65, 6]].forEach(([u, v]) => {
+    const side = Math.abs(v) > H - 1, w = side ? 1.6 : .06, d = side ? .06 : 1.6;
+    addBlock(X(u), 1.6, Z(v), w, 3.4, d, 0x7b4fd6, false); addBlock(X(u), 4.9, Z(v), side ? 1.8 : .1, .14, side ? .1 : 1.8, 0xffcc33, false);
+    const gm = new THREE.Mesh(new THREE.OctahedronGeometry(.4, 0), mat(0x34f0b0)); gm.position.set(X(u) + (side ? 0 : (u < 0 ? .1 : -.1)), 3.6, Z(v) + (side ? -.1 : 0)); scene.add(gm);
+  });
+  // tapete vermelho do portão até o trono
+  addBlock(X(0), 0, Z(-4), 1.8, .05, 17, 0xc0392b, false);
+  addBlock(X(0), 0, Z(-4), 2.1, .04, 17.2, 0xffcc33, false);
+  // tochas no caminho
+  [-8, -2, 4].forEach(v => [-1, 1].forEach(sd => {
+    addBlock(X(sd * 2.4), 0, Z(v), .2, 1.8, .2, 0x3a2a20, false);
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(.22, .6, 8), new THREE.MeshBasicMaterial({color:0xff9a2a})); fl.position.set(X(sd * 2.4), 2.1, Z(v)); scene.add(fl); castleFx.torches.push(fl);
+  }));
+  // pátio: poço, barris, caixotes e bonecos de treino
+  const well = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1, 16), mat(STONE)); well.position.set(X(-7), .5, Z(-6)); scene.add(well);
+  const wellW = new THREE.Mesh(new THREE.CircleGeometry(.95, 16), mat(0x2d8fdc)); wellW.rotation.x = -Math.PI / 2; wellW.position.set(X(-7), 1.01, Z(-6)); scene.add(wellW);
+  [-1, 1].forEach(sd => addBlock(X(-7 + sd * 1), 1, Z(-6), .15, 1.6, .15, 0x6b4a2b, false)); addBlock(X(-7), 2.6, Z(-6), 2.4, .5, .9, 0xc0392b, false);
+  colliders.push({minX:X(-8.2), maxX:X(-5.8), minZ:Z(-7.2), maxZ:Z(-4.8), bottom:0, top:1});
+  barrel(X(8.5), Z(-9)); barrel(X(9.6), Z(-8)); crate(X(9), Z(-10.6)); crate(X(-9.5), Z(5)); barrel(X(-8.6), Z(6.3));
+  [[7, 2], [9, 4.4]].forEach(([u, v]) => { addBlock(X(u), 0, Z(v), .2, 1.6, .2, 0x6b4a2b); addBlock(X(u), 1.2, Z(v), 1.4, .15, .15, 0x6b4a2b, false); addBlock(X(u), 1.6, Z(v), .6, .6, .5, 0xd9b45a, false); });
+  // fora do castelo: árvores, flores e a placa da ilha
+  const out = (pad) => { for (let t = 0; t < 40; t++){ const a = R() * Math.PI * 2, d = rr(H + 4.5, C.r - 2), x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d); if (occupied(x, z, pad) || (Math.abs(x - X(0)) < 4 && z < Z(-H))) continue; return [x, z]; } return null; };
+  for (let k = 0; k < 14; k++){ const q = out(2.4); if (q) tree(q[0], q[1]); }
+  for (let k = 0; k < 10; k++){ const q = out(1.6); if (q) flowers(q[0], q[1]); }
+  for (let k = 0; k < 6; k++){ const q = out(1.8); if (q) bush(q[0], q[1]); }
+  addBlock(X(4), 0, Z(-20), .3, 3, .3, 0x5a3d22, false);
+  const sl = label('ILHA DO CASTELO', '#ffcc33', '#3a2a00', 768); sl.position.set(X(4), 3.7, Z(-20)); scene.add(sl);
+}
 const KINGS = [
-  {I:HUB,      name:'Rei Cristóvão',  robe:0x7b4fd6, cape:0xc0392b, gem:0x34f0b0, skin:0xffcf9e, beard:0xc9c9c9, hello:'Bem-vindo à Ilha Central, meu reino de cristais! Explore tudo!'},
+  {I:CASTLE,   name:'Rei Cristóvão',  robe:0x7b4fd6, cape:0xc0392b, gem:0x34f0b0, skin:0xffcf9e, beard:0xc9c9c9, at:[0, 5], hello:'Bem-vindo ao meu castelo! Daqui eu cuido de todo o reino dos cristais.'},
 ];
 const kings = [];
 function kingSpot(K){
@@ -3201,7 +3280,7 @@ function renderQuest(){
   const D = ensureDaily(), all = D.q.every(q => q.got), ready = D.q.some(q => !q.got && q.n >= QUESTS[q.id].n);
   $('questTxt').textContent = all ? 'Você fez todas as missões de hoje! Muito bem, aventureiro. Volte amanhã que eu tenho mais!'
     : ready ? 'Ótimo trabalho! Pegue sua recompensa aqui embaixo.'
-    : 'Bem-vindo à Ilha Central! Tenho 3 missões para você hoje. Cada uma vale ' + QUEST_XP + ' XP:';
+    : 'Bem-vindo ao meu castelo! Tenho 3 missões para você hoje. Cada uma vale ' + QUEST_XP + ' XP:';
   $('questList').innerHTML = D.q.map((q, i) => {
     const Q = QUESTS[q.id], N = Q.n, done = q.n >= N;
     return `<div class="qrow ${q.got ? 'got' : ''}"><div class="qtxt"><b>${Q.txt(N)}</b><div class="bar"><i style="width:${Math.min(100, q.n / N * 100)}%"></i></div><small>${fmt(q.n)} de ${fmt(N)}</small></div>`
@@ -3230,7 +3309,7 @@ questEl.addEventListener('click', e => {
 
 // ---------- Barco que você pilota (libera no nível 10) ----------
 const BOAT_LV = 1, BOAT_SEA = 100;
-const boatIsles = () => [HUB, PORT].concat(ZONES.filter(I => !(I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole)));
+const boatIsles = () => [HUB, PORT, CASTLE].concat(ZONES.filter(I => !(I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole)));
 const myBoat = (() => {
   let a = -Math.PI * .75, post = null;
   for (let k = 0; k < 24; k++){
@@ -3245,13 +3324,13 @@ const myBoat = (() => {
   // parada 2: lado leste da Ilha dos Portais (virado para a Ilha Central)
   const stops = [{post, home, name:'Ilha Central'}, {post:{x:PORT.cx + PORT.r + .5, z:PORT.cz + 4}, home:{x:PORT.cx + PORT.r + BEACH + 5, z:PORT.cz, h:Math.PI}, name:'Ilha dos Portais'}];
   // uma parada em cada ilha das fases da superfície, virada para a Ilha Central
-  ZONES.forEach((I, i) => {
+  ZONES.concat([CASTLE]).forEach((I, i) => {
     if (I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole) return;
     const a0 = Math.atan2(HUB.cx - I.cx, HUB.cz - I.cz);
     for (let k = 0; k < 30; k++){
       const ang = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .12, sx = Math.sin(ang), sz = Math.cos(ang);
       const px = I.cx + sx * (I.r + .5), pz = I.cz + sz * (I.r + .5), hx = I.cx + sx * (I.r + BEACH + 5), hz = I.cz + sz * (I.r + BEACH + 5);
-      if (occupied(px, pz, 2.2) || ZONES.some(W => W !== I && inIsle(W, hx, hz, 8)) || inIsle(HUB, hx, hz, 8)) continue;
+      if (occupied(px, pz, 2.2) || ZONES.some(W => W !== I && inIsle(W, hx, hz, 8)) || inIsle(HUB, hx, hz, 8) || (I === CASTLE && Math.abs(px - CASTLE.cx) < 5)) continue;
       stops.push({post:{x:px, z:pz}, home:{x:hx, z:hz, h:ang + Math.PI / 2}, name:I.name}); break;
     }
   });
@@ -3640,6 +3719,7 @@ const LOOKS = [
   {I:ZONES[10], n:5, hats:['diver'], tops:[0xffffff, 0xf0f0f5, 0xe8e8ee], bottoms:[0xe0e0e8, 0xffffff]},
   {I:ZONES[11], n:5, hats:['diver'], tops:[0xffffff, 0xff8a5c, 0xffd23f], bottoms:[0xe0e0e8, 0xffffff]},
   {I:ZONES[12], n:4, hats:['diver'], tops:[0xffffff, 0xc77dff, 0x7fd0ff], bottoms:[0xe0e0e8, 0x2a1050]},
+  {I:CASTLE, n:7, hats:['knight', 'knight', 'knight', 'bun', 'none'], tops:[0x7b4fd6, 0xc0392b, 0x2b6cd4, 0xa9b4c2], bottoms:[0x3a3f4a, 0x2b4c7e]},
   {I:INV, n:7, hats:['none', 'cap', 'beanie', 'bun'], tops:[0x9a6bff, 0x3ddc84, 0xff5a8a, 0x4ae0c8, 0xffd23f], bottoms:[0x2a1050, 0x4a3a6a, 0x2b4c7e]},
 ];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
@@ -3679,6 +3759,7 @@ function buildVillager(L){
   }
   if (hat === 'elf'){ const ec = pickR([0x3f9e3a, 0x2f6f5e, 0x6b3fc0]); part(.86, .26, .84, ec, 0, .82, 0, head); part(.56, .34, .56, ec, 0, 1.1, -.08, head); part(.3, .34, .3, ec, 0, 1.4, -.2, head).rotation.x = -.3; part(.12, .2, .12, 0xffe27a, 0, 1.62, -.32, head); [-1, 1].forEach(sd => { part(.12, .3, .16, skin, sd * .44, .42, 0, head).rotation.z = sd * -.5; }); }
   if (hat === 'wreath'){ part(.84, .22, .8, hair, 0, .78, -.02, head); [0, 1, 2, 3, 4, 5].forEach(k => { const a = k / 6 * Math.PI * 2; part(.2, .16, .2, k % 2 ? 0xff7ac8 : 0x56b84a, Math.cos(a) * .44, .86, Math.sin(a) * .44, head); }); }
+  if (hat === 'knight'){ part(.9, .62, .88, 0xa9b4c2, 0, .5, 0, head); part(.6, .08, .05, 0x1d1630, 0, .45, .45, head); part(.12, .42, .55, 0xe8402c, 0, 1.02, -.05, head); }
   if (hat === 'halo'){ const h = new THREE.Mesh(new THREE.TorusGeometry(.34, .055, 8, 20), new THREE.MeshBasicMaterial({color:0xffe27a})); h.rotation.x = Math.PI / 2; h.position.y = 1.08; head.add(h); }
   [-1, 1].forEach(sd => { const p = new THREE.Group(); p.position.set(sd * .7, 1.9, 0); g.add(p); part(.36, .45, .42, top, 0, -.22, 0, p); part(.34, .5, .38, skin, 0, -.68, 0, p); arms.push(p); });
   const s = R() < .25 ? .72 : .92 + R() * .12; // alguns são crianças
@@ -3798,7 +3879,7 @@ function fly(up){
   }, 500);
 }
 function splash(){
-  const sp = lastIsland === -2 ? PORT.spawn : lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
+  const sp = lastIsland === -2 ? PORT.spawn : lastIsland === -3 ? CASTLE.spawn : lastIsland < 0 ? {x:0, z:8} : ZONES[lastIsland].spawn;
   Object.assign(P, {x:sp.x, y:0, z:sp.z, vy:0});
   if (inSky){ toast('Ops! Você caiu das nuvens'); beep(500, .5, 'sine', .07, .3); }
   else { toast('Tchibum! Você caiu no mar'); beep(220, .35, 'sine', .07, .35); }
@@ -4680,6 +4761,8 @@ function step(now){
   if (!diving && inInv && P.y < 1 && Math.hypot(P.x - INV.exit.x, P.z - INV.exit.z) < 1.6) goInv(false);
   updateResto(dt, t);
   updateKings(dt, t);
+  for (let k = 0; k < castleFx.flags.length; k++) castleFx.flags[k].rotation.y = Math.sin(t * 2.4 + k) * .25;
+  for (let k = 0; k < castleFx.torches.length; k++) castleFx.torches[k].scale.set(1, .8 + Math.sin(t * 14 + k * 2) * .25, 1);
   updateStadium(dt, t);
   updateMoon(dt, t);
   // foguete da praia: sem Marte vai direto para a Lua; com Marte liberado pergunta para onde
@@ -4707,7 +4790,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; if (zi === -2) banner('Ilha dos Portais', 'Você chegou na'); else banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia || ZN.moon || ZN.mars || ZN.hole ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.moon ? 'Você pousou na' : ZN.mars ? 'Você pousou em' : ZN.hole ? 'Você caiu no' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; if (zi === -2) banner('Ilha dos Portais', 'Você chegou na'); else if (zi === -3) banner('Ilha do Castelo', 'Você chegou na'); else banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia || ZN.moon || ZN.mars || ZN.hole ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.moon ? 'Você pousou na' : ZN.mars ? 'Você pousou em' : ZN.hole ? 'Você caiu no' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
