@@ -97,6 +97,11 @@ body.touch #intro small{display:none}
 @keyframes float{50%{transform:translateY(-10px) rotate(6deg)}}
 @keyframes beat{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){#intro .logo,#playBtn{animation:none}}
+#multiBtn{font-size:clamp(20px,3.6vw,28px);padding:12px 26px;border-radius:18px;margin-left:10px;vertical-align:top;background:#4aa8ff;border-color:#1f6fb8;color:#06243f;box-shadow:0 7px 0 #1f6fb8,0 12px 24px rgba(0,0,0,.35)}
+#multiBtn:active{transform:translateY(5px);box-shadow:0 2px 0 #1f6fb8}
+@media (max-width:520px){#multiBtn{margin:12px 0 0}}
+#netChip{font-size:13px;font-weight:900;color:#9fd8ff;padding:4px 12px}
+#netChip[hidden]{display:none!important}
 #acct{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:22px}
 #acctTxt{font-size:14px;font-weight:800;color:var(--text);text-shadow:0 2px 6px rgba(0,0,0,.6)}
 #acctTxt b{color:var(--gem)}
@@ -290,6 +295,7 @@ body.touch .pw b{display:none}
   </div>
   <div class="chip" id="mult" hidden>Renascimentos: <span id="multTxt"></span></div>
   <div class="chip" id="petChip" hidden>Pets: <span id="petTxt"></span></div>
+  <div class="chip" id="netChip" hidden role="status"></div>
 </div>
 
 <div class="hud" id="topright">
@@ -318,7 +324,7 @@ body.touch .pw b{display:none}
     <svg class="logo" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3l9 9-9 15-9-15z" fill="#34f0b0" stroke="#108a63" stroke-width="2" stroke-linejoin="round"/><path d="M6 12h18M15 3l-3 9 3 15 3-15z" stroke="#108a63" stroke-width="1.4" fill="none"/></svg>
     <h1>Ilha dos <span>Cristais</span></h1>
     <p>Pegue cristais, venda nas barracas e descubra todas as ilhas!</p>
-    <button class="btn go" id="playBtn" type="button">JOGAR</button>
+    <button class="btn go" id="playBtn" type="button">JOGAR</button><button class="btn" id="multiBtn" type="button">MULTIPLAYER</button>
     <small>ou aperte Enter</small>
     <div id="acct"><span id="acctTxt"></span><button class="btn" id="loginBtn" type="button">Entrar na conta</button></div>
   </div>
@@ -3656,6 +3662,97 @@ loginEl.addEventListener('keydown', e => { if (e.code === 'Escape') closeLogin()
 loginEl.addEventListener('pointerdown', e => { if (e.target === loginEl) closeLogin(); });
 renderAcct();
 
+// ---------- Multiplayer (sala ao vivo do claude.ai) ----------
+// Cada jogo manda a posição do próprio boneco (presence) e desenha os outros.
+// Nada fica salvo: quem fecha o jogo some. Só funciona aberto no claude.ai.
+let net = null, netOn = false, netLast = '', netT = 0;
+const others = new Map();
+function buildAvatar(skinId){
+  const K = SKINS.find(k => k.id === skinId) || SKINS[0];
+  const g = new THREE.Group(), skin = K.skin || SKIN;
+  part(1.05, .95, .55, K.shirt, 0, 1.45, 0, g);
+  part(.78, .74, .74, skin, 0, 2.32, 0, g);
+  if (!K.noHair) part(.84, .22, .8, K.hair, 0, 2.72, -.02, g);
+  part(.12, .16, .05, 0x1d1630, -.17, 2.36, .38, g); part(.12, .16, .05, 0x1d1630, .17, 2.36, .38, g);
+  part(.3, .06, .05, 0xb5524a, 0, 2.14, .38, g);
+  part(.8, .8, .36, K.pack, 0, 1.5, -.45, g);
+  const L = {};
+  [['armL', -.7, 1.9, K.shirt], ['armR', .7, 1.9, K.shirt], ['legL', -.27, .97, K.pants], ['legR', .27, .97, K.pants]].forEach(([k, x, y, c]) => {
+    const pv = new THREE.Group(); pv.position.set(x, y, 0); g.add(pv);
+    if (k.startsWith('arm')){ part(.36, .45, .42, c, 0, -.22, 0, pv); part(.34, .5, .38, skin, 0, -.68, 0, pv); }
+    else part(.46, .97, .5, c, 0, -.485, 0, pv);
+    L[k] = pv;
+  });
+  scene.add(g);
+  return {g, L};
+}
+const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null;
+function netName(pr){ return typeof pr.n === 'string' && pr.n.trim() ? pr.n.trim().slice(0, 16) : 'Jogador'; }
+function setOther(peer){
+  const pr = peer.presence || {}, x = num(pr.x, -800, 800), y = num(pr.y, -60, 80), z = num(pr.z, -800, 800);
+  if (x === null || y === null || z === null) return;
+  let o = others.get(peer.peer);
+  const sk = typeof pr.sk === 'string' && SKINS.some(k => k.id === pr.sk) ? pr.sk : 'classico', name = netName(pr);
+  if (o && o.sk !== sk){ scene.remove(o.g); o = null; others.delete(peer.peer); }
+  if (!o){
+    const a = buildAvatar(sk);
+    o = Object.assign(a, {sk, x, y, z, tx:x, ty:y, tz:z, f:0, tf:0, walk:0, name:'', tag:null});
+    others.set(peer.peer, o);
+  }
+  if (o.name !== name){
+    if (o.tag) o.g.remove(o.tag);
+    o.tag = label(name, '#2a2145', '#ffffff', 512); o.tag.scale.multiplyScalar(.7); o.tag.position.y = 3.7; o.g.add(o.tag); o.name = name;
+  }
+  o.tx = x; o.ty = y; o.tz = z; o.tf = num(pr.f, -10, 10) || 0;
+}
+function dropOther(id){ const o = others.get(id); if (o){ scene.remove(o.g); others.delete(id); } }
+function netCount(){
+  const chip = $('netChip');
+  if (!netOn){ chip.hidden = true; return; }
+  chip.hidden = false;
+  const n = 1 + others.size;
+  chip.textContent = n === 1 ? '🌐 Multiplayer: só você por enquanto' : '🌐 ' + n + ' jogando juntos';
+}
+async function startMulti(){
+  netOn = true; netCount();
+  try{
+    const lobby = window.claude?.use ? await claude.use('room') : null;
+    if (!lobby){ netOn = false; netCount(); toast('O multiplayer só funciona com o jogo aberto no claude.ai', 4000); return; }
+    net = await lobby.join('ilha-multiplayer');
+    net.onPeers(ch => {
+      for (const p of ch.left) dropOther(p.peer);
+      for (const p of ch.joined.concat(ch.updated)) if (!p.sameTab && p.kind === 'viewer') setOther(p);
+      netCount();
+    }, () => { netOn = false; for (const id of [...others.keys()]) dropOther(id); netCount(); });
+    netLast = ''; sendPresence(true);
+    toast('Multiplayer ligado! Quem abrir o jogo e clicar em MULTIPLAYER aparece aqui.', 4500);
+  }catch(e){ netOn = false; net = null; netCount(); toast('Não deu para entrar no multiplayer agora. Tente de novo mais tarde.', 4000); }
+}
+function sendPresence(force){
+  if (!net) return;
+  const r = v => Math.round(v * 100) / 100;
+  const pr = {x:r(P.x), y:r(P.y), z:r(P.z), f:r(P.face), sk:S.skin, n:ACC || 'Visitante'};
+  const j = JSON.stringify(pr);
+  if (!force && j === netLast) return;
+  netLast = j; net.presence(pr).catch(() => {});
+}
+function updateMulti(dt, t){
+  if (!net) return;
+  netT -= dt; if (netT <= 0){ netT = .1; sendPresence(false); }
+  const k = Math.min(1, dt * 10);
+  for (const o of others.values()){
+    const dx = o.tx - o.x, dz = o.tz - o.z, d = Math.hypot(dx, dz);
+    if (d > 30){ o.x = o.tx; o.z = o.tz; o.y = o.ty; } else { o.x += dx * k; o.y += (o.ty - o.y) * k; o.z += dz * k; }
+    let df = o.tf - o.f; df = Math.atan2(Math.sin(df), Math.cos(df)); o.f += df * k;
+    o.walk += ((d > .05 ? 1 : 0) - o.walk) * k;
+    const sw = Math.sin(t * 10) * .7 * o.walk;
+    o.L.armL.rotation.x = sw; o.L.armR.rotation.x = -sw; o.L.legL.rotation.x = -sw; o.L.legR.rotation.x = sw;
+    o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.f;
+    o.g.visible = Math.abs(o.x - P.x) < 150 && Math.abs(o.z - P.z) < 150;
+  }
+}
+$('multiBtn').addEventListener('click', () => { if (playing) return; play(); startMulti(); });
+
 // Portões
 function updateGates(){
   ZONES.forEach((Z, i) => { if (gateMeshes[i]) gateMeshes[i].forEach(m => m.visible = i >= S.unlocked); });
@@ -4111,6 +4208,7 @@ function step(now){
   updateElf(dt, t);
   updateSnow(dt, t);
   updateInv(dt, t);
+  updateMulti(dt, t);
   if (!diving && !inInv && P.y < 1 && Math.hypot(P.x - INV.gate.x, P.z - INV.gate.z) < 1.4) goInv(true);
   if (!diving && inInv && P.y < 1 && Math.hypot(P.x - INV.exit.x, P.z - INV.exit.z) < 1.6) goInv(false);
   updateResto(dt, t);
