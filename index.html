@@ -199,6 +199,9 @@ body.arena #battle{display:block}
 @media (max-width:700px){#battle{top:auto;bottom:calc(170px + env(safe-area-inset-bottom,0px))}.hpbar{width:150px}}
 #atk{display:none;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;right:calc(118px + env(safe-area-inset-right,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px));width:80px;height:80px;border-radius:50%;font-size:14px;padding:0;background:var(--bad);border-color:#b3263f}
 body.touch.arena #atk,body.touch.fight #atk{display:block}
+#flyBtn{background:#2b6cd4;border-color:#1a3f80;color:#fff}
+#flyBtn[hidden]{display:none}
+#flyBtn[aria-pressed="true"]{background:#ffd23f;border-color:#c79a12;color:#3a2a00;box-shadow:0 0 0 3px #2b6cd4,0 4px 0 rgba(0,0,0,.4)}
 #fightBtn{background:#ff5470;border-color:#b3263f;color:#2a0610}
 #fightBtn[aria-pressed="true"]{background:#ffcc33;border-color:#c79a12;color:#3a2a00;box-shadow:0 0 0 3px #ff5470,0 4px 0 rgba(0,0,0,.4)}
 #hurt{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(ellipse at center,rgba(255,20,60,0) 45%,rgba(255,20,60,.6) 100%)}
@@ -357,6 +360,7 @@ body.touch .pw b{display:none}
 </div>
 
 <div class="hud" id="topright">
+  <button class="btn" id="flyBtn" type="button" aria-pressed="false" hidden>🦸 Voar</button>
   <button class="btn" id="fightBtn" type="button" aria-pressed="false">⚔️ Lutar</button>
   <button class="btn" id="mapBtn" type="button" aria-controls="map">🗺️ Mapa</button>
   <button class="btn" id="emoBtn" type="button" aria-expanded="false" aria-controls="emotes">Emotes</button>
@@ -375,7 +379,7 @@ body.touch .pw b{display:none}
   <div><b id="gateName"></b><span id="gateInfo"></span></div>
   <button class="btn go" id="gateBtn" type="button">Desbloquear</button>
 </div>
-<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock · <kbd>E</kbd> conversar · <kbd>K</kbd> skins · <kbd>G</kbd> emotes · <kbd>R</kbd> modo luta · <kbd>F</kbd> ou clique atacar · <kbd>1</kbd>-<kbd>4</kbd> poderes (na arena)</div>
+<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock · <kbd>E</kbd> conversar · <kbd>K</kbd> skins · <kbd>G</kbd> emotes · <kbd>R</kbd> modo luta · <kbd>V</kbd> voar (super-herói: <kbd>Espaço</kbd> sobe, <kbd>C</kbd> desce) · <kbd>F</kbd> ou clique atacar · <kbd>1</kbd>-<kbd>4</kbd> poderes (na arena)</div>
 <div class="hud" id="battle"><b id="waveTxt">Arena</b><div class="hpbar"><i id="hpBar"></i></div><span id="hpTxt"></span><small id="foesTxt"></small></div>
 <div id="hurt" aria-hidden="true"></div>
 <div id="cross" aria-hidden="true"></div>
@@ -537,7 +541,9 @@ const multOf = r => 1 + r;
 const STR_MAX = 20;
 const strCost = l => Math.round(200 * Math.pow(2.15, l));
 const strMult = l => 1 + .25 * l;
-const atkPow = () => (1 + S.rebirths * .5) * strMult(S.str || 0);
+// skin Super-herói: voa (V), corre 1,5x, pula 1,35x e bate 2x mais forte
+const isHero = () => S.skin === 'heroi';
+const atkPow = () => (1 + S.rebirths * .5) * strMult(S.str || 0) * (isHero() ? 2 : 1);
 // Níveis: 1 a 10.000. XP só vem das missões do Rei Cristóvão. Cada nível = +1% no valor dos cristais e moedas.
 const LV_MAX = 10000;
 // 3 missões por dia = 12 XP = 5 níveis por dia (2,4 XP por nível)
@@ -4247,6 +4253,26 @@ function updateVillagers(dt, t){
 }
 
 
+// ---------- Poderes do Super-herói ----------
+let heroFly = false, jumpHeld = false, flyTilt = 0, heroTrailT = 0;
+const heroTrail = [];
+function spawnHeroTrail(){
+  let m = heroTrail.find(o => o.life <= 0);
+  if (!m){ if (heroTrail.length > 30) m = heroTrail[0]; else { const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(.18, 0), new THREE.MeshBasicMaterial({color:0xffd23f, transparent:true})); scene.add(mesh); m = {mesh, life:0}; heroTrail.push(m); } }
+  m.life = .6; m.mesh.visible = true; m.mesh.material.color.setHex(Math.random() < .5 ? 0xffd23f : 0xe8402c);
+  m.mesh.position.set(P.x - Math.sin(P.face) * 1.2 + (Math.random() - .5) * .6, P.y + 1.4 + (Math.random() - .5) * .6, P.z - Math.cos(P.face) * 1.2 + (Math.random() - .5) * .6);
+}
+function updateHeroTrail(dt){ for (const m of heroTrail){ if (m.life <= 0) continue; m.life -= dt; m.mesh.material.opacity = Math.max(0, m.life / .6); m.mesh.scale.setScalar(.4 + m.life); m.mesh.rotation.y += dt * 6; if (m.life <= 0) m.mesh.visible = false; } }
+function setHeroFly(on){
+  if (on && (!isHero() || driving || diving || arrest.on || flipping || !playing)){ if (!isHero()) toast('Só quem veste a skin Super-herói pode voar!', 2200); return; }
+  if (heroFly === on) return;
+  heroFly = on;
+  const b = $('flyBtn'); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? '🦸 Voando' : '🦸 Voar';
+  if (on){ P.vy = 0; P.onGround = false; P.y += .3; stopEmote(); [392, 523, 784].forEach((f, j) => setTimeout(() => beep(f, .12, 'sine', .05, 1.8), j * 70));
+    if (!flyTip){ flyTip = true; toast(document.body.classList.contains('touch') ? '🦸 Voando! Segure PULAR para subir. Toque em Voar de novo para pousar.' : '🦸 Voando! Espaço sobe, C desce, V para de voar.', 4500); } }
+  else { player.rotation.x = 0; beep(300, .15, 'sine', .04, .6); }
+}
+let flyTip = false;
 // ---------- Modo de luta (fora da arena) ----------
 // Liga com o botão ⚔️ Lutar ou a tecla R. Bater nos moradores: eles reclamam e fogem; na 3ª pancada caem tontos e levantam depois.
 // Bater no Rei UMA vez: os cavaleiros correm, agarram você e te levam para a Ilha Central.
@@ -4287,6 +4313,14 @@ function fightAttack(){
 }
 function hitVillager(v){
   const dx = v.x - P.x, dz = v.z - P.z, d = Math.hypot(dx, dz) || 1;
+  if (isHero()){
+    // super força: voa longe e cai tonto de uma vez
+    for (let k = 3; k > 0; k -= .5){ const nx = v.x + dx / d * k, nz = v.z + dz / d * k; if (!occupied(nx, nz, .35) && inIsle(v.I, nx, nz, -1)){ v.x = nx; v.z = nz; break; } }
+    floatText(['POW!', 'BAM!', 'KAPOW!', 'TUM!'][Math.floor(Math.random() * 4)], v.x, 3.2 * v.s, v.z, 'dmg');
+    beep(120, .2, 'square', .08, .5);
+    if (!(v.down > 0)){ v.down = 4; v.flee = 0; v.hp = 3; floatText('😵', v.x, 3.6 * v.s, v.z, 'emo2'); }
+    return;
+  }
   const nx = v.x + dx / d * .9, nz = v.z + dz / d * .9;
   if (!occupied(nx, nz, .35) && inIsle(v.I, nx, nz, -1)){ v.x = nx; v.z = nz; }
   beep(260, .07, 'square', .05, .7);
@@ -4529,6 +4563,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyG' && !e.repeat) toggleEmotes();
   if (e.code === 'KeyF' && !e.repeat) attack();
   if (e.code === 'KeyR' && !e.repeat && !inArena) setFight(!fightOn);
+  if (e.code === 'KeyV' && !e.repeat) setHeroFly(!heroFly);
   if (inArena && !e.repeat && /^(Digit|Numpad)[1-4]$/.test(e.code)) usePower(['fire', 'bolt', 'ice', 'heal'][+e.code.slice(-1) - 1]);
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -4587,7 +4622,9 @@ const endPtr = e => {
 canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
 canvas.addEventListener('wheel', e => { cam.dist = Math.min(24, Math.max(6, cam.dist + e.deltaY * 0.01)); e.preventDefault(); }, {passive:false});
 const jumpBtn = document.getElementById('jump');
-jumpBtn.addEventListener('pointerdown', e => { initAudio(); jumpBuf = 0.15; e.preventDefault(); e.stopPropagation(); });
+jumpBtn.addEventListener('pointerdown', e => { initAudio(); jumpBuf = 0.15; jumpHeld = true; e.preventDefault(); e.stopPropagation(); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => jumpBtn.addEventListener(ev, () => { jumpHeld = false; }));
+document.getElementById('flyBtn').addEventListener('click', () => { initAudio(); setHeroFly(!heroFly); canvas.focus(); });
 document.getElementById('fightBtn').addEventListener('click', () => { initAudio(); setFight(!fightOn); canvas.focus(); });
 document.getElementById('atk').addEventListener('pointerdown', e => { initAudio(); attack(); e.preventDefault(); e.stopPropagation(); });
 
@@ -4637,6 +4674,7 @@ function levelUp(from){
   hud(); save();
 }
 function hud(){
+  $('flyBtn').hidden = !isHero();
   hudLvl();
   $('coinTxt').textContent = fmt(S.coins);
   const cap = bagCap(S.lv.bag);
@@ -5067,6 +5105,7 @@ $('skinList').addEventListener('click', e => {
     toast(`Skin ${k.name} comprada!`);
   } else beep(600, .07, 'sine', .05, 1.3);
   S.skin = k.id; save(); hud(); renderSkins();
+  if (k.id === 'heroi') toast('🦸 Poderes de herói: V voa · corre e pula mais · golpe 2x mais forte!', 4500);
 });
 $('closeSkins').addEventListener('click', () => toggleSkins(false));
 skinsEl.addEventListener('pointerdown', e => { if (e.target === skinsEl) toggleSkins(false); });
@@ -5304,7 +5343,7 @@ function step(now){
   if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && !driving && !flipping && !miniAnim && !sled.on){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
-    const sp = speedOf(S.lv.speed) * mag;
+    const sp = speedOf(S.lv.speed) * mag * (isHero() ? (heroFly ? 2.2 : 1.5) : 1);
     mx = dx * sp * dt; mz = dz * sp * dt;
     P.face = Math.atan2(dx, dz);
   }
@@ -5322,10 +5361,12 @@ function step(now){
   if (!blocked(P.x, nz, P.y) && !lockedAt(P.x, nz)) P.z = nz;
   // y
   coyote = P.onGround ? 0.1 : coyote - dt;
-  if (jumpBuf > 0 && coyote > 0 && !driving && !flipping){ quest('jump'); P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
+  if (jumpBuf > 0 && coyote > 0 && !driving && !flipping && !heroFly){ quest('jump'); P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1) * (isHero() ? 1.35 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
   jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
-  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : inInv ? .5 : inMoon ? .35 : inMars ? .45 : inHole ? .3 : 1) * dt);
+  if (heroFly && (driving || diving || arrest.on || flipping || sled.on || !isHero())) setHeroFly(false);
+  if (heroFly){ const up = keys.Space || jumpHeld, down = keys.KeyC; P.vy = up ? 9 : down ? -9 : 0; if (P.y > 70 && P.vy > 0) P.vy = 0; jumpBuf = 0; }
+  else P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : inInv ? .5 : inMoon ? .35 : inMars ? .45 : inHole ? .3 : 1) * dt);
   P.y += P.vy * dt;
   const sup = support(P.x, P.z, Math.max(prevY + 0.05, P.onGround ? P.y + STEP : P.y + 0.05));
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
@@ -5372,6 +5413,13 @@ function step(now){
   swimLift += ((swimming ? 1 : 0) - swimLift) * Math.min(1, dt * 8);
   player.rotation.order = 'YXZ'; player.rotation.x = swimLift * 1.1;
   if (swimLift > .01){ const fwX = Math.sin(player.rotation.y), fwZ = Math.cos(player.rotation.y); player.position.set(P.x - fwX * swimLift, P.y + swimLift + Math.sin(t * 3) * .05 * swimLift, P.z - fwZ * swimLift); }
+  if (heroFly){
+    const go = mag > .08; flyTilt += ((go ? 1.15 : .15) - flyTilt) * Math.min(1, dt * 5);
+    player.rotation.x = flyTilt; player.position.y = P.y + .4 + Math.sin(t * 2.2) * .12;
+    limbs.armR.rotation.x = -3.05; limbs.armL.rotation.x = go ? -3.05 : -.2; limbs.armL.rotation.z = 0;
+    limbs.legL.rotation.x = .08; limbs.legR.rotation.x = -.08;
+    heroTrailT -= dt; if (go && heroTrailT <= 0){ heroTrailT = .05; spawnHeroTrail(); }
+  } else flyTilt = 0;
   if (swimming){ const k = t * (mag > .08 ? 7 : 2.5); limbs.armL.rotation.x = -k; limbs.armR.rotation.x = -k + Math.PI; limbs.legL.rotation.x = Math.sin(t * 14) * .35; limbs.legR.rotation.x = -Math.sin(t * 14) * .35; }
   ripple.visible = swimming; if (swimming){ ripple.position.set(P.x, -.45, P.z); ripple.scale.setScalar(1 + (t * 1.5 % 1) * .8); ripple.material.opacity = .6 * (1 - t * 1.5 % 1); }
   if (B.swing > 0){ B.swing -= dt; limbs.armR.rotation.x = -2.8 + (1 - Math.max(0, B.swing) / .28) * 3.1; }
@@ -5380,6 +5428,7 @@ function step(now){
   updateArena(dt, t);
   updateVillagers(dt, t);
   updateFight(dt, t);
+  updateHeroTrail(dt);
   updateMini(dt, t);
   updateElf(dt, t);
   updateSnow(dt, t);
