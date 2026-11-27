@@ -487,7 +487,9 @@ const NAME_RE = /^[a-z0-9_]{3,16}$/;
 let known = {}; try{ known = JSON.parse(localStorage.getItem(KNOWN_KEY)) || {}; }catch(e){}
 const accHash = n => (known[n] && known[n].h) || (LEGACY[n] && LEGACY[n].h) || null;
 function remember(name, h){ known[name] = {h}; try{ localStorage.setItem(KNOWN_KEY, JSON.stringify(known)); }catch(e){} }
-let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (a && accHash(a)) ACC = a; }catch(e){}
+// fora do claude.ai (ex.: GitHub) não existe a nuvem das contas: lá só dá para jogar como visitante
+const HAS_CLOUD = !!(window.claude && window.claude.use);
+let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (a && accHash(a) && HAS_CLOUD) ACC = a; }catch(e){}
 // Visitante não salva nada: toda vez começa do zero. Só quem entra na conta guarda o progresso.
 const saveKey = () => ACC === 'altor' ? SAVE_KEY : SAVE_KEY + '-' + ACC;
 try{ localStorage.removeItem(SAVE_KEY + '-visitante'); }catch(e){} // save de visitante de uma versão antiga
@@ -3640,7 +3642,8 @@ cheatEl.addEventListener('pointerdown', e => { if (e.target === cheatEl) closeCh
 // ---------- Conta (tela inicial) ----------
 const loginEl = $('login'), loginName = $('loginName'), loginPass = $('loginPass');
 function renderAcct(){
-  $('acctTxt').innerHTML = ACC ? 'Conta: <b>' + ACC + '</b>' : 'Jogando como visitante';
+  $('acctTxt').innerHTML = ACC ? 'Conta: <b>' + ACC + '</b>' : HAS_CLOUD ? 'Jogando como visitante' : 'Jogando como visitante. Contas só funcionam no claude.ai';
+  $('loginBtn').hidden = !HAS_CLOUD;
   $('loginBtn').textContent = ACC ? 'Sair da conta' : 'Entrar na conta';
   $('delBtn').hidden = !ACC;
 }
