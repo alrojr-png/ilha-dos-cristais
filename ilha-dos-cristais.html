@@ -1859,7 +1859,7 @@ const gateMeshes = [];
 ZONES.forEach((Z, i) => {
   const prev = Z.from !== undefined ? ZONES[Z.from] : Z.forest ? SKY : Z.wreck ? SUB : Z.stadium ? ZONES[0] : i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else if (Z.stadium){ buildStadiumGate(Z); buildStadium(Z, i); } else if (Z.moon){ buildMoonGate(Z); buildMoon(Z); } else if (Z.mars){ buildMarsGate(Z); buildMars(Z); } else if (Z.hole){ buildHoleGate(Z); buildHole(Z); } else link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else if (Z.stadium){ buildStadiumGate(Z); buildStadium(Z, i); } else if (Z.moon){ buildMoonGate(Z); buildMoon(Z); } else if (Z.mars){ buildMarsGate(Z); buildMars(Z); } else if (Z.hole){ buildHoleGate(Z); buildHole(Z); } // as ilhas não têm mais ponte: vai de barco
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
@@ -3229,7 +3229,7 @@ questEl.addEventListener('click', e => {
 });
 
 // ---------- Barco que você pilota (libera no nível 10) ----------
-const BOAT_LV = 10, BOAT_C = {x:44, z:84, r:240};
+const BOAT_LV = 1, BOAT_C = {x:44, z:84, r:240};
 const myBoat = (() => {
   let a = -Math.PI * .75, post = null;
   for (let k = 0; k < 24; k++){
@@ -3242,7 +3242,18 @@ const myBoat = (() => {
   const dx = Math.sin(a), dz = Math.cos(a), R0 = HUB.r + BEACH + 5;
   const home = {x:dx * R0, z:dz * R0, h:a + Math.PI / 2};
   // parada 2: lado leste da Ilha dos Portais (virado para a Ilha Central)
-  const stops = [{post, home}, {post:{x:PORT.cx + PORT.r + .5, z:PORT.cz + 4}, home:{x:PORT.cx + PORT.r + BEACH + 5, z:PORT.cz, h:Math.PI}}];
+  const stops = [{post, home, name:'Ilha Central'}, {post:{x:PORT.cx + PORT.r + .5, z:PORT.cz + 4}, home:{x:PORT.cx + PORT.r + BEACH + 5, z:PORT.cz, h:Math.PI}, name:'Ilha dos Portais'}];
+  // uma parada em cada ilha das fases da superfície, virada para a Ilha Central
+  ZONES.forEach((I, i) => {
+    if (I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole) return;
+    const a0 = Math.atan2(HUB.cx - I.cx, HUB.cz - I.cz);
+    for (let k = 0; k < 30; k++){
+      const ang = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .12, sx = Math.sin(ang), sz = Math.cos(ang);
+      const px = I.cx + sx * (I.r + .5), pz = I.cz + sz * (I.r + .5), hx = I.cx + sx * (I.r + BEACH + 5), hz = I.cz + sz * (I.r + BEACH + 5);
+      if (occupied(px, pz, 2.2) || ZONES.some(W => W !== I && inIsle(W, hx, hz, 8)) || inIsle(HUB, hx, hz, 8)) continue;
+      stops.push({post:{x:px, z:pz}, home:{x:hx, z:hz, h:ang + Math.PI / 2}, name:I.name}); break;
+    }
+  });
   return {post, home, stops, x:home.x, z:home.z, h:home.h, v:0, steer:0, dist:0, wakeT:0};
 })();
 let driving = false, nearBoat = false, boatTip = false, boatLockT = 0, boatEdgeT = 0, boatCam = 0;
@@ -3267,7 +3278,7 @@ boatM.g.position.set(myBoat.x, -.5, myBoat.z); boatM.g.rotation.y = myBoat.h;
 addBlock(myBoat.post.x, 0, myBoat.post.z, .3, 3, .3, 0x5a3d22, false);
 const boatSignOpen = label('SEU BARCO', '#4aa8ff', '#06243f', 640), boatSignLock = label('BARCO: NÍVEL ' + BOAT_LV, '#5b4a7a', '#ffffff', 768);
 [boatSignOpen, boatSignLock].forEach(l => { l.position.set(myBoat.post.x, 3.7, myBoat.post.z); scene.add(l); });
-{ const q = myBoat.stops[1].post; addBlock(q.x, 0, q.z, .3, 3, .3, 0x5a3d22, false); const l = label('CHAMAR BARCO', '#4aa8ff', '#06243f', 768); l.position.set(q.x, 3.7, q.z); scene.add(l); }
+myBoat.stops.slice(1).forEach(st => { const q = st.post; addBlock(q.x, 0, q.z, .3, 3, .3, 0x5a3d22, false); const l = label('CHAMAR BARCO', '#4aa8ff', '#06243f', 768); l.position.set(q.x, 3.7, q.z); scene.add(l); });
 function refreshBoatSign(){ const ok = S.level >= BOAT_LV; boatSignOpen.visible = ok; boatSignLock.visible = !ok; }
 const wakes = [];
 for (let k = 0; k < 28; k++){
@@ -3302,7 +3313,7 @@ function leaveBoat(){
     if (!landAt(x, z) || lockedAt(x, z) || blocked(x, z, 0)) continue;
     if (d < bd){ bd = d; best = {x, z}; }
   }
-  if (!best){ toast('Chegue mais perto de uma ilha ou ponte para descer.', 2200); beep(200, .12, 'square', .04, .8); return; }
+  if (!best){ toast('Chegue mais perto de uma ilha para descer.', 2200); beep(200, .12, 'square', .04, .8); return; }
   driving = false; myBoat.v = 0;
   Object.assign(P, {x:best.x, z:best.z, y:support(best.x, best.z, 3), vy:0, onGround:true});
   beep(330, .1, 'triangle', .05, 1.4);
@@ -3355,7 +3366,7 @@ function updateMyBoat(dt, t){
     const st = B0.stops[k];
     if (Math.hypot(P.x - st.post.x, P.z - st.post.z) < 4 && Math.hypot(B0.x - st.home.x, B0.z - st.home.z) > 15){
       if (S.level < BOAT_LV){ if (performance.now() > boatLockT){ boatLockT = performance.now() + 6000; toast(`O barco libera no nível ${BOAT_LV}!`, 2400); } break; }
-      Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0}); toast(k ? 'Seu barco chegou na Ilha dos Portais!' : 'Seu barco voltou para a Ilha Central!', 2200);
+      Object.assign(B0, {x:st.home.x, z:st.home.z, h:st.home.h, v:0}); toast('Seu barco chegou: ' + st.name + '!', 2200);
     }
   }
   const can = !driving && !diving && !under && !inSky && P.y < 1.5 && Math.hypot(P.x - B0.x, P.z - B0.z) < 9;
@@ -3802,7 +3813,7 @@ function play(){
   canvas.focus();
   [523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .07, 1.3), j * 90));
   setTimeout(() => { const h = $('help'); h.style.opacity = '0'; setTimeout(() => h.hidden = true, 1000); }, 12000);
-  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0) setTimeout(() => toast('Pegue cristais e venda para o vendedor da barraca', 3500), 1200);
+  if (S.coins === 0 && S.bag === 0 && S.rebirths === 0){ setTimeout(() => toast('Pegue cristais e venda para o vendedor da barraca', 3500), 1200); setTimeout(() => toast('As ilhas não têm ponte: vá até o seu barco na praia e navegue!', 4500), 5200); }
 }
 document.getElementById('playBtn').addEventListener('click', play);
 
