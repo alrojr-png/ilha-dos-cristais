@@ -103,6 +103,13 @@ body.touch #intro small{display:none}
 @keyframes float{50%{transform:translateY(-10px) rotate(6deg)}}
 @keyframes beat{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){#intro .logo,#playBtn{animation:none}}
+#acct{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:22px}
+#acctTxt{font-size:14px;font-weight:800;color:var(--text);text-shadow:0 2px 6px rgba(0,0,0,.6)}
+#acctTxt b{color:var(--gem)}
+#loginBtn{font-size:17px;padding:8px 16px}
+#login{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(10,6,24,.7);padding:16px}
+#login[hidden]{display:none!important}
+#loginErr{min-height:1.3em;margin:0;font-size:14px;font-weight:900;color:var(--bad)}
 #talk,#ship,#quest{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
@@ -205,7 +212,7 @@ body.touch .pw b{display:none}
 @media (max-width:700px){body:not(.touch) #powers{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 @keyframes rise{to{transform:translate(-50%,-160%);opacity:0}}
 /* Loja */
-#shop,#pets,#skins,#cheat{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+#shop,#pets,#skins,#cheat,#login{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(10,6,24,.6);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .sheet{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 10px 0 rgba(0,0,0,.4);padding:18px}
 .sheet header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .sheet h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0;letter-spacing:.5px}
@@ -306,8 +313,16 @@ body.touch .pw b{display:none}
     <p>Pegue cristais, venda nas barracas e descubra todas as ilhas!</p>
     <button class="btn go" id="playBtn" type="button">JOGAR</button>
     <small>ou aperte Enter</small>
+    <div id="acct"><span id="acctTxt"></span><button class="btn" id="loginBtn" type="button">Entrar na conta</button></div>
   </div>
 </div>
+<div id="login" hidden><form class="sheet cheatbox" id="loginForm" role="dialog" aria-modal="true" aria-labelledby="loginLbl" autocomplete="off">
+  <label id="loginLbl">Entrar na conta</label>
+  <input id="loginName" type="text" placeholder="Nome" aria-label="Nome" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+  <input id="loginPass" type="password" placeholder="Senha" aria-label="Senha" autocomplete="off" enterkeyhint="go">
+  <p id="loginErr" role="alert"></p>
+  <div class="row"><button class="btn" type="button" id="loginX">Cancelar</button><button class="btn go" type="submit">Entrar</button></div>
+</form></div>
 <button class="btn go" id="talkBtn" type="button" hidden>Conversar</button>
 <div id="talk" hidden role="dialog" aria-labelledby="talkName">
   <div class="talkhead"><span id="talkFace"></span><b id="talkName"></b></div>
@@ -445,12 +460,23 @@ const fmt = n => {
 const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
+// Contas: a senha fica guardada só como "impressão digital" (hash), nunca escrita no código.
+// altor usa o save antigo (SAVE_KEY e o doc 'ilha-save' da nuvem), então o progresso de antes é dele.
+const hashTxt = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); };
+const ACCOUNTS = {altor:{h:'jc1uoj17d5', key:SAVE_KEY, doc:'ilha-save'}};
+const ACC_KEY = 'ilha-dos-cristais-conta';
+let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (ACCOUNTS[a]) ACC = a; }catch(e){}
+const saveKey = () => ACC ? ACCOUNTS[ACC].key : SAVE_KEY + '-visitante';
+const cloudName = () => ACC ? ACCOUNTS[ACC].doc : 'ilha-save-visitante';
+let cloudCol = null;
 // Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
 // (no artifact o localStorage pode ser apagado ou bloqueado pelo navegador).
 let cloudDoc = null, cloudLast = '', cloudBusy = false;
 const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.pets ? s.pets.length : 0) * 1e7 + (s.level || 1) * 1e5 + (s.coins || 0) + (s.bagVal || 0);
 function save(){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  try{ localStorage.setItem(saveKey(), JSON.stringify(S)); }catch(e){}
   cloudSave();
 }
 function cloudSave(){
@@ -460,7 +486,7 @@ function cloudSave(){
   cloudBusy = true;
   cloudDoc.set({save: j}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
 }
-function load(){ try{ const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) merge(d); }catch(e){} }
+function load(){ try{ const d = JSON.parse(localStorage.getItem(saveKey())); if (d) merge(d); }catch(e){} }
 function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {});
   S.pets = Array.isArray(d.pets) ? d.pets.filter(p => p && PETS[p.k]) : [];
   S.equip = (Array.isArray(d.equip) ? d.equip : []).filter(id => S.pets.some(p => p.id === id)).slice(0, PET_SLOTS);
@@ -477,8 +503,16 @@ async function cloudInit(){
     if (!user || !db) return;
     const id = await user.id();
     if (!id) return;
-    const doc = db.collection('data/users/' + id).doc('ilha-save');
+    cloudCol = db.collection('data/users/' + id);
+    await cloudOpen();
+  }catch(e){}
+}
+async function cloudOpen(){
+  try{
+    if (!cloudCol) return;
+    const acc = ACC, doc = cloudCol.doc(cloudName());
     const snap = await doc.get();
+    if (acc !== ACC) return; // trocou de conta enquanto carregava
     if (snap.exists){
       const d = JSON.parse(snap.data().save || 'null');
       if (d && progress(d) > progress(S)){ merge(d); hud(); gateCheck(); refreshBoatSign(); toast('Progresso carregado!', 2500); }
@@ -3308,7 +3342,8 @@ if (matchMedia("(pointer: coarse)").matches || "ontouchstart" in window) documen
 const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChild;
 addEventListener('keydown', e => {
   initAudio();
-  if (e.target.closest && e.target.closest('#cheat')) return;
+  if (e.target.closest && (e.target.closest('#cheat') || e.target.closest('#login'))) return;
+  if (!loginEl.hidden) return;
   if (!playing){ if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space'){ e.preventDefault(); play(); } return; }
   if (!talkEl.hidden){
     const n = {Digit1:'sell', Digit2:'shop', Digit3:'pets', Digit4:'skins', Digit5:'bye', Numpad1:'sell', Numpad2:'shop', Numpad3:'pets', Numpad4:'skins', Numpad5:'bye', Escape:'bye'}[e.code];
@@ -3519,6 +3554,49 @@ $('cheatForm').addEventListener('submit', e => {
 cheatIn.addEventListener('keydown', e => { if (e.code === 'Escape') closeCheat(); });
 $('cheatX').addEventListener('click', closeCheat);
 cheatEl.addEventListener('pointerdown', e => { if (e.target === cheatEl) closeCheat(); });
+
+// ---------- Conta (tela inicial) ----------
+const loginEl = $('login'), loginName = $('loginName'), loginPass = $('loginPass');
+function renderAcct(){
+  $('acctTxt').innerHTML = ACC ? 'Conta: <b>' + ACC + '</b>' : 'Jogando como visitante';
+  $('loginBtn').textContent = ACC ? 'Sair da conta' : 'Entrar na conta';
+}
+function switchAccount(acc){
+  save();
+  ACC = acc;
+  try{ if (acc) localStorage.setItem(ACC_KEY, acc); else localStorage.removeItem(ACC_KEY); }catch(e){}
+  S = fresh(); load(); cloudDoc = null; cloudLast = '';
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); inResto = false; if (under) setUnder(false); inMini = false;
+  Object.assign(P, {x:0, y:0, z:8, vy:0});
+  hud(); gateCheck(); refreshBoatSign(); ensureDaily(); renderAcct();
+  cloudOpen();
+}
+function openLogin(){
+  loginName.value = ''; loginPass.value = ''; $('loginErr').textContent = '';
+  loginEl.hidden = false; loginName.focus();
+}
+function closeLogin(){ loginEl.hidden = true; $('loginBtn').focus(); }
+$('loginBtn').addEventListener('click', () => {
+  initAudio();
+  if (ACC){ switchAccount(null); return; }
+  openLogin();
+});
+$('loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = loginName.value.trim().toLowerCase(), A = ACCOUNTS[name];
+  if (!A || hashTxt('ilha|' + name + '|' + loginPass.value) !== A.h){
+    const f = $('loginForm'); f.classList.remove('bad'); void f.offsetWidth; f.classList.add('bad');
+    $('loginErr').textContent = 'Nome ou senha errados. Tente de novo!';
+    loginPass.value = ''; loginPass.focus(); beep(160, .15, 'square', .04, .7); return;
+  }
+  loginEl.hidden = true; switchAccount(name);
+  [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
+  $('playBtn').focus();
+});
+$('loginX').addEventListener('click', closeLogin);
+loginEl.addEventListener('keydown', e => { if (e.code === 'Escape') closeLogin(); });
+loginEl.addEventListener('pointerdown', e => { if (e.target === loginEl) closeLogin(); });
+renderAcct();
 
 // Portões
 function updateGates(){
