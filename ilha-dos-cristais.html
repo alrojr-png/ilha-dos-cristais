@@ -2073,6 +2073,7 @@ const SKINS = [
   {id:'abelha',    name:'Abelhinha',        price:120000,  shirt:0xffd23f, pants:0x1d1630, hair:0x1d1630, pack:0xffb000, acc:'bee'},
   {id:'cavaleiro', name:'Cavaleiro',        price:200000,  shirt:0xa9b4c2, pants:0x6b7a8f, hair:0x3a2a20, pack:0x8a5a3b, acc:'knight', noHair:1},
   {id:'dino',      name:'Dinossauro',       price:350000,  shirt:0x56b84a, pants:0x3f9e3a, hair:0x56b84a, pack:0x3f8f35, acc:'dino', accC:0x56b84a, noHair:1},
+  {id:'monstro',   name:'Monstro',          price:400000,  shirt:0x6b3fc0, pants:0x3a2a55, hair:0x2f6a2a, pack:0x3a2a55, skin:0x6cc04a, acc:'monster', accC:0xb07cff},
   {id:'robo',      name:'Robô',             price:500000,  shirt:0xb8c2cc, pants:0x7d8794, hair:0x7d8794, pack:0x4aa8ff, skin:0x9aa6b2, acc:'robot'},
   {id:'gelo',      name:'Guardião do Gelo', price:900000,  shirt:0x9fd8ff, pants:0x4aa8ff, hair:0xf4f8ff, pack:0xcfe4f8, acc:'ice'},
   {id:'rei',       name:'Rei dos Cristais', price:1500000, shirt:0xffcc33, pants:0x6b3fc0, hair:0x3a2a20, pack:0xc0392b, acc:'king'},
@@ -2085,7 +2086,7 @@ const SKINS = [
 ];
 const skinOk = (k, who) => !!k && (!k.only || k.only === who);
 const ACC_NAME = {cap:'Boné', ninja:'Faixa e máscara', astro:'Capacete espacial', pirate:'Chapéu e tapa-olho', wizard:'Chapéu de mago e barba', knight:'Elmo com pluma', robot:'Antena e visor', king:'Coroa e capa',
-  shades:'Óculos de sol', fire:'Capacete de bombeiro', chef:'Chapéu de cozinheiro', vampire:'Capa e dentinhos', bee:'Anteninhas e asas', dino:'Capuz de dinossauro e rabo',
+  shades:'Óculos de sol', fire:'Capacete de bombeiro', chef:'Chapéu de cozinheiro', vampire:'Capa e dentinhos', bee:'Anteninhas e asas', dino:'Capuz de dinossauro e rabo', monster:'Chifres, presas e espinhos · o Rei morre de medo!',
   ice:'Coroa de gelo', hero:'Máscara e capa', angel:'Auréola e asas', lava:'Elmo com chifres de fogo', rainbow:'Arco-íris na cabeça', creator:'Coroa de cristais, capa e cristal flutuante · só sua!'};
 const PM = {shirt:new THREE.MeshLambertMaterial(), pants:new THREE.MeshLambertMaterial(), skin:new THREE.MeshLambertMaterial(), hair:new THREE.MeshLambertMaterial(), pack:new THREE.MeshLambertMaterial()};
 let hairMesh = null;
@@ -2156,6 +2157,18 @@ function buildAcc(sk, G = accG){
       add(new THREE.Mesh(new THREE.TorusGeometry(.75 - k * .07, .045, 6, 24, Math.PI), glow(col)), 0, 2.75, -.05);
     });
     [-1, 1].forEach(s => { add(new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 8), mat(0xffffff)), s * .62, 2.75, -.05); add(new THREE.Mesh(new THREE.SphereGeometry(.15, 10, 8), mat(0xffffff)), s * .85, 2.72, -.05); });
+  }
+  if (sk.acc === 'monster'){
+    // chifres
+    [-1, 1].forEach(sd => { const h = add(new THREE.Mesh(new THREE.ConeGeometry(.12, .55, 6), mat(0xf4ecd8)), sd * .3, 2.95, 0); h.rotation.z = -sd * .45; h.castShadow = true; });
+    // olhos vermelhos brilhando + sobrancelhas bravas
+    [-1, 1].forEach(sd => { add(new THREE.Mesh(boxGeo, glow(0xff2f3a)), sd * .17, 2.41, .395).scale.set(.15, .12, .03); const b = ap(.24, .06, .05, 0x1d3a1a, sd * .17, 2.55, .39); b.rotation.z = sd * -.35; });
+    // boca grande com presas
+    ap(.46, .1, .04, 0x1d1630, 0, 2.17, .39);
+    [-1, 1].forEach(sd => ap(.07, .16, .05, 0xffffff, sd * .14, 2.1, .41));
+    // espinhos nas costas e rabinho
+    [[2.45, .5], [2.1, .55], [1.75, .6], [1.4, .55], [1.05, .45]].forEach(([y, sc]) => { const sp = add(new THREE.Mesh(new THREE.ConeGeometry(.13 * sc / .5, .4 * sc / .5, 4), mat(c)), 0, y, -.68); sp.rotation.x = -1.2; });
+    const tl = add(new THREE.Mesh(new THREE.ConeGeometry(.16, .9, 6), mat(0x6cc04a)), 0, .8, -.75); tl.rotation.x = -2.1;
   }
   if (sk.acc === 'creator'){
     const gm = new THREE.MeshPhongMaterial({color:0x34f0b0, emissive:0x1fbf88, emissiveIntensity:.6, shininess:120, flatShading:true});
@@ -3316,6 +3329,7 @@ function updateKings(dt, t){
     kg.arms[1].rotation.x = near ? -2.4 + Math.sin(t * 6) * .35 : -.5 + Math.sin(t * 1.2 + kg.ph) * .08;
     kg.arms[0].rotation.x = Math.sin(t * 1.2 + kg.ph) * .06;
     kg.head.rotation.z = Math.sin(t * .9 + kg.ph) * .05;
+    if (near && S.skin === 'monstro' && playing && !arrest.on && !driving && !diving){ startArrest(kg, 'monster'); continue; }
     if (near && !kg.greeted && !driving){ kg.greeted = true; openQuest(kg); floatText('👑', kg.x, 5.4, kg.z, 'emo2'); [392, 523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .06, 1.2), j * 110)); }
     if (d > 12) kg.greeted = false;
     if (questKing === kg && d > 9) closeQuest();
@@ -4243,7 +4257,7 @@ function buildVillager(L){
 }
 for (const L of LOOKS) for (let k = 0; k < L.n; k++){
   const v = buildVillager(L), [x, z] = villagerSpot(L.I);
-  Object.assign(v, {I:L.I, x, z, tx:x, tz:z, wait:Math.random() * 3, sp:1.4 + Math.random() * .9, ph:Math.random() * 6, face:Math.random() * 6, hiT:0});
+  Object.assign(v, {I:L.I, x, z, tx:x, tz:z, scareT:0, wait:Math.random() * 3, sp:1.4 + Math.random() * .9, ph:Math.random() * 6, face:Math.random() * 6, hiT:0});
   v.g.position.set(x, 0, z); v.g.rotation.y = v.face;
   villagers.push(v);
 }
@@ -4253,6 +4267,7 @@ function updateVillagers(dt, t){
     if (Math.abs(v.x - P.x) > 90 || Math.abs(v.z - P.z) > 90) continue;
     if (villagerHurt(v, dt, t)) continue;
     const pd = Math.hypot(P.x - v.x, P.z - v.z), near = pd < 5 && !inArena;
+    if (near && S.skin === 'monstro' && playing && v.hat !== 'knight'){ v.flee = 2.5; if (t > v.scareT){ v.scareT = t + 4; floatText(['Socorro, um monstro!', 'AAAH!', 'Corre!', 'Mamãe!'][Math.floor(Math.random() * 4)], v.x, 3.3 * v.s, v.z, 'hi'); } continue; }
     let walking = false;
     if (near){
       v.face = Math.atan2(P.x - v.x, P.z - v.z);
@@ -4392,14 +4407,15 @@ function villagerHurt(v, dt, t){
 }
 // Cavaleiros prendem quem bate no Rei
 const arrest = {on:false, t:0, ks:[], grabbed:0, kg:null};
-function startArrest(kg){
+function startArrest(kg, why = 'hit'){
   if (arrest.on) return;
   arrest.on = true; arrest.t = 0; arrest.grabbed = 0; arrest.kg = kg;
   closeQuest(); closeTalk(); stopEmote(); if (shiftLock) setShiftLock(false);
   beep(160, .12, 'square', .07, .6);
-  floatText('😠', kg.x, 5.4, kg.z, 'emo2');
+  arrest.why = why;
+  floatText(why === 'monster' ? '😱' : '😠', kg.x, 5.4, kg.z, 'emo2');
   floatText('GUARDAS!', kg.x, 4.8, kg.z, 'dmg');
-  toast('👑 Rei Cristóvão: GUARDAS! Prendam esse bagunceiro!', 3200);
+  toast(why === 'monster' ? '👑 Rei Cristóvão: SOCORRO, UM MONSTRO! GUARDAS!' : '👑 Rei Cristóvão: GUARDAS! Prendam esse bagunceiro!', 3200);
   [880, 660, 880, 660, 880, 660].forEach((f, j) => setTimeout(() => beep(f, .16, 'square', .05, 1), 200 + j * 180));
   let ks = villagers.filter(v => v.hat === 'knight' && v.I === kg.K.I);
   ks.sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z)); ks = ks.slice(0, 4);
@@ -4441,7 +4457,7 @@ function updateArrest(dt, t){
       arrest.on = false; arrest.ks = [];
       Object.assign(P, {x:0, y:0, z:8, vy:0, onGround:true}); cam.yaw = Math.PI; lastIsland = -1;
       banner('Ilha Central', 'Os cavaleiros te levaram para a');
-      toast('🛡️ Expulso do castelo! Não se ataca o Rei.', 4000);
+      toast(arrest.why === 'monster' ? '🛡️ Monstros não chegam perto do Rei! Troque de skin para visitar o castelo.' : '🛡️ Expulso do castelo! Não se ataca o Rei.', 4500);
     }
   }
 }
