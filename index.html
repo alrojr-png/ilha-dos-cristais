@@ -178,6 +178,22 @@ body.touch.arena #atk{display:block}
 #dive.forestf{background:#3dffc8}
 #dive.elff{background:#ff9ad8}
 #dive.snowf{background:#eaf6ff}
+/* Cutscene do Mundo Invertido: a tela vira de cabeça para baixo e depois volta */
+#cine{position:fixed;inset:0;z-index:15;pointer-events:none;display:grid;place-items:center}
+#cine::before,#cine::after{content:"";position:absolute;left:0;right:0;height:0;background:#000;transition:height .5s ease}
+#cine::before{top:0}
+#cine::after{bottom:0}
+body.cutscene #cine::before,body.cutscene #cine::after{height:12vh}
+body.cutscene .hud,body.cutscene #talkBtn,body.cutscene #boatBtn{display:none!important}
+#cineTxt{font-family:var(--display);font-weight:400;font-size:clamp(34px,7vw,64px);letter-spacing:1px;color:#fff;text-shadow:0 4px 0 #3a1d7a,0 0 26px rgba(255,138,184,.8);opacity:0;transform:scale(.7);transition:opacity .4s,transform .5s cubic-bezier(.3,1.6,.5,1)}
+#cineTxt.show{opacity:1;transform:scale(1)}
+#game.flipIn{animation:flipIn 1.6s ease-in-out forwards}
+#game.flipped{transform:rotate(180deg)}
+#game.flipOut{animation:flipOut 1.6s ease-in-out forwards}
+@keyframes flipIn{0%{transform:none}50%{transform:rotate(90deg) scale(1.9)}100%{transform:rotate(180deg)}}
+@keyframes flipOut{0%{transform:rotate(180deg)}50%{transform:rotate(270deg) scale(1.9)}100%{transform:rotate(360deg)}}
+#dive.invf{background:#2a1050}
+@media (prefers-reduced-motion:reduce){#game.flipIn,#game.flipOut{animation-duration:.01s}}
 /* Emotes */
 #emotes{bottom:calc(110px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--panel);border:3px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 6px 0 rgba(0,0,0,.4);width:min(460px,calc(100vw - 24px));animation:talkIn .18s ease-out}
 #emotes[hidden]{display:none!important}
@@ -302,6 +318,7 @@ body.touch .pw b{display:none}
 <div id="hurt" aria-hidden="true"></div>
 <div id="cross" aria-hidden="true"></div>
 <div id="dive" aria-hidden="true"></div>
+<div id="cine" aria-hidden="true"><b id="cineTxt"></b></div>
 <div id="intro">
   <div>
     <svg class="logo" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3l9 9-9 15-9-15z" fill="#34f0b0" stroke="#108a63" stroke-width="2" stroke-linejoin="round"/><path d="M6 12h18M15 3l-3 9 3 15 3-15z" stroke="#108a63" stroke-width="1.4" fill="none"/></svg>
@@ -579,6 +596,9 @@ const MINI = {cx:-640, cz:0, r:40};
 let inMini = false;
 const ELF = {cx:640, cz:-640, r:45};
 let inElf = false;
+// Mundo Invertido (grátis): tudo de cabeça para baixo, entrada por portal na Ilha dos Portais
+const INV = {cx:-380, cz:-320, r:40};
+let inInv = false, flipping = false;
 const SNOW = {cx:-640, cz:640, r:50};
 let inSnow = false;
 const RESTO = {cx:380, cz:-320, r:40};
@@ -621,7 +641,7 @@ function link(a, b){
 }
 const inIsle = (I, x, z, extra = 0) => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + extra;
 function landAt(x, z){
-  if (inIsle(HUB, x, z) || inIsle(PORT, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
+  if (inIsle(HUB, x, z) || inIsle(PORT, x, z) || inIsle(ARENA, x, z) || inIsle(MINI, x, z) || inIsle(ELF, x, z) || inIsle(INV, x, z) || inIsle(SNOW, x, z) || inIsle(RESTO, x, z)) return true;
   for (const Z of ZONES) if (inIsle(Z, x, z)) return true;
   for (const b of bridges) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   return false;
@@ -643,6 +663,7 @@ function lockedAt(x, z){
   if (inArena && !inIsle(ARENA, x, z, -BEACH - 0.8)) return true;
   if (inMini && !inIsle(MINI, x, z, -BEACH - 1.5)) return true;
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
+  if (inInv && !inIsle(INV, x, z, -BEACH - 1.5)) return true;
   if (inSnow && !inIsle(SNOW, x, z, -BEACH - 1.5)) return true;
   if (inResto && !inIsle(RESTO, x, z, -BEACH - 1.5)) return true;
   if (swimming && !landAt(x, z) && !praiaSea(x, z)) return true;
@@ -3026,6 +3047,156 @@ const HAIRS = [0x3a2a20, 0x1d1630, 0x8a5a3b, 0xe0b860, 0xc9c9c9, 0xc0392b];
 const TOPS = [0xff5a8a, 0xffd23f, 0x4aa8ff, 0x3ddc84, 0xff8a2a, 0xb07cff, 0xffffff, 0x4ae0c8];
 const BOTTOMS = [0x2b4c7e, 0x3a2a20, 0x6b4a2b, 0x2a2a35, 0x4f9a35];
 const pickR = a => a[Math.floor(R() * a.length)];
+// ---------- Mundo Invertido (grátis, só para explorar) ----------
+const invFx = {swirls:[], rocks:[], fall:null, hang:[]};
+// constrói o que fn() fizer e vira de cabeça para baixo em volta da altura py (espelhado em x, no centro cx)
+function flipped(fn, py, cx){
+  const g = new THREE.Group(), add = scene.add, nc = colliders.length;
+  scene.add = (...o) => g.add(...o);
+  try{ fn(); } finally { scene.add = add; }
+  colliders.length = nc;
+  g.rotation.z = Math.PI; g.position.set(2 * cx, py, 0); scene.add(g);
+  return g;
+}
+const upLabel = (txt, bg, fg, w) => { const l = label(txt, bg, fg, w); l.material.rotation = Math.PI; return l; };
+function invPortal(x, z, face, txt, upside){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = face; scene.add(g);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2, .32, 10, 36), new THREE.MeshLambertMaterial({color:0x7b4fd6, emissive:0x3a1d7a}));
+  ring.position.y = 2.4; g.add(ring);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.75, 32), new THREE.MeshBasicMaterial({color:0xff8ab8, transparent:true, opacity:.7, side:THREE.DoubleSide}));
+  disc.position.y = 2.4; g.add(disc);
+  for (let k = 0; k < 2; k++){
+    const sw = new THREE.Mesh(new THREE.RingGeometry(.4 + k * .6, .9 + k * .7, 32, 1, 0, Math.PI * 1.3), new THREE.MeshBasicMaterial({color:k ? 0x7fffd4 : 0xffffff, transparent:true, opacity:.65, side:THREE.DoubleSide, depthWrite:false}));
+    sw.position.set(0, 2.4, k ? -.03 : .03); g.add(sw); invFx.swirls.push({m:sw, sp:k ? 2.4 : -3.2});
+  }
+  [-1, 1].forEach(sd => part(.9, .5, .9, 0x4a3a6a, sd * 2.1, .25, 0, g));
+  const l = upside ? upLabel(txt, '#ff8ab8', '#2a1050', 768) : label(txt, '#7fffd4', '#2a1050', 512); l.position.y = 5.6; g.add(l);
+}
+// portal na Ilha dos Portais (procura um lugar livre a noroeste)
+{
+  let gx = PORT.cx - 11, gz = PORT.cz + 11;
+  for (let a = 1; a < 40 && occupied(gx, gz, 3); a++){ const ang = Math.PI * .75 + (a % 2 ? 1 : -1) * Math.ceil(a / 2) * .08; gx = PORT.cx + Math.cos(ang) * 15.5; gz = PORT.cz + Math.sin(ang) * 15.5; }
+  const dx = PORT.cx - gx, dz = PORT.cz - gz, d = Math.hypot(dx, dz), ux = dx / d, uz = dz / d;
+  INV.gate = {x:gx, z:gz}; INV.back = {x:gx + ux * 4, z:gz + uz * 4, yaw:Math.atan2(-ux, -uz), face:Math.atan2(ux, uz)};
+  invPortal(gx, gz, Math.atan2(ux, uz), 'MUNDO INVERTIDO', true);
+  // arvorezinha de cabeça para baixo ao lado do portal, de enfeite
+  const sx = gx - uz * 4, sz = gz + ux * 4;
+  addBlock(sx, 0, sz, 2, 1.6, 2, 0x56b84a); addBlock(sx, 1.6, sz, .5, 1.8, .5, 0x8a5a3b, false);
+  [[-.5, 0], [.5, 0], [0, -.5], [0, .5]].forEach(([a, b]) => addBlock(sx + a, 3.3, sz + b, .2, .6, .2, 0x6b4a2b, false));
+}
+{
+  const N = INV, X = d => N.cx + d, Z = d => N.cz + d;
+  islandBase(N, 0x8a6ad8, 0x4a3a6a);
+  N.spawn = {x:X(0), z:Z(31)}; N.exit = {x:X(11), z:Z(29)};
+  invPortal(N.exit.x, N.exit.z, -Math.PI / 2, 'VOLTAR', false);
+  // caminho de pedrinhas
+  for (let z = 29; z > 7; z -= 2.2) addBlock(X(rr(-.4, .4)), 0, Z(z), rr(1.4, 2), .08, rr(1.2, 1.6), R() < .5 ? 0xc9b8f0 : 0xb0a0d8, false);
+  // lago com cachoeira que cai PARA CIMA até a ilha do céu
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(5, 36), new THREE.MeshPhongMaterial({color:0x4ae0e8, shininess:90})); pond.rotation.x = -Math.PI / 2; pond.position.set(X(0), .04, Z(0)); scene.add(pond);
+  for (let k = 0; k < 18; k++){ const a = k / 18 * Math.PI * 2; addBlock(X(Math.cos(a) * 5.4), 0, Z(Math.sin(a) * 5.4), .9, .4, .9, 0x6a5a8a, false); }
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const cg = cv.getContext('2d');
+  cg.fillStyle = 'rgba(160,240,255,.55)'; cg.fillRect(0, 0, 64, 128); cg.fillStyle = 'rgba(255,255,255,.75)'; for (let k = 0; k < 14; k++) cg.fillRect(Math.random() * 60, Math.random() * 128, 3, 18 + Math.random() * 20);
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 5);
+  const fall = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 30, 24, 1, true), new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}));
+  fall.position.set(X(0), 15, Z(0)); scene.add(fall); invFx.fall = tex;
+  colliders.push({minX:X(-2.4), maxX:X(2.4), minZ:Z(-2.4), maxZ:Z(2.4), bottom:0, top:30});
+  // ilha do céu, de cabeça para baixo, presa pela cachoeira
+  const CY = 30;
+  const ceil = new THREE.Mesh(new THREE.CircleGeometry(22, 40), mat(0x6cc46a)); ceil.rotation.x = Math.PI / 2; ceil.position.set(X(0), CY, Z(0)); scene.add(ceil);
+  const dirt = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 3, 40, 1, true), mat(0x8a6a4a)); dirt.position.set(X(0), CY + 1.5, Z(0)); scene.add(dirt);
+  const rockTop = new THREE.Mesh(new THREE.ConeGeometry(22, 12, 24), mat(0x5a4a6a)); rockTop.position.set(X(0), CY + 9, Z(0)); scene.add(rockTop);
+  // o que fica pendurado: casas, árvores, flores e moradores de ponta-cabeça
+  flipped(() => {
+    const spots = [];
+    const free = (pad) => { for (let t = 0; t < 60; t++){ const a = R() * Math.PI * 2, d = 5 + Math.sqrt(R()) * 15, x = X(Math.cos(a) * d), z = Z(Math.sin(a) * d); if (spots.some(q => Math.hypot(x - q[0], z - q[1]) < pad)) continue; spots.push([x, z]); return [x, z]; } return null; };
+    [[0xf4ecd8, 0xc0392b], [0xffe0a0, 0x2b6cd4], [0xd8f0ff, 0x3ddc84], [0xffd6f0, 0xb07cff]].forEach(([w, r]) => { const sp = free(8); if (sp) hut(sp[0], sp[1], w, r); });
+    for (let k = 0; k < 10; k++){ const sp = free(4); if (sp) tree(sp[0], sp[1]); }
+    for (let k = 0; k < 3; k++){ const sp = free(4); if (sp) palm(sp[0], sp[1]); }
+    for (let k = 0; k < 6; k++){ const sp = free(3); if (sp) (k % 2 ? mushroom : flowers)(sp[0], sp[1]); }
+    for (let k = 0; k < 6; k++){
+      const sp = free(3); if (!sp) continue;
+      const g = new THREE.Group(); g.position.set(sp[0], 0, sp[1]); g.rotation.y = R() * 6; scene.add(g);
+      const top = [0xff5a8a, 0x3ddc84, 0x4aa8ff, 0xffd23f, 0xb07cff, 0xff8a2a][k], arms = [];
+      [-1, 1].forEach(sd => part(.46, .97, .5, 0x2b4c7e, sd * .27, .485, 0, g));
+      part(1.05, .95, .55, top, 0, 1.45, 0, g); part(.78, .74, .74, 0xffcf9e, 0, 2.32, 0, g); part(.84, .22, .8, 0x3a2a20, 0, 2.72, -.02, g);
+      part(.12, .16, .05, 0x1d1630, -.17, 2.36, .38, g); part(.12, .16, .05, 0x1d1630, .17, 2.36, .38, g); part(.3, .06, .05, 0xb5524a, 0, 2.14, .38, g);
+      [-1, 1].forEach(sd => { const pv = new THREE.Group(); pv.position.set(sd * .7, 1.9, 0); g.add(pv); part(.36, .9, .4, top, 0, -.45, 0, pv); arms.push(pv); });
+      invFx.hang.push({arms, ph:R() * 6});
+    }
+  }, CY, N.cx);
+  const sign = upLabel('BEM-VINDO', '#ff8ab8', '#2a1050', 768); sign.position.set(X(-6), 3.6, Z(29)); scene.add(sign); addBlock(X(-6), 0, Z(29), .3, 3, .3, 0x5a3d22, false);
+  // casas de ponta-cabeça (telhado no chão)
+  const invHouse = (x, z, wall, roof) => {
+    const c = cone(3.4, 2.4, roof, x, 0, z, 4); c.rotation.set(Math.PI, Math.PI / 4, 0);
+    addBlock(x, 2.4, z, 4, 2.8, 4, wall, false); colliders.push({minX:x - 2, maxX:x + 2, minZ:z - 2, maxZ:z + 2, bottom:0, top:5.2});
+    addBlock(x, 3.5, z + 2.01, 1, 1.7, .05, 0x5a3d22, false); addBlock(x + 1.1, 3, z + 2.01, .7, .6, .05, 0xbfe8ff, false);
+    addBlock(x - 1.2, 5.2, z - 1.2, .6, 1.2, .6, 0x8a5a3b); // chaminé
+  };
+  [[-16, -10, 0xf4ecd8, 0xc0392b], [16, -10, 0xffe0a0, 0x2b6cd4], [-14, 16, 0xd8f0ff, 0x3ddc84], [15, 15, 0xffd6f0, 0xb07cff], [0, -24, 0xfff1de, 0xff8a2a]].forEach(([a, b, w, r]) => invHouse(X(a), Z(b), w, r));
+  // postes de luz de ponta-cabeça
+  [26, 18, 10].forEach(z => [-3, 3].forEach(sx => {
+    const x = X(sx), zz = Z(z);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.4, 12, 8), new THREE.MeshBasicMaterial({color:0xffe27a})); b.position.set(x, .45, zz); scene.add(b);
+    addBlock(x, .85, zz, .18, 2.6, .18, 0x3a2a55, false); addBlock(x, 3.45, zz, .7, .25, .7, 0x3a2a55, false);
+  }));
+  // árvores de ponta-cabeça: copa no chão, raízes para o céu
+  const taken = [[0, 0, 8], [0, 31, 5], [11, 29, 5], [-6, 29, 2]];
+  for (let k = 0, n = 0; k < 200 && n < 16; k++){
+    const a = R() * Math.PI * 2, d = 8 + Math.sqrt(R()) * 28, lx = Math.cos(a) * d, lz = Math.sin(a) * d, x = X(lx), z = Z(lz);
+    if (Math.abs(lx) < 4 && lz > 6) continue;
+    if (taken.some(([a2, b2, r2]) => Math.hypot(lx - a2, lz - b2) < r2) || occupied(x, z, 2.2)) continue;
+    n++; const h = rr(2.2, 3.4);
+    addBlock(x, 0, z, 2.8, 2.4, 2.8, R() < .5 ? 0x3f9e3a : 0x56b84a); addBlock(x, 2.4, z, .8, h, .8, 0x8a5a3b);
+    [[-.7, 0], [.7, 0], [0, -.7], [0, .7]].forEach(([u, v]) => addBlock(x + u, 2.4 + h, z + v, .22, rr(.6, 1.2), .22, 0x6b4a2b, false));
+  }
+  // pedras flutuando
+  for (let k = 0; k < 14; k++){
+    const a = R() * Math.PI * 2, d = 6 + R() * 30, s = rr(.6, 1.6);
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat(R() < .5 ? 0x7a6a9a : 0x5a4a7a)); m.castShadow = true;
+    const y = rr(5, 22); m.position.set(X(Math.cos(a) * d), y, Z(Math.sin(a) * d)); scene.add(m);
+    invFx.rocks.push({m, y, ph:R() * 6, sp:rr(.3, .8)});
+  }
+}
+function setInv(on){ inInv = on; }
+// cutscene: a tela vira de cabeça para baixo, troca de mundo e volta ao normal
+function goInv(on){
+  if (diving) return; diving = true; flipping = true;
+  if (shiftLock) setShiftLock(false);
+  for (const k in keys) keys[k] = false;
+  closeTalk(); closeQuest(); stopEmote();
+  document.body.classList.add('cutscene');
+  canvas.classList.remove('flipOut', 'flipped'); void canvas.offsetWidth; canvas.classList.add('flipIn');
+  [880, 740, 620, 520, 440, 370].forEach((f, j) => setTimeout(() => beep(on ? f : 1250 - f, .2, 'sine', .06, .8), j * 220));
+  const fx = $('dive'), txt = $('cineTxt');
+  setTimeout(() => fx.classList.add('invf', 'flash'), 1300);
+  setTimeout(() => {
+    const to = on ? INV.spawn : INV.back;
+    Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
+    cam.yaw = on ? 0 : INV.back.yaw; P.face = on ? Math.PI : INV.back.face;
+    lastIsland = on ? -1 : -2; setInv(on);
+    canvas.classList.add('flipped'); canvas.classList.remove('flipIn');
+    fx.classList.remove('flash');
+    txt.textContent = on ? 'MUNDO INVERTIDO' : 'ILHA DOS PORTAIS'; txt.classList.add('show');
+  }, 1650);
+  setTimeout(() => {
+    canvas.classList.remove('flipped'); void canvas.offsetWidth; canvas.classList.add('flipOut');
+    [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .06, 1.2), 900 + j * 90));
+  }, 2600);
+  setTimeout(() => {
+    canvas.classList.remove('flipOut'); txt.classList.remove('show');
+    document.body.classList.remove('cutscene'); fx.classList.remove('invf');
+    flipping = false; diving = false; canvas.focus();
+    if (on){ banner('Mundo Invertido', 'Bem-vindo ao'); toast('Aqui tudo é de ponta-cabeça e a gravidade é fraquinha. Pule!', 4500); }
+    else banner('Ilha dos Portais', 'Voltou para a');
+  }, 4300);
+}
+function updateInv(dt, t){
+  for (const w of invFx.swirls) w.m.rotation.z += w.sp * dt;
+  if (!inInv) return;
+  if (invFx.fall) invFx.fall.offset.y -= dt * .9;
+  for (const r of invFx.rocks){ r.m.position.y = r.y + Math.sin(t * r.sp + r.ph) * .8; r.m.rotation.y += dt * r.sp * .5; r.m.rotation.x += dt * r.sp * .3; }
+  for (const h of invFx.hang){ const a = Math.sin(t * 3 + h.ph); h.arms[0].rotation.z = .3 + a * .3; h.arms[1].rotation.z = -.3 - a * .3; }
+}
 const LOOKS = [
   {I:HUB,      n:6, hats:['cap', 'none', 'bun', 'sun', 'none']},
   {I:ZONES[0], n:5, hats:['straw', 'straw', 'none', 'cap'], bottoms:[0x2b4c7e, 0x6b4a2b]},
@@ -3041,6 +3212,7 @@ const LOOKS = [
   {I:ZONES[9], n:6, hats:['sun', 'none', 'cap', 'straw'], tops:[0xff5a8a, 0x4ae0c8, 0xffd23f, 0xffffff, 0xff8a2a], bottoms:[0x4aa8ff, 0xff7ac8, 0xffd23f]},
   {I:ZONES[8], n:6, hats:['cap', 'cap', 'none'], tops:[0xffd23f, 0x3ddc84, 0x4aa8ff, 0xffffff], bottoms:[0x2b4c7e, 0xffffff]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
+  {I:INV, n:7, hats:['none', 'cap', 'beanie', 'bun'], tops:[0x9a6bff, 0x3ddc84, 0xff5a8a, 0x4ae0c8, 0xffd23f], bottoms:[0x2a1050, 0x4a3a6a, 0x2b4c7e]},
 ];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
 const villagers = [];
@@ -3227,7 +3399,7 @@ const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChi
 addEventListener('keydown', e => {
   initAudio();
   if (e.target.closest && (e.target.closest('#cheat') || e.target.closest('#login'))) return;
-  if (!loginEl.hidden) return;
+  if (!loginEl.hidden || flipping) return;
   if (!playing){ if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space'){ e.preventDefault(); play(); } return; }
   if (!talkEl.hidden){
     const n = {Digit1:'sell', Digit2:'shop', Digit3:'pets', Digit4:'skins', Digit5:'bye', Numpad1:'sell', Numpad2:'shop', Numpad3:'pets', Numpad4:'skins', Numpad5:'bye', Escape:'bye'}[e.code];
@@ -3443,7 +3615,7 @@ function switchAccount(acc){
   ACC = acc;
   try{ if (acc) localStorage.setItem(ACC_KEY, acc); else localStorage.removeItem(ACC_KEY); }catch(e){}
   S = fresh(); load(); cloudDoc = null; cloudLast = '';
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); inResto = false; if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0});
   hud(); gateCheck(); refreshBoatSign(); ensureDaily(); renderAcct();
   cloudOpen();
@@ -3529,7 +3701,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); inResto = false; if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -3695,6 +3867,7 @@ const ENV = {
   2:    {top:C(0x8fb4dc), hor:C(0xeef6ff), fog:C(0xe4f0fb), near:35, far:170, hemi:C(0xe8f2ff), ground:C(0x8aa0c0), hi:.85, sunC:C(0xe0eeff), si:.7,  disc:C(0xffffff), disk:.4,  part:'snow'},
   praia:{top:C(0x2f8fff), hor:C(0xc4f1ff), fog:C(0xc4f1ff), near:95, far:280, hemi:C(0xffffff), ground:C(0xc9a86a), hi:.85, sunC:C(0xfff2c0), si:1,   disc:C(0xfff6b0), disk:1.3, part:null},
   mt:   {top:C(0x5f9ee0), hor:C(0xf2f8ff), fog:C(0xe8f2fc), near:55, far:220, hemi:C(0xf0f6ff), ground:C(0x9ab0cc), hi:.9,  sunC:C(0xfff6e8), si:.8,  disc:C(0xffffff), disk:.8,  part:'snow'},
+  inv:  {top:C(0x2a1050), hor:C(0xff9ac4), fog:C(0xe0a0d0), near:60, far:210, hemi:C(0xffe8ff), ground:C(0x6a3a8a), hi:.9,  sunC:C(0xffd8f0), si:.75, disc:C(0x7fffd4), disk:1.2, part:'rise'},
   3:    {top:C(0x1e0a10), hor:C(0x9a3018), fog:C(0x5e2016), near:30, far:160, hemi:C(0xffb090), ground:C(0x3a1010), hi:.8,  sunC:C(0xff9a6a), si:.75, disc:C(0xff4020), disk:1.2, part:'ember'},
 };
 const envCur = {top:ENV.hub.top.clone(), hor:ENV.hub.hor.clone(), fog:ENV.hub.fog.clone(), near:90, far:260, hemi:ENV.hub.hemi.clone(), ground:ENV.hub.ground.clone(), hi:.75, sunC:ENV.hub.sunC.clone(), si:.85, disc:ENV.hub.disc.clone(), disk:.5};
@@ -3713,6 +3886,7 @@ const PART = {
   pollen:{color:0xfff6b0, size:.28, op:.8,  add:false, v:(i, t) => [Math.sin(t * .5 + i) * .4, .25 + Math.sin(t + i * 3) * .2, Math.cos(t * .4 + i) * .4]},
   dust:  {color:0xe8c890, size:.4,  op:.55, add:false, v:(i, t) => [7 + Math.sin(i) * 2, Math.sin(t * 2 + i) * .4, 1.5]},
   snow:  {color:0xffffff, size:.38, op:.9,  add:false, v:(i, t) => [Math.sin(t * .8 + i) * .6, -2.6 - (i % 5) * .2, Math.cos(t * .6 + i * 2) * .5]},
+  rise:  {color:0xbff4ff, size:.26, op:.85, add:true,  v:(i, t) => [Math.sin(t * .7 + i) * .3, 2.6 + (i % 5) * .5, Math.cos(t * .5 + i) * .3]},
   ember: {color:0xff8a2a, size:.3,  op:1,   add:true,  v:(i, t) => [Math.sin(t * 1.3 + i) * .7, 1.8 + (i % 4) * .4, Math.cos(t + i) * .7]},
 };
 const PN = 700, pPos = new Float32Array(PN * 3);
@@ -3731,7 +3905,7 @@ function updateEnv(dt, t){
   const special = under || inSky || inForest || inElf;
   skyMesh.visible = !special;
   if (special){ pts.visible = false; return; }
-  const key = inSnow ? 'mt' : !inArena && !inMini && lastIsland === PRAIA_I ? 'praia' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
+  const key = inInv ? 'inv' : inSnow ? 'mt' : !inArena && !inMini && lastIsland === PRAIA_I ? 'praia' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
   const T = ENV[key], k = 1 - Math.exp(-dt * 1.6);
   for (const c of ['top', 'hor', 'fog', 'hemi', 'ground', 'sunC', 'disc']) envCur[c].lerp(T[c], k);
   for (const n of ['near', 'far', 'hi', 'si', 'disk']) envCur[n] += (T[n] - envCur[n]) * k;
@@ -3846,7 +4020,7 @@ function step(now){
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
-  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && !driving && !miniAnim && !sled.on){
+  if (mag > 0.08 && shopEl.hidden && petsEl.hidden && skinsEl.hidden && talkEl.hidden && !driving && !flipping && !miniAnim && !sled.on){
     const n = Math.hypot(ix, iz);
     const dx = (fx * iz + -fz * ix) / n, dz = (fz * iz + fx * ix) / n;
     const sp = speedOf(S.lv.speed) * mag;
@@ -3867,10 +4041,10 @@ function step(now){
   if (!blocked(P.x, nz, P.y) && !lockedAt(P.x, nz)) P.z = nz;
   // y
   coyote = P.onGround ? 0.1 : coyote - dt;
-  if (jumpBuf > 0 && coyote > 0 && !driving){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
+  if (jumpBuf > 0 && coyote > 0 && !driving && !flipping){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
   jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
-  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : 1) * dt);
+  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : inInv ? .5 : 1) * dt);
   P.y += P.vy * dt;
   const sup = support(P.x, P.z, Math.max(prevY + 0.05, P.onGround ? P.y + STEP : P.y + 0.05));
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
@@ -3927,6 +4101,9 @@ function step(now){
   updateMini(dt, t);
   updateElf(dt, t);
   updateSnow(dt, t);
+  updateInv(dt, t);
+  if (!diving && !inInv && P.y < 1 && Math.hypot(P.x - INV.gate.x, P.z - INV.gate.z) < 1.4) goInv(true);
+  if (!diving && inInv && P.y < 1 && Math.hypot(P.x - INV.exit.x, P.z - INV.exit.z) < 1.6) goInv(false);
   updateResto(dt, t);
   updateKings(dt, t);
   updateStadium(dt, t);
@@ -4040,7 +4217,7 @@ addEventListener('resize', resize);
 function start(data){
   if (data && data.S) merge(data.S); else load();
   if (data && data.P) Object.assign(P, data.P);
-  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z) || inIsle(SNOW, P.x, P.z) || inIsle(RESTO, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
+  if (!landAt(P.x, P.z) || lockedAt(P.x, P.z) || inIsle(ARENA, P.x, P.z) || inIsle(MINI, P.x, P.z) || inIsle(ELF, P.x, P.z) || inIsle(INV, P.x, P.z) || inIsle(SNOW, P.x, P.z) || inIsle(RESTO, P.x, P.z)) Object.assign(P, {x:0, y:0, z:8});
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
