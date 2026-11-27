@@ -109,6 +109,9 @@ body.touch #intro small{display:none}
 #login{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(10,6,24,.7);padding:16px}
 #login[hidden]{display:none!important}
 #loginErr{min-height:1.3em;margin:0;font-size:14px;font-weight:900;color:var(--bad)}
+.lhint{margin:-4px 0 0;font-size:13px;font-weight:800;color:var(--muted)}
+#login .row{flex-wrap:wrap}
+#login .lmode{margin-right:auto;background:transparent;box-shadow:none;border-color:transparent;color:#9fd8ff;font-size:15px;padding:8px 4px;text-decoration:underline}
 #talk,#quest{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
@@ -331,10 +334,11 @@ body.touch .pw b{display:none}
 </div>
 <div id="login" hidden><form class="sheet cheatbox" id="loginForm" role="dialog" aria-modal="true" aria-labelledby="loginLbl" autocomplete="off">
   <label id="loginLbl">Entrar na conta</label>
+  <p id="loginHint" class="lhint">Sua conta funciona em qualquer computador.</p>
   <input id="loginName" type="text" placeholder="Nome" aria-label="Nome" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
   <input id="loginPass" type="password" placeholder="Senha" aria-label="Senha" autocomplete="off" enterkeyhint="go">
   <p id="loginErr" role="alert"></p>
-  <div class="row"><button class="btn" type="button" id="loginX">Cancelar</button><button class="btn go" type="submit">Entrar</button></div>
+  <div class="row"><button class="btn lmode" type="button" id="loginMode">Criar conta nova</button><button class="btn" type="button" id="loginX">Cancelar</button><button class="btn go" type="submit" id="loginGo">Entrar</button></div>
 </form></div>
 <button class="btn go" id="talkBtn" type="button" hidden>Conversar</button>
 <div id="talk" hidden role="dialog" aria-labelledby="talkName">
@@ -467,22 +471,26 @@ const fmt = n => {
 const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
-// Contas: a senha fica guardada só como "impressão digital" (hash), nunca escrita no código.
-// altor usa o save antigo (SAVE_KEY e o doc 'ilha-save' da nuvem), então o progresso de antes é dele.
+// Contas: ficam na nuvem do jogo (db "contas/<nome>": hash da senha + save), então funcionam em qualquer PC.
+// A senha fica só como "impressão digital" (hash), nunca escrita no código.
 const hashTxt = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
   h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); };
-const ACCOUNTS = {altor:{h:'jc1uoj17d5', key:SAVE_KEY, doc:'ilha-save'}};
-const ACC_KEY = 'ilha-dos-cristais-conta';
-let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (ACCOUNTS[a]) ACC = a; }catch(e){}
+const passHash = (name, pass) => hashTxt('ilha|' + name + '|' + pass);
+// altor existia antes da nuvem de contas: o progresso antigo dele (SAVE_KEY e o doc particular 'ilha-save') vai para a nuvem no primeiro login
+const LEGACY = {altor:{h:'jc1uoj17d5'}};
+const ACC_KEY = 'ilha-dos-cristais-conta', KNOWN_KEY = 'ilha-dos-cristais-contas';
+const NAME_RE = /^[a-z0-9_]{3,16}$/;
+let known = {}; try{ known = JSON.parse(localStorage.getItem(KNOWN_KEY)) || {}; }catch(e){}
+const accHash = n => (known[n] && known[n].h) || (LEGACY[n] && LEGACY[n].h) || null;
+function remember(name, h){ known[name] = {h}; try{ localStorage.setItem(KNOWN_KEY, JSON.stringify(known)); }catch(e){} }
+let ACC = null; try{ const a = localStorage.getItem(ACC_KEY); if (a && accHash(a)) ACC = a; }catch(e){}
 // Visitante não salva nada: toda vez começa do zero. Só quem entra na conta guarda o progresso.
-const saveKey = () => ACCOUNTS[ACC].key;
-const cloudName = () => ACCOUNTS[ACC].doc;
-try{ localStorage.removeItem(SAVE_KEY + '-visitante'); }catch(e){} // save de visitante da versão anterior
-let cloudCol = null;
-// Save: localStorage (rápido) + nuvem do claude.ai quando aberto como artifact
-// (no artifact o localStorage pode ser apagado ou bloqueado pelo navegador).
-let cloudDoc = null, cloudLast = '', cloudBusy = false;
+const saveKey = () => ACC === 'altor' ? SAVE_KEY : SAVE_KEY + '-' + ACC;
+try{ localStorage.removeItem(SAVE_KEY + '-visitante'); }catch(e){} // save de visitante de uma versão antiga
+let gameDb = null, privCol = null;
+// Save: localStorage (rápido) + nuvem do jogo quando aberto no claude.ai
+let cloudDoc = null, cloudLast = '', cloudBusy = false, cloudH = null;
 const progress = s => (s.rebirths || 0) * 1e15 + (s.unlocked || 1) * 1e12 + Object.values(s.lv || {}).reduce((a, b) => a + b, 0) * 1e9 + (s.pets ? s.pets.length : 0) * 1e7 + (s.level || 1) * 1e5 + (s.coins || 0) + (s.bagVal || 0);
 function save(){
   if (!ACC) return;
@@ -490,11 +498,11 @@ function save(){
   cloudSave();
 }
 function cloudSave(){
-  if (!cloudDoc || cloudBusy) return;
+  if (!cloudDoc || cloudBusy || !cloudH) return;
   const j = JSON.stringify(S);
   if (j === cloudLast) return;
   cloudBusy = true;
-  cloudDoc.set({save: j}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
+  cloudDoc.set({h:cloudH, save:j, at:Date.now()}).then(() => { cloudLast = j; }).catch(() => {}).finally(() => { cloudBusy = false; });
 }
 function load(){ if (!ACC) return; try{ const d = JSON.parse(localStorage.getItem(saveKey())); if (d) merge(d); }catch(e){} }
 function merge(d){ const f = fresh(); S = Object.assign(f, d); S.lv = Object.assign(f.lv, d.lv || {});
@@ -510,25 +518,32 @@ async function cloudInit(){
   try{
     if (!window.claude?.use) return;
     const [user, db] = await Promise.all([claude.use('user'), claude.use('db')]);
-    if (!user || !db) return;
-    const id = await user.id();
-    if (!id) return;
-    cloudCol = db.collection('data/users/' + id);
+    if (!db) return;
+    gameDb = db;
+    const id = user ? await user.id() : null;
+    if (id) privCol = db.collection('data/users/' + id);
     await cloudOpen();
   }catch(e){}
 }
+// procura a conta: primeiro na nuvem do jogo, depois nas que este PC já conhece
+async function findAccount(name){
+  if (gameDb){ try{ const sn = await gameDb.doc('contas/' + name).get(); if (sn.exists && typeof sn.data().h === 'string') return {h:sn.data().h, cloud:true}; }catch(e){} }
+  const h = accHash(name); return h ? {h, cloud:false} : null;
+}
 async function cloudOpen(){
   try{
-    if (!cloudCol || !ACC) return;
-    const acc = ACC, doc = cloudCol.doc(cloudName());
+    if (!gameDb || !ACC) return;
+    const acc = ACC, doc = gameDb.doc('contas/' + acc);
     const snap = await doc.get();
     if (acc !== ACC) return; // trocou de conta enquanto carregava
-    if (snap.exists){
-      const d = JSON.parse(snap.data().save || 'null');
-      if (d && progress(d) > progress(S)){ merge(d); hud(); gateCheck(); refreshBoatSign(); toast('Progresso carregado!', 2500); }
-      cloudLast = snap.data().save;
+    let best = null, h = accHash(acc);
+    if (snap.exists){ const d = snap.data(); if (typeof d.h === 'string') h = d.h; try{ best = JSON.parse(d.save || 'null'); }catch(e){} cloudLast = d.save || ''; }
+    if (acc === 'altor' && privCol){
+      try{ const ps = await privCol.doc('ilha-save').get(); if (ps.exists){ const d = JSON.parse(ps.data().save || 'null'); if (d && (!best || progress(d) > progress(best))) best = d; } }catch(e){}
+      if (acc !== ACC) return;
     }
-    cloudDoc = doc;
+    if (best && progress(best) > progress(S)){ merge(best); hud(); gateCheck(); refreshBoatSign(); toast('Progresso carregado!', 2500); }
+    cloudH = h; cloudDoc = doc;
     cloudSave();
   }catch(e){}
 }
@@ -3629,33 +3644,60 @@ function switchAccount(acc){
   save();
   ACC = acc;
   try{ if (acc) localStorage.setItem(ACC_KEY, acc); else localStorage.removeItem(ACC_KEY); }catch(e){}
-  S = fresh(); load(); cloudDoc = null; cloudLast = '';
+  S = fresh(); load(); cloudDoc = null; cloudLast = ''; cloudH = null;
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0});
   hud(); gateCheck(); refreshBoatSign(); ensureDaily(); renderAcct();
   cloudOpen();
 }
+let loginMode = 'in', loginBusy = false;
+function setLoginMode(m){
+  loginMode = m; $('loginErr').textContent = '';
+  $('loginLbl').textContent = m === 'in' ? 'Entrar na conta' : 'Criar conta nova';
+  $('loginHint').textContent = m === 'in' ? 'Sua conta funciona em qualquer computador.' : 'Nome com 3 a 16 letras ou números (sem espaço) e senha com pelo menos 4.';
+  $('loginMode').textContent = m === 'in' ? 'Criar conta nova' : 'Já tenho conta';
+  $('loginGo').textContent = m === 'in' ? 'Entrar' : 'Criar';
+}
 function openLogin(){
-  loginName.value = ''; loginPass.value = ''; $('loginErr').textContent = '';
+  loginName.value = ''; loginPass.value = ''; setLoginMode('in');
   loginEl.hidden = false; loginName.focus();
 }
 function closeLogin(){ loginEl.hidden = true; $('loginBtn').focus(); }
+$('loginMode').addEventListener('click', () => { setLoginMode(loginMode === 'in' ? 'new' : 'in'); loginName.focus(); });
 $('loginBtn').addEventListener('click', () => {
   initAudio();
   if (ACC){ switchAccount(null); return; }
   openLogin();
 });
-$('loginForm').addEventListener('submit', e => {
+function loginFail(msg){
+  const f = $('loginForm'); f.classList.remove('bad'); void f.offsetWidth; f.classList.add('bad');
+  $('loginErr').textContent = msg; beep(160, .15, 'square', .04, .7);
+}
+$('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = loginName.value.trim().toLowerCase(), A = ACCOUNTS[name];
-  if (!A || hashTxt('ilha|' + name + '|' + loginPass.value) !== A.h){
-    const f = $('loginForm'); f.classList.remove('bad'); void f.offsetWidth; f.classList.add('bad');
-    $('loginErr').textContent = 'Nome ou senha errados. Tente de novo!';
-    loginPass.value = ''; loginPass.focus(); beep(160, .15, 'square', .04, .7); return;
-  }
-  loginEl.hidden = true; switchAccount(name);
-  [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
-  $('playBtn').focus();
+  if (loginBusy) return;
+  const name = loginName.value.trim().toLowerCase(), pass = loginPass.value;
+  loginBusy = true; $('loginGo').disabled = true; $('loginErr').textContent = 'Um instante...';
+  try{
+    if (loginMode === 'in'){
+      const A = await findAccount(name);
+      if (!A || passHash(name, pass) !== A.h){ loginFail('Nome ou senha errados. Tente de novo!'); loginPass.value = ''; loginPass.focus(); return; }
+      remember(name, A.h);
+    } else {
+      if (!NAME_RE.test(name)){ loginFail('O nome precisa ter de 3 a 16 letras ou números, sem espaço.'); loginName.focus(); return; }
+      if (pass.length < 4){ loginFail('A senha precisa ter pelo menos 4 letras ou números.'); loginPass.focus(); return; }
+      if (!gameDb){ loginFail('Criar conta só funciona com o jogo aberto no claude.ai.'); return; }
+      if (LEGACY[name] || await findAccount(name)){ loginFail('Esse nome já tem dono. Escolha outro!'); loginName.focus(); return; }
+      const h = passHash(name, pass);
+      try{ await gameDb.doc('contas/' + name).set({h, save:JSON.stringify(fresh()), at:Date.now()}); }
+      catch(err){ loginFail('Não deu para criar a conta. Peça para quem compartilhou o jogo liberar a edição.'); return; }
+      remember(name, h);
+    }
+    loginEl.hidden = true; switchAccount(name);
+    [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .12, 'triangle', .07, 1.2), j * 80));
+    if (loginMode === 'new') toast('Conta criada! Ela funciona em qualquer computador.', 3500);
+    $('playBtn').focus();
+  } finally { loginBusy = false; $('loginGo').disabled = false; }
 });
 $('loginX').addEventListener('click', closeLogin);
 loginEl.addEventListener('keydown', e => { if (e.code === 'Escape') closeLogin(); });
