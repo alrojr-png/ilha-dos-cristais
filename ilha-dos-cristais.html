@@ -83,7 +83,14 @@ body.under #dive{opacity:1}
 #dive.flash{opacity:1;background:#0b4a78;transition:opacity .35s}
 #dive.skyf{background:#fff}
 /* Tela inicial */
-body.intro .hud,body.intro #talkBtn,body.intro #talk,body.intro #stick{display:none!important}
+body.intro .hud,body.intro #talkBtn,body.intro #talk,body.intro #stick,body.intro #rocketMenu,body.cutscene #rocketMenu{display:none!important}
+#rocketMenu p{margin:8px 0 12px;font-size:17px;font-weight:800}
+.rocketopts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rocketopts .btn{font-size:18px;padding:10px 8px}
+#rocketFace{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:#d8f0ff;border:2px solid rgba(0,0,0,.3);flex:none}
+#rocketName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
+#rocketMenu small{display:block;margin-top:8px;text-align:right;font-size:11px;font-weight:800;color:var(--muted)}
+body.touch #rocketMenu small{display:none}
 #intro{position:fixed;inset:0;z-index:20;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(29,22,48,.25) 0%,rgba(29,22,48,.72) 100%);transition:opacity .5s}
 #intro.out{opacity:0;pointer-events:none}
 #intro .logo{display:block;width:clamp(64px,12vw,96px);margin:0 auto 6px;animation:float 2.6s ease-in-out infinite}
@@ -115,7 +122,7 @@ body.touch #intro small{display:none}
 .lhint{margin:-4px 0 0;font-size:13px;font-weight:800;color:var(--muted)}
 #login .row{flex-wrap:wrap}
 #login .lmode{margin-right:auto;background:transparent;box-shadow:none;border-color:transparent;color:#9fd8ff;font-size:15px;padding:8px 4px;text-decoration:underline}
-#talk,#quest{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
+#talk,#quest,#rocketMenu{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(640px,calc(100vw - 24px));background:var(--panel);border:3px solid var(--line);border-radius:20px;box-shadow:0 8px 0 rgba(0,0,0,.4);padding:14px 16px 10px;animation:talkIn .2s ease-out}
 @keyframes talkIn{from{opacity:0;transform:translate(-50%,20px)}}
 .talkhead{display:flex;align-items:center;gap:10px}
 #questFace{background:#ffcc33}
@@ -363,6 +370,12 @@ body.touch .pw b{display:none}
   <div id="questList"></div>
   <div class="qfoot"><small id="questTime"></small><button class="btn" id="questClose" type="button">Fechar</button></div>
 </div>
+<div id="rocketMenu" hidden role="dialog" aria-labelledby="rocketName">
+  <div class="talkhead"><span id="rocketFace">🚀</span><b id="rocketName">Painel do foguete</b></div>
+  <p>Para onde vamos, astronauta?</p>
+  <div class="rocketopts"><button class="btn go" type="button" data-go="moon">🌕 Lua</button><button class="btn" type="button" data-go="mars" style="background:#ff6a3d;border-color:#b3401f;color:#2a0e06">🔴 Marte</button><button class="btn" type="button" data-go="stay">Ficar aqui</button></div>
+  <small>Teclas 1 · 2 · Esc fecha</small>
+</div>
 <button class="hud btn go" id="jump" type="button">PULAR</button>
 <button class="hud btn" id="atk" type="button">ATACAR</button>
 <div class="hud" id="powers">
@@ -418,6 +431,7 @@ const ZONES = [
   {name:'Estádio de Futebol', cx:-400, cz:80, r:44, ground:0xa7adb8, edge:0x8a909c, beach:0xd9d2bf, gem:0xffe14d, value:250000, price:25000000, stadium:true},
   {name:'Praia do Sol', cx:88, cz:-4, r:32, ground:0xf6dfa0, edge:0xe8c97a, beach:0xfbeccc, gem:0xff7a59, value:600000, price:60000000, praia:true, from:1},
   {name:'Lua', cx:380, cz:360, r:40, ground:0xc4c4cc, edge:0x9a9aa4, beach:0x8a8a94, gem:0xd8f0ff, value:1500000, price:150000000, moon:true, from:9},
+  {name:'Marte', cx:-380, cz:360, r:40, ground:0xc1562e, edge:0x8a3a22, beach:0x9a4428, gem:0xff6a3d, value:4000000, price:400000000, mars:true, from:10},
 ];
 const UPG = {
   bag:   {name:'Mochila maior',  color:'#b07cff', letter:'M', base:15, mult:2.35, max:12, eff:l=>`Carrega ${fmt(bagCap(l))} cristais`},
@@ -686,6 +700,7 @@ function lockedAt(x, z){
   if (inElf && !inIsle(ELF, x, z, -BEACH - 1.5)) return true;
   if (inInv && !inIsle(INV, x, z, -BEACH - 1.5)) return true;
   if (inMoon && !inIsle(MOON, x, z, -.5)) return true;
+  if (inMars && !inIsle(MARS, x, z, -.5)) return true;
   if (inSnow && !inIsle(SNOW, x, z, -BEACH - 1.5)) return true;
   if (inResto && !inIsle(RESTO, x, z, -BEACH - 1.5)) return true;
   if (swimming && !landAt(x, z) && !praiaSea(x, z)) return true;
@@ -841,6 +856,8 @@ const NPCS = [
    hello:'Oi! Que sol bonito, né? Passe protetor e aproveite a praia. O que vai querer?'},
   {name:'Comandante Estrela', color:0xd8f0ff, css:'#d8f0ff', shirt:0xffffff, apron:0x4aa8ff, skin:0xc68a5a, hair:0x1d1630, hat:'astro',
    hello:'Câmbio! Bem-vindo à Lua, astronauta. Olha a Terra lá em cima! Quer vender seus cristais lunares?'},
+  {name:'Doutora Rubi', color:0xff6a3d, css:'#ff8a5c', shirt:0xffffff, apron:0xff6a3d, skin:0xe8b48a, hair:0x8a2a1a, hat:'astro',
+   hello:'Olá, exploradora de Marte! Aqui a poeira é vermelha e o céu é cor de caramelo. Quer vender seus cristais marcianos?'},
   {name:'Elfa Lírio',    color:0xff9ad8, css:'#ff9ad8', shirt:0x6b3fc0, apron:0xffd6f0, skin:0xffdcc0, hair:0xffe7a0, hat:'wreath',
    hello:'Olá, viajante! Os cristais élficos brilham cor-de-rosa e valem muito. Quer vender os seus?'},
   {name:'Tito Avesso',   color:0x7fffd4, css:'#7fffd4', shirt:0x2a1050, apron:0xff9ac4, skin:0xffcf9e, hair:0x7b4fd6, hat:'beanie', hatC:0xff9ac4,
@@ -1567,29 +1584,110 @@ function moonFlag(x, z){
   addBlock(x + .9, 2.6, z, 1.8, 1.1, .05, 0x7b4fd6, false);
   const gm = new THREE.Mesh(new THREE.OctahedronGeometry(.3, 0), mat(0x34f0b0)); gm.position.set(x + .9, 3.15, z + .05); gm.scale.z = .2; scene.add(gm);
 }
-function setMoon(on){
-  inMoon = on;
-  water.visible = seabed.visible = !on;
-  moonFx.ball.visible = moonFx.stars.visible = moonFx.earth.visible = on;
-  if (!on) return;
-  scene.background.set(0x02030a);
-  scene.fog.color.set(0x02030a); scene.fog.near = 70; scene.fog.far = 170; // some com as outras ilhas lá longe (Terra e estrelas não usam névoa)
-  hemi.color.set(0xd8e0ff); hemi.groundColor.set(0x3a3a44); hemi.intensity = .55;
-  sun.color.set(0xffffff); sun.intensity = 1.15;
+// ---------- Marte (12ª fase): mesmo foguete da praia, com escolha de destino ----------
+const marsFx = {ball:null, sky:[], devils:[]};
+let inMars = false;
+function buildMarsGate(Z){
+  // pedestal com um Marte pequeno perto do foguete: é ali que se compra a fase
+  const B = ZONES[Z.from].from !== undefined ? ZONES[ZONES[Z.from].from] : ZONES[9], G = ZONES[Z.from].gate;
+  let gx = 0, gz = 0;
+  for (let t = 0; t < 120; t++){
+    const a = t * .37, d = 12 + (t % 4) * 3; gx = G.x + Math.cos(a) * d; gz = G.z + Math.sin(a) * d;
+    if (inIsle(B, gx, gz, -6) && !occupied(gx, gz, 3.5) && Math.hypot(gx - G.x, gz - G.z) > 11) break;
+  }
+  Z.gate = {x:gx, z:gz};
+  addBlock(gx, 0, gz, 1.6, 1.6, 1.6, 0x6b6f7a);
+  const pl = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat(0xc1562e)); pl.position.set(gx, 2.7, gz); pl.castShadow = true; scene.add(pl);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(1.02, 20, 6, 0, Math.PI * 2, 0, .5), mat(0xffffff)); cap.position.copy(pl.position); scene.add(cap);
+  const l = label('MARTE', '#ff8a5c', '#2a0e06', 384); l.scale.multiplyScalar(.8); l.position.set(gx, 4.6, gz); scene.add(l);
 }
+function buildMarsPortal(Z, dx, dz){
+  Z.portal = {x:Z.spawn.x + dz * 9, z:Z.spawn.z - dx * 9};
+  moonFx.marsRocket = buildRocket(Z.portal.x, Z.portal.z, 'VOLTAR PARA A TERRA', '#ffb38a');
+}
+function buildMars(Z){
+  scene.remove(foams.pop());
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(300, 64, 32), mat(0xa8482a)); ball.position.set(Z.cx, -300.25, Z.cz); ball.visible = false; ball.receiveShadow = true; scene.add(ball); marsFx.ball = ball;
+  // montanhas lá longe e o vulcão gigante
+  const far = [];
+  for (let k = 0; k < 16; k++){ const a = k / 16 * Math.PI * 2 + R() * .2, d = rr(75, 105), h = rr(10, 26); const c = new THREE.Mesh(new THREE.ConeGeometry(rr(14, 26), h, 7), mat(k % 2 ? 0x9a4428 : 0x8a3a22)); c.position.set(Z.cx + Math.cos(a) * d, h / 2 - 3, Z.cz + Math.sin(a) * d); scene.add(c); far.push(c); }
+  const olympus = new THREE.Mesh(new THREE.CylinderGeometry(14, 70, 32, 20), mat(0xb0502e)); olympus.position.set(Z.cx + 40, 12, Z.cz - 120); scene.add(olympus); far.push(olympus);
+  // as duas luazinhas de Marte e um sol pequeno
+  [[-60, 95, -180, 5, 0xb8a898], [90, 70, -200, 3, 0xa89888]].forEach(([a, y, b, r, c]) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 10), new THREE.MeshLambertMaterial({color:c, emissive:0x2a1a10, fog:false})); m.position.set(Z.cx + a, y, Z.cz + b); scene.add(m); far.push(m); });
+  const sunD = new THREE.Mesh(new THREE.CircleGeometry(6, 24), new THREE.MeshBasicMaterial({color:0xfff6e0, fog:false})); sunD.position.set(Z.cx + 120, 110, Z.cz + 150); sunD.lookAt(Z.cx, 0, Z.cz); scene.add(sunD); far.push(sunD);
+  far.forEach(m => m.visible = false); marsFx.sky = far;
+}
+// enfeites de Marte
+function habitat(x, z){
+  const d = new THREE.Mesh(new THREE.SphereGeometry(3, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf4f4f8)); d.position.set(x, 0, z); d.castShadow = true; scene.add(d);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3, .15, 6, 30), mat(0xff6a3d)); ring.rotation.x = Math.PI / 2; ring.position.set(x, 1.2, z); scene.add(ring);
+  addBlock(x, 0, z + 3.2, 1.4, 2, 1.4, 0xe0e0e8, false); addBlock(x, .1, z + 3.95, .9, 1.6, .05, 0x2a3a55, false);
+  [0, 1, 2].forEach(k => { const w = new THREE.Mesh(new THREE.CircleGeometry(.35, 14), new THREE.MeshBasicMaterial({color:0xffe27a})); const a = k * 2.1 + .5; w.position.set(x + Math.cos(a) * 2.6, 1.6, z + Math.sin(a) * 2.6); w.lookAt(x + Math.cos(a) * 9, 1.6, z + Math.sin(a) * 9); scene.add(w); });
+  colliders.push({minX:x - 2.4, maxX:x + 2.4, minZ:z - 2.4, maxZ:z + 2.4, bottom:0, top:2.6});
+}
+function solarPanel(x, z){
+  addBlock(x, 0, z, .2, 1.2, .2, 0xb8b8c0, false);
+  const pn = addBlock(x, 1.2, z, 3, .1, 1.8, 0x1f3a7a, false); pn.rotation.x = -.5;
+  colliders.push({minX:x - .3, maxX:x + .3, minZ:z - .3, maxZ:z + .3, bottom:0, top:1.2});
+}
+function marsSpire(x, z){
+  const h = rr(2.5, 6), c = cone(rr(.8, 1.6), h, 0x7a3020, x, 0, z, 5); c.rotation.y = R() * 3;
+  colliders.push({minX:x - .7, maxX:x + .7, minZ:z - .7, maxZ:z + .7, bottom:0, top:h * .7});
+}
+// redemoinhos de poeira que passeiam por Marte
+function addDevils(Z){
+  for (let k = 0; k < 3; k++){
+    const g = new THREE.Group(); scene.add(g); g.visible = false;
+    for (let j = 0; j < 4; j++){ const r = new THREE.Mesh(new THREE.TorusGeometry(.5 + j * .45, .12, 5, 18), new THREE.MeshBasicMaterial({color:0xd89060, transparent:true, opacity:.45, depthWrite:false})); r.rotation.x = Math.PI / 2; r.position.y = .5 + j * 1.3; g.add(r); }
+    marsFx.devils.push({g, a:R() * 6, d:rr(12, 30), sp:rr(.08, .16) * (k % 2 ? 1 : -1), cx:Z.cx, cz:Z.cz});
+  }
+}
+// liga só o mundo do destino: 'moon', 'mars' ou 'earth'
+function setSpace(dest){
+  inMoon = dest === 'moon'; inMars = dest === 'mars';
+  const space = inMoon || inMars;
+  water.visible = seabed.visible = !space;
+  moonFx.ball.visible = moonFx.stars.visible = moonFx.earth.visible = inMoon;
+  if (marsFx.ball){ marsFx.ball.visible = inMars; marsFx.sky.forEach(m => m.visible = inMars); marsFx.devils.forEach(d => d.g.visible = inMars); }
+  if (inMoon){
+    scene.background.set(0x02030a);
+    scene.fog.color.set(0x02030a); scene.fog.near = 70; scene.fog.far = 170; // some com as outras ilhas lá longe (Terra e estrelas não usam névoa)
+    hemi.color.set(0xd8e0ff); hemi.groundColor.set(0x3a3a44); hemi.intensity = .55;
+    sun.color.set(0xffffff); sun.intensity = 1.15;
+  }
+  if (inMars){
+    scene.background.set(0xd9a070);
+    scene.fog.color.set(0xd9a070); scene.fog.near = 45; scene.fog.far = 150;
+    hemi.color.set(0xffd8b0); hemi.groundColor.set(0x6a2a1a); hemi.intensity = .75;
+    sun.color.set(0xffe0c0); sun.intensity = .95;
+  }
+}
+function setMoon(on){ setSpace(on ? 'moon' : (inMars ? 'mars' : 'earth')); }
+function setMars(on){ setSpace(on ? 'mars' : (inMoon ? 'moon' : 'earth')); }
 // viagem de foguete: contagem, decolagem, a outra nave pousa, e pronto
-function goMoon(on){
+function goSpace(dest){
   if (diving || launch) return; diving = true; flipping = true; hideMe = true;
   if (shiftLock) setShiftLock(false);
   for (const k in keys) keys[k] = false;
-  closeTalk(); closeQuest(); stopEmote();
-  const R0 = on ? moonFx.earthRocket : moonFx.moonRocket;
-  launch = {on, R:R0, to:on ? moonFx.moonRocket : moonFx.earthRocket, t:0, step:0};
+  closeTalk(); closeQuest(); stopEmote(); closeRocketMenu();
+  const R0 = dest !== 'earth' ? moonFx.earthRocket : inMars ? moonFx.marsRocket : moonFx.moonRocket;
+  const to = dest === 'moon' ? moonFx.moonRocket : dest === 'mars' ? moonFx.marsRocket : moonFx.earthRocket;
+  launch = {on:dest !== 'earth', dest, R:R0, to, t:0, step:0};
   Object.assign(P, {x:R0.x, y:0, z:R0.z, vy:0}); cam.pitch = .18;
   document.body.classList.add('cutscene');
 }
+let rocketAsked = false;
+const rocketEl = () => document.getElementById('rocketMenu');
+function openRocketMenu(){ if (shiftLock) setShiftLock(false); rocketEl().hidden = false; rocketEl().querySelector('button').focus(); beep(660, .08, 'triangle', .05, 1.2); }
+function closeRocketMenu(){ const m = rocketEl(); if (m.hidden) return; m.hidden = true; canvas.focus(); }
+document.getElementById('rocketMenu').addEventListener('click', e => {
+  const b = e.target.closest('button[data-go]'); if (!b) return; initAudio();
+  if (b.dataset.go === 'stay'){ closeRocketMenu(); return; }
+  goSpace(b.dataset.go);
+});
 function updateMoon(dt, t){
   if (moonFx.earth && inMoon) moonFx.earth.rotation.y += dt * .05;
+  if (inMars) for (const d of marsFx.devils){ d.a += d.sp * dt; d.g.position.set(d.cx + Math.cos(d.a) * d.d, 0, d.cz + Math.sin(d.a) * d.d); d.g.children.forEach((r, j) => { r.rotation.z += dt * (4 + j); r.position.x = Math.sin(t * 2 + j) * .2 * j; }); }
   for (let k = moonFx.smoke.length - 1; k >= 0; k--){
     const s0 = moonFx.smoke[k]; s0.t += dt; s0.m.position.y += dt * s0.vy; s0.m.position.x += dt * s0.vx; s0.m.position.z += dt * s0.vz;
     s0.m.scale.setScalar(1 + s0.t * 2.2); s0.m.material.opacity = Math.max(0, .55 * (1 - s0.t / 1.6));
@@ -1615,15 +1713,15 @@ function updateMoon(dt, t){
   } else if (!L.arrived){
     L.arrived = 1;
     L.R.g.position.y = 0; L.R.flame.visible = false;
-    setMoon(L.on);
-    lastIsland = L.on ? MOON_I : MOON.from;
+    setSpace(L.dest);
+    lastIsland = L.dest === 'moon' ? MOON_I : L.dest === 'mars' ? MARS_I : MOON.from;
     L.to.g.position.y = 34; L.to.flame.visible = true;
-    const to = L.on ? MOON.spawn : MOON.back;
+    const to = L.dest === 'moon' ? MOON.spawn : L.dest === 'mars' ? MARS.spawn : MOON.back;
     Object.assign(P, {x:to.x, y:0, z:to.z, vy:0});
     P.face = Math.atan2(L.to.x - to.x, L.to.z - to.z); cam.yaw = P.face + Math.PI; cam.pitch = .3;
     hideMe = false;
     $('dive').classList.remove('flash'); setTimeout(() => $('dive').classList.remove('skyf'), 450);
-    txt.textContent = L.on ? 'LUA' : 'TERRA'; txt.classList.add('show');
+    txt.textContent = {moon:'LUA', mars:'MARTE', earth:'TERRA'}[L.dest]; txt.classList.add('show');
   } else if (L.t < 7){
     const k = Math.min(1, (L.t - 5) / 1.8), y = 34 * (1 - k) * (1 - k);
     L.to.g.position.y = y; L.to.flame.scale.set(1, .8 + Math.sin(t * 30) * .2, 1);
@@ -1632,18 +1730,21 @@ function updateMoon(dt, t){
     L.to.g.position.y = 0; L.to.flame.visible = false; txt.classList.remove('show');
     document.body.classList.remove('cutscene');
     flipping = false; diving = false; launch = null; canvas.focus();
-    if (L.on){ banner('Lua', 'Você pousou na'); toast('Aqui a gravidade é bem fraquinha: pule bem alto! Olhe a Terra lá no céu.', 4500); }
+    if (L.dest === 'moon'){ banner('Lua', 'Você pousou na'); toast('Aqui a gravidade é bem fraquinha: pule bem alto! Olhe a Terra lá no céu.', 4500); }
+    else if (L.dest === 'mars'){ banner('Marte', 'Você pousou em'); toast('Bem-vindo a Marte! Cuidado com os redemoinhos de poeira. E a gravidade também é fraquinha.', 4500); }
     else banner('Praia do Sol', 'Voltou para a');
   }
 }
 const MOON = ZONES.find(Z => Z.moon), MOON_I = ZONES.indexOf(MOON);
+const MARS = ZONES.find(Z => Z.mars), MARS_I = ZONES.indexOf(MARS);
+if (MARS) addDevils(MARS);
 // Ilhas das fases
 const zonePlatforms = ZONES.map(() => []);
 const gateMeshes = [];
 ZONES.forEach((Z, i) => {
   const prev = Z.from !== undefined ? ZONES[Z.from] : Z.forest ? SKY : Z.wreck ? SUB : Z.stadium ? ZONES[0] : i && !Z.sky ? ZONES[i-1] : HUB;
   islandBase(Z, Z.ground, Z.beach);
-  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else if (Z.stadium){ buildStadiumGate(Z); buildStadium(Z, i); } else if (Z.moon){ buildMoonGate(Z); buildMoon(Z); } else link(prev, Z);
+  if (Z.sub){ buildDive(prev, Z); buildRealm(Z); } else if (Z.sky){ buildSkyGate(Z); buildSky(Z); } else if (Z.forest){ buildForestGate(Z); buildForest(Z); } else if (Z.wreck){ buildWreckGate(Z); buildRealm(Z); buildWreck(Z, i); } else if (Z.stadium){ buildStadiumGate(Z); buildStadium(Z, i); } else if (Z.moon){ buildMoonGate(Z); buildMoon(Z); } else if (Z.mars){ buildMarsGate(Z); buildMars(Z); } else link(prev, Z);
   const len = Math.hypot(Z.cx - prev.cx, Z.cz - prev.cz), dx = (Z.cx - prev.cx) / len, dz = (Z.cz - prev.cz) / len;
   // círculo VENDER perto da chegada da ponte; ponto de volta se cair no mar
   const px = Z.cx - dx * (Z.r - 7) - dz * 7, pz = Z.cz - dz * (Z.r - 7) + dx * 7;
@@ -1653,6 +1754,7 @@ ZONES.forEach((Z, i) => {
   if (Z.sub){ Z.portal = {x: Z.spawn.x + 8, z: Z.spawn.z + 4}; portalUp(Z.portal.x, Z.portal.z); }
   if (Z.wreck){ Z.portal = {x: Z.spawn.x, z: Z.spawn.z - 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO REINO', 0x7fe8ff, '#7fe8ff', '#06243f', 0xbff4ff); }
   if (Z.moon) buildMoonPortal(Z, dx, dz);
+  if (Z.mars) buildMarsPortal(Z, dx, dz);
   if (Z.stadium){ Z.portal = {x: Z.spawn.x, z: Z.spawn.z + 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO CAMPO', 0x3ddc84, '#3ddc84', '#0d2a1a', 0xc8ffd8); }
   if (Z.forest){ Z.portal = {x: Z.spawn.x - 4, z: Z.spawn.z + 9}; portalUp(Z.portal.x, Z.portal.z, 'VOLTAR AO CÉU', 0xfff6c8, '#fff6c8', '#2a2145', 0xfff6c8); }
   if (Z.sky){ Z.portal = {x: Z.spawn.x - 8, z: Z.spawn.z - 4}; portalUp(Z.portal.x, Z.portal.z, 'DESCER', 0xffe27a, '#ffe27a', '#2a2145', 0xfff6c8); }
@@ -1678,12 +1780,13 @@ ZONES.forEach((Z, i) => {
     [],
     [[palm,14],[beachUmb,9],[sandcastle,4],[surf,6],[crab,9],[starfish,8],[shell,8],[rock,3],[lifeguard,1],[volley,1],[kiosk,2]],
     [[lander,1],[rover,1],[radarDish,1],[moonFlag,1],[crater,12],[rock,12]],
+    [[habitat,2],[solarPanel,4],[rover,1],[radarDish,1],[moonFlag,1],[crater,6],[rock,16],[marsSpire,6]],
   ][i];
   for (const [fn, n] of KINDS) for (let k = 0; k < n; k++){
-    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree || fn === lifeguard || fn === volley || fn === kiosk || fn === lander || fn === rover || fn === radarDish;
+    const big = fn === hut || fn === igloo || fn === pyramid || fn === temple || fn === bigTree || fn === lifeguard || fn === volley || fn === kiosk || fn === lander || fn === rover || fn === radarDish || fn === habitat || fn === solarPanel;
     const s = spot(big ? 8 : 4, big ? 4.5 : 2.2); if (!s) continue; const [x, z] = s;
     if (fn === hut) hut(x, z, [0xf4ecd8, 0xe0b860][i], [0xc0392b, 0x8a5a3b][i]);
-    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a, 0x56606b, 0x8a909c, 0xb8a07a, 0x8a8a94][i]);
+    else if (fn === rock) rock(x, z, [0x8a8f9c, 0xc9a04c, 0xa9c8ea, 0x3a2a2e, 0x4a6a7a, 0xc9c2dd, 0x5f6b5a, 0x56606b, 0x8a909c, 0xb8a07a, 0x8a8a94, 0x7a3020][i]);
     else if (fn === pyramid) pyramid(x, z, i);
     else fn(x, z);
   }
@@ -1692,7 +1795,7 @@ ZONES.forEach((Z, i) => {
     if (!clear(x, z) || occupied(x, z, 2)) continue; n++; umbrella(x, z, FLOWER[n]);
   }
   // escadinhas com cristais no topo
-  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b, 0x5a4030, 0x8a909c, 0xe8c97a, 0xa8a8b2][i];
+  const stepColor = [0xd9c27a, 0xd8a85a, 0xcfe4f8, 0x5a3a4a, 0x3a6f8a, 0xe6e0f5, 0x6b4a2b, 0x5a4030, 0x8a909c, 0xe8c97a, 0xa8a8b2, 0xa0482a][i];
   for (let k = 0; k < (Z.stadium ? 0 : 4); k++){
     const s = spot(13); if (!s) continue; const [x, z] = s;
     const n = 3 + (k % 2), dir = x < Z.cx ? 1 : -1;
@@ -3406,6 +3509,7 @@ const LOOKS = [
   {I:ZONES[8], n:6, hats:['cap', 'cap', 'none'], tops:[0xffd23f, 0x3ddc84, 0x4aa8ff, 0xffffff], bottoms:[0x2b4c7e, 0xffffff]},
   {I:ZONES[5], n:4, hats:['halo'], tops:[0xffffff, 0xf4f0ff, 0xbfe8ff], bottoms:[0xf4f0ff, 0xbfe8ff]},
   {I:ZONES[10], n:5, hats:['diver'], tops:[0xffffff, 0xf0f0f5, 0xe8e8ee], bottoms:[0xe0e0e8, 0xffffff]},
+  {I:ZONES[11], n:5, hats:['diver'], tops:[0xffffff, 0xff8a5c, 0xffd23f], bottoms:[0xe0e0e8, 0xffffff]},
   {I:INV, n:7, hats:['none', 'cap', 'beanie', 'bun'], tops:[0x9a6bff, 0x3ddc84, 0xff5a8a, 0x4ae0c8, 0xffd23f], bottoms:[0x2a1050, 0x4a3a6a, 0x2b4c7e]},
 ];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
@@ -3601,6 +3705,7 @@ addEventListener('keydown', e => {
     return;
   }
   if (!questEl.hidden && e.code === 'Escape'){ closeQuest(); return; }
+  if (!rocketEl().hidden){ const go = {Digit1:'moon', Numpad1:'moon', Digit2:'mars', Numpad2:'mars'}[e.code]; if (go){ e.preventDefault(); goSpace(go); } else if (e.code === 'Escape') closeRocketMenu(); return; }
   if (!emoEl.hidden){
     const m = /^(Digit|Numpad)([1-8])$/.exec(e.code);
     if (m){ e.preventDefault(); playEmote(EMOTES[+m[2] - 1].id); return; }
@@ -3811,7 +3916,7 @@ function switchAccount(acc){
   ACC = acc;
   try{ if (acc) localStorage.setItem(ACC_KEY, acc); else localStorage.removeItem(ACC_KEY); }catch(e){}
   S = fresh(); load(); cloudDoc = null; cloudLast = ''; cloudH = null;
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon) setMoon(false); inResto = false; if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0});
   hud(); gateCheck(); refreshBoatSign(); ensureDaily(); renderAcct();
   cloudOpen();
@@ -4039,7 +4144,7 @@ $('ups').addEventListener('click', e => {
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
   const r = S.rebirths + 1, keep = {pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
-  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon) setMoon(false); inResto = false; if (under) setUnder(false); inMini = false;
+  if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
 });
@@ -4240,7 +4345,7 @@ function setPart(k){
   for (let i = 0; i < PN; i++){ pPos[i * 3] = P.x + (Math.random() - .5) * 80; pPos[i * 3 + 1] = Math.random() * 30; pPos[i * 3 + 2] = P.z + (Math.random() - .5) * 80; }
 }
 function updateEnv(dt, t){
-  const special = under || inSky || inForest || inElf || inMoon;
+  const special = under || inSky || inForest || inElf || inMoon || inMars;
   skyMesh.visible = !special;
   if (special){ pts.visible = false; return; }
   const key = inInv ? 'inv' : inSnow ? 'mt' : !inArena && !inMini && lastIsland === PRAIA_I ? 'praia' : !inArena && !inMini && lastIsland >= 0 && lastIsland <= 3 ? lastIsland : 'hub';
@@ -4382,7 +4487,7 @@ function step(now){
   if (jumpBuf > 0 && coyote > 0 && !driving && !flipping){ P.vy = jumpVel(S.lv.jump) * (under ? .7 : 1); P.onGround = false; coyote = 0; jumpBuf = 0; beep(300, .1, 'sine', .04, 2); }
   jumpBuf = Math.max(0, jumpBuf - dt);
   const prevY = P.y;
-  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : inInv ? .5 : inMoon ? .35 : 1) * dt);
+  P.vy = Math.max(under ? -10 : -40, P.vy - GRAV * (under ? .4 : inInv ? .5 : inMoon ? .35 : inMars ? .45 : 1) * dt);
   P.y += P.vy * dt;
   const sup = support(P.x, P.z, Math.max(prevY + 0.05, P.onGround ? P.y + STEP : P.y + 0.05));
   if (P.y <= sup && P.vy <= 0){ P.y = sup; P.vy = 0; P.onGround = true; } else if (P.y > sup + 0.05) P.onGround = false;
@@ -4447,8 +4552,12 @@ function step(now){
   updateKings(dt, t);
   updateStadium(dt, t);
   updateMoon(dt, t);
-  if (MOON && !diving && !launch && !inMoon && S.unlocked > MOON_I && P.y < 1 && Math.hypot(P.x - MOON.gate.x, P.z - MOON.gate.z) < 2.6) goMoon(true);
-  if (MOON && !diving && !launch && inMoon && P.y < 1 && Math.hypot(P.x - MOON.portal.x, P.z - MOON.portal.z) < 2.6) goMoon(false);
+  // foguete da praia: sem Marte vai direto para a Lua; com Marte liberado pergunta para onde
+  const atRocket = MOON && !inMoon && !inMars && S.unlocked > MOON_I && P.y < 1 && Math.hypot(P.x - MOON.gate.x, P.z - MOON.gate.z) < 2.6;
+  if (atRocket && !diving && !launch && !rocketAsked){ rocketAsked = true; if (MARS && S.unlocked > MARS_I) openRocketMenu(); else goSpace('moon'); }
+  if (!atRocket){ rocketAsked = false; if (MOON && Math.hypot(P.x - MOON.gate.x, P.z - MOON.gate.z) > 4.5) closeRocketMenu(); }
+  if (MOON && !diving && !launch && inMoon && P.y < 1 && Math.hypot(P.x - MOON.portal.x, P.z - MOON.portal.z) < 2.6) goSpace('earth');
+  if (MARS && !diving && !launch && inMars && P.y < 1 && Math.hypot(P.x - MARS.portal.x, P.z - MARS.portal.z) < 2.6) goSpace('earth');
   updatePraia(t);
 
   // câmera (na tela inicial ela gira devagar em volta do boneco)
@@ -4467,7 +4576,7 @@ function step(now){
   const zi = islandAt(P.x, P.z);
   if (zi !== null){
     lastIsland = zi;
-    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; if (zi === -2) banner('Ilha dos Portais', 'Você chegou na'); else banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia || ZN.moon ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.moon ? 'Você pousou na' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
+    if (zi !== zoneNow){ zoneNow = zi; const ZN = ZONES[zi]; if (zi === -2) banner('Ilha dos Portais', 'Você chegou na'); else banner(zi < 0 ? 'Ilha Central' : (ZN.sub || ZN.sky || ZN.forest || ZN.wreck || ZN.stadium || ZN.praia || ZN.moon || ZN.mars ? '' : 'Ilha ') + ZN.name, zi < 0 ? 'Voltou para a' : ZN.moon ? 'Você pousou na' : ZN.mars ? 'Você pousou em' : ZN.sub ? 'Você mergulhou no' : ZN.sky ? 'Você subiu ao' : ZN.forest ? 'Você entrou na' : ZN.wreck || ZN.stadium ? 'Você entrou no' : 'Você chegou na'); if (zi >= 0) packGem.material = gemMats[zi]; }
   }
   water.position.y = -0.5 + Math.sin(t * 0.9) * 0.05;
   for (const f of foams) f.material.opacity = 0.35 + Math.sin(t * 1.6) * 0.12;
@@ -4565,7 +4674,8 @@ function start(data){
   if (SUB && inIsle(SUB, P.x, P.z)) setUnder(true);
   if (WRECK && inIsle(WRECK, P.x, P.z)) setUnder(true);
   if (SKY && inIsle(SKY, P.x, P.z)) setSky(true);
-  if (MOON && inIsle(MOON, P.x, P.z)) setMoon(true);
+  if (MOON && inIsle(MOON, P.x, P.z)) setSpace('moon');
+  if (MARS && inIsle(MARS, P.x, P.z)) setSpace('mars');
   if (FOREST && inIsle(FOREST, P.x, P.z)) setForest(true);
   resize(); hud(); refreshBoatSign(); ensureDaily();
   cloudInit();
