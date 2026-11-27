@@ -112,6 +112,9 @@ body.touch #intro small{display:none}
 #acctTxt{font-size:14px;font-weight:800;color:var(--text);text-shadow:0 2px 6px rgba(0,0,0,.6)}
 #acctTxt b{color:var(--gem)}
 #loginBtn{font-size:17px;padding:8px 16px}
+#delBtn{font-size:15px;padding:7px 12px;background:transparent;border-color:var(--bad);color:#ffb3c0;box-shadow:none}
+#delBtn[hidden]{display:none}
+#loginGo.danger{background:var(--bad);border-color:#b3263f;color:#fff}
 #login{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(10,6,24,.7);padding:16px}
 #login[hidden]{display:none!important}
 #loginErr{min-height:1.3em;margin:0;font-size:14px;font-weight:900;color:var(--bad)}
@@ -335,7 +338,7 @@ body.touch .pw b{display:none}
     <p>Pegue cristais, venda nas barracas e descubra todas as ilhas!</p>
     <button class="btn go" id="playBtn" type="button">JOGAR</button><button class="btn" id="multiBtn" type="button">MULTIPLAYER</button>
     <small>ou aperte Enter</small>
-    <div id="acct"><span id="acctTxt"></span><button class="btn" id="loginBtn" type="button">Entrar na conta</button></div>
+    <div id="acct"><span id="acctTxt"></span><button class="btn" id="loginBtn" type="button">Entrar na conta</button><button class="btn" id="delBtn" type="button" hidden>Apagar conta</button></div>
   </div>
 </div>
 <div id="login" hidden><form class="sheet cheatbox" id="loginForm" role="dialog" aria-modal="true" aria-labelledby="loginLbl" autocomplete="off">
@@ -3645,6 +3648,7 @@ const loginEl = $('login'), loginName = $('loginName'), loginPass = $('loginPass
 function renderAcct(){
   $('acctTxt').innerHTML = ACC ? 'Conta: <b>' + ACC + '</b>' : 'Jogando como visitante';
   $('loginBtn').textContent = ACC ? 'Sair da conta' : 'Entrar na conta';
+  $('delBtn').hidden = !ACC;
 }
 function switchAccount(acc){
   save();
@@ -3659,16 +3663,32 @@ function switchAccount(acc){
 let loginMode = 'in', loginBusy = false;
 function setLoginMode(m){
   loginMode = m; $('loginErr').textContent = '';
-  $('loginLbl').textContent = m === 'in' ? 'Entrar na conta' : 'Criar conta nova';
-  $('loginHint').textContent = m === 'in' ? 'Sua conta funciona em qualquer computador.' : 'Nome com 3 a 16 letras ou números (sem espaço) e senha com pelo menos 4.';
+  const del = m === 'del';
+  $('loginLbl').textContent = m === 'in' ? 'Entrar na conta' : del ? 'Apagar a conta ' + ACC : 'Criar conta nova';
+  $('loginHint').textContent = m === 'in' ? 'Sua conta funciona em qualquer computador.' : del ? 'Todo o progresso desta conta some de todos os computadores e não tem volta. Digite a senha para confirmar.' : 'Nome com 3 a 16 letras ou números (sem espaço) e senha com pelo menos 4.';
   $('loginMode').textContent = m === 'in' ? 'Criar conta nova' : 'Já tenho conta';
-  $('loginGo').textContent = m === 'in' ? 'Entrar' : 'Criar';
+  $('loginMode').hidden = del; loginName.disabled = del;
+  $('loginGo').textContent = m === 'in' ? 'Entrar' : del ? 'Apagar para sempre' : 'Criar';
+  $('loginGo').classList.toggle('danger', del);
 }
+async function deleteAccount(name){
+  if (gameDb) await gameDb.doc('contas/' + name).delete();
+  if (name === 'altor' && privCol){ try{ await privCol.doc('ilha-save').delete(); }catch(e){} }
+  try{ localStorage.removeItem(name === 'altor' ? SAVE_KEY : SAVE_KEY + '-' + name); }catch(e){}
+  delete known[name]; try{ localStorage.setItem(KNOWN_KEY, JSON.stringify(known)); }catch(e){}
+  cloudDoc = null; cloudH = null; ACC = null; // não salva mais nada desta conta
+  switchAccount(null);
+}
+$('delBtn').addEventListener('click', () => {
+  initAudio(); if (!ACC) return;
+  loginName.value = ACC; loginPass.value = ''; setLoginMode('del');
+  loginEl.hidden = false; loginPass.focus();
+});
 function openLogin(){
   loginName.value = ''; loginPass.value = ''; setLoginMode('in');
   loginEl.hidden = false; loginName.focus();
 }
-function closeLogin(){ loginEl.hidden = true; $('loginBtn').focus(); }
+function closeLogin(){ loginEl.hidden = true; loginName.disabled = false; $('loginBtn').focus(); }
 $('loginMode').addEventListener('click', () => { setLoginMode(loginMode === 'in' ? 'new' : 'in'); loginName.focus(); });
 $('loginBtn').addEventListener('click', () => {
   initAudio();
@@ -3685,6 +3705,14 @@ $('loginForm').addEventListener('submit', async e => {
   const name = loginName.value.trim().toLowerCase(), pass = loginPass.value;
   loginBusy = true; $('loginGo').disabled = true; $('loginErr').textContent = 'Um instante...';
   try{
+    if (loginMode === 'del'){
+      const A = await findAccount(name);
+      if (!A || name !== ACC || passHash(name, pass) !== A.h){ loginFail('Senha errada. A conta não foi apagada.'); loginPass.value = ''; loginPass.focus(); return; }
+      try{ await deleteAccount(name); }
+      catch(err){ loginFail('Não deu para apagar agora. Peça para quem compartilhou o jogo liberar a edição.'); return; }
+      loginEl.hidden = true; loginName.disabled = false; $('acctTxt').textContent = 'Conta apagada. Jogando como visitante';
+      beep(300, .3, 'triangle', .06, .5); $('playBtn').focus(); return;
+    }
     if (loginMode === 'in'){
       const A = await findAccount(name);
       if (!A || passHash(name, pass) !== A.h){ loginFail('Nome ou senha errados. Tente de novo!'); loginPass.value = ''; loginPass.focus(); return; }
