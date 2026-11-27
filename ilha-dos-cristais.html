@@ -192,7 +192,9 @@ body.arena #battle{display:block}
 #battle small{display:block;font-size:12px;font-weight:800;color:var(--muted)}
 @media (max-width:700px){#battle{top:auto;bottom:calc(170px + env(safe-area-inset-bottom,0px))}.hpbar{width:150px}}
 #atk{display:none;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;right:calc(118px + env(safe-area-inset-right,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px));width:80px;height:80px;border-radius:50%;font-size:14px;padding:0;background:var(--bad);border-color:#b3263f}
-body.touch.arena #atk{display:block}
+body.touch.arena #atk,body.touch.fight #atk{display:block}
+#fightBtn{background:#ff5470;border-color:#b3263f;color:#2a0610}
+#fightBtn[aria-pressed="true"]{background:#ffcc33;border-color:#c79a12;color:#3a2a00;box-shadow:0 0 0 3px #ff5470,0 4px 0 rgba(0,0,0,.4)}
 #hurt{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(ellipse at center,rgba(255,20,60,0) 45%,rgba(255,20,60,.6) 100%)}
 #hurt.on{opacity:1;transition:none}
 #dive.arenaf{background:#3a0b18}
@@ -349,6 +351,7 @@ body.touch .pw b{display:none}
 </div>
 
 <div class="hud" id="topright">
+  <button class="btn" id="fightBtn" type="button" aria-pressed="false">⚔️ Lutar</button>
   <button class="btn" id="mapBtn" type="button" aria-controls="map">🗺️ Mapa</button>
   <button class="btn" id="emoBtn" type="button" aria-expanded="false" aria-controls="emotes">Emotes</button>
   <button class="btn skin" id="skinsBtn" type="button">Skins</button>
@@ -366,7 +369,7 @@ body.touch .pw b{display:none}
   <div><b id="gateName"></b><span id="gateInfo"></span></div>
   <button class="btn go" id="gateBtn" type="button">Desbloquear</button>
 </div>
-<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock · <kbd>E</kbd> conversar · <kbd>K</kbd> skins · <kbd>G</kbd> emotes · <kbd>F</kbd> ou clique atacar · <kbd>1</kbd>-<kbd>4</kbd> poderes (na arena)</div>
+<div class="hud" id="help"><kbd>W A S D</kbd> andar · <kbd>Espaço</kbd> pular · arraste o mouse para girar a câmera · <kbd>L</kbd> loja · <kbd>P</kbd> pets · <kbd>Shift</kbd> shift lock · <kbd>E</kbd> conversar · <kbd>K</kbd> skins · <kbd>G</kbd> emotes · <kbd>R</kbd> modo luta · <kbd>F</kbd> ou clique atacar · <kbd>1</kbd>-<kbd>4</kbd> poderes (na arena)</div>
 <div class="hud" id="battle"><b id="waveTxt">Arena</b><div class="hpbar"><i id="hpBar"></i></div><span id="hpTxt"></span><small id="foesTxt"></small></div>
 <div id="hurt" aria-hidden="true"></div>
 <div id="cross" aria-hidden="true"></div>
@@ -2372,7 +2375,7 @@ function battleHud(){
 function setArena(on){
   inArena = on;
   document.body.classList.toggle('arena', on);
-  sword.visible = on;
+  sword.visible = on || fightOn;
   clearFoes(); clearPowers(); B.wave = 0; B.hp = B.max; B.next = on ? 2.5 : 0; B.shown = '';
   if (on) battleHud();
 }
@@ -2521,7 +2524,8 @@ document.getElementById('powers').addEventListener('pointerdown', e => {
   e.preventDefault(); e.stopPropagation(); initAudio(); usePower(b.dataset.pw);
 });
 function attack(){
-  if (!inArena || !playing || B.cd > 0 || diving) return;
+  if (!inArena){ fightAttack(); return; }
+  if (!playing || B.cd > 0 || diving) return;
   B.cd = .38; B.swing = .28;
   beep(700, .08, 'sawtooth', .035, .5);
   let best = null, bd = 4.5;
@@ -4154,6 +4158,7 @@ const LOOKS = [
   {I:ZONES[11], n:5, hats:['diver'], tops:[0xffffff, 0xff8a5c, 0xffd23f], bottoms:[0xe0e0e8, 0xffffff]},
   {I:ZONES[12], n:4, hats:['diver'], tops:[0xffffff, 0xc77dff, 0x7fd0ff], bottoms:[0xe0e0e8, 0x2a1050]},
   {I:CASTLE, n:7, hats:['knight', 'knight', 'knight', 'bun', 'none'], tops:[0x7b4fd6, 0xc0392b, 0x2b6cd4, 0xa9b4c2], bottoms:[0x3a3f4a, 0x2b4c7e]},
+  {I:CASTLE, n:4, hats:['knight']}, // guardas do Rei
   {I:INV, n:7, hats:['none', 'cap', 'beanie', 'bun'], tops:[0x9a6bff, 0x3ddc84, 0xff5a8a, 0x4ae0c8, 0xffd23f], bottoms:[0x2a1050, 0x4a3a6a, 0x2b4c7e]},
 ];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
@@ -4198,7 +4203,7 @@ function buildVillager(L){
   [-1, 1].forEach(sd => { const p = new THREE.Group(); p.position.set(sd * .7, 1.9, 0); g.add(p); part(.36, .45, .42, top, 0, -.22, 0, p); part(.34, .5, .38, skin, 0, -.68, 0, p); arms.push(p); });
   const s = R() < .25 ? .72 : .92 + R() * .12; // alguns são crianças
   g.scale.setScalar(s); scene.add(g);
-  return {g, head, legs, arms, s};
+  return {g, head, legs, arms, s, hat};
 }
 for (const L of LOOKS) for (let k = 0; k < L.n; k++){
   const v = buildVillager(L), [x, z] = villagerSpot(L.I);
@@ -4208,7 +4213,9 @@ for (const L of LOOKS) for (let k = 0; k < L.n; k++){
 }
 function updateVillagers(dt, t){
   for (const v of villagers){
+    if (v.arr) continue;
     if (Math.abs(v.x - P.x) > 90 || Math.abs(v.z - P.z) > 90) continue;
+    if (villagerHurt(v, dt, t)) continue;
     const pd = Math.hypot(P.x - v.x, P.z - v.z), near = pd < 5 && !inArena;
     let walking = false;
     if (near){
@@ -4232,6 +4239,136 @@ function updateVillagers(dt, t){
     v.g.position.set(v.x, walking ? Math.abs(Math.sin(t * 8 + v.ph)) * .06 : 0, v.z);
   }
 }
+
+
+// ---------- Modo de luta (fora da arena) ----------
+// Liga com o botão ⚔️ Lutar ou a tecla R. Bater nos moradores: eles reclamam e fogem; na 3ª pancada caem tontos e levantam depois.
+// Bater no Rei UMA vez: os cavaleiros correm, agarram você e te levam para a Ilha Central.
+let fightOn = false, fightCd = 0;
+const OUCH = ['Ai!', 'Ui!', 'Ei!', 'Socorro!', 'Para com isso!', 'Ai, ai!', 'Mamãe!'];
+const KNIGHT_SAY = ['Sem bagunça!', 'Ei, respeito!', 'Cuidado, hein!', 'Eu sou da guarda!'];
+function setFight(on){
+  fightOn = on;
+  sword.visible = inArena || on;
+  document.body.classList.toggle('fight', on);
+  const b = $('fightBtn'); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? '⚔️ Lutando' : '⚔️ Lutar';
+  toast(on ? (document.body.classList.contains('touch') ? 'Modo luta ligado! Use o botão ATACAR.' : 'Modo luta ligado! F ou clique para atacar.') : 'Modo luta desligado.', 2000);
+  beep(on ? 520 : 300, .1, 'sawtooth', .04, on ? 1.4 : .7);
+}
+function fightAttack(){
+  if (!fightOn || !playing || fightCd > 0 || diving || driving || arrest.on || flipping) return;
+  fightCd = .38; B.swing = .28;
+  beep(700, .08, 'sawtooth', .035, .5);
+  const fx = Math.sin(P.face), fz = Math.cos(P.face);
+  let best = null, bd = 3.2, kind = null;
+  for (const kg of kings){ const d = Math.hypot(kg.x - P.x, kg.z - P.z); if (d < bd){ bd = d; best = kg; kind = 'king'; } }
+  for (const v of villagers){ if (v.arr) continue; const d = Math.hypot(v.x - P.x, v.z - P.z); if (d < Math.min(bd, 2.8)){ bd = d; best = v; kind = 'v'; } }
+  if (!best) return;
+  P.face = Math.atan2(best.x - P.x, best.z - P.z); player.rotation.y = P.face;
+  if (kind === 'king'){ startArrest(best); return; }
+  hitVillager(best);
+}
+function hitVillager(v){
+  const dx = v.x - P.x, dz = v.z - P.z, d = Math.hypot(dx, dz) || 1;
+  const nx = v.x + dx / d * .9, nz = v.z + dz / d * .9;
+  if (!occupied(nx, nz, .35) && inIsle(v.I, nx, nz, -1)){ v.x = nx; v.z = nz; }
+  beep(260, .07, 'square', .05, .7);
+  if (v.down > 0) return;
+  v.hp = (v.hp ?? 3) - 1;
+  if (v.hp <= 0){
+    v.down = 4; v.flee = 0; v.hp = 3;
+    floatText('😵', v.x, 3 * v.s, v.z, 'emo2');
+    beep(180, .3, 'sine', .06, .4);
+    return;
+  }
+  const knight = v.hat === 'knight';
+  floatText(knight ? KNIGHT_SAY[Math.floor(Math.random() * KNIGHT_SAY.length)] : OUCH[Math.floor(Math.random() * OUCH.length)], v.x, 3.3 * v.s, v.z, 'hi');
+  if (!knight) v.flee = 3.5;
+  v.face = Math.atan2(P.x - v.x, P.z - v.z);
+}
+// moradores apanhando: fugindo ou caídos. Devolve true se já cuidou do morador neste quadro.
+function villagerHurt(v, dt, t){
+  if (v.down > 0){
+    v.down -= dt;
+    const lying = v.down > .6;
+    v.g.rotation.z += ((lying ? 1.45 : 0) - v.g.rotation.z) * Math.min(1, dt * 8);
+    v.g.position.set(v.x, lying ? .35 * v.s : 0, v.z);
+    v.legs.forEach(l => l.rotation.x = 0); v.arms.forEach(a => { a.rotation.x = lying ? -.3 : 0; a.rotation.z = 0; });
+    if (v.down <= 0){ v.g.rotation.z = 0; floatText('Ufa!', v.x, 3.3 * v.s, v.z, 'hi'); v.wait = 1; }
+    return true;
+  }
+  if (v.flee > 0){
+    v.flee -= dt;
+    const dx = v.x - P.x, dz = v.z - P.z, d = Math.hypot(dx, dz) || 1, sp = 4.6;
+    const nx = v.x + dx / d * sp * dt, nz = v.z + dz / d * sp * dt;
+    if (!occupied(nx, nz, .35) && inIsle(v.I, nx, nz, -2)){ v.x = nx; v.z = nz; v.face = Math.atan2(dx, dz); }
+    else v.face += dt * 4;
+    let da = v.face - v.g.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); v.g.rotation.y += da * Math.min(1, dt * 10);
+    const sw = Math.sin(t * 14 + v.ph) * .8;
+    v.legs[0].rotation.x = sw; v.legs[1].rotation.x = -sw;
+    v.arms.forEach(a => { a.rotation.x = -2.8 + Math.sin(t * 16 + v.ph) * .3; a.rotation.z = 0; }); // braços para cima, desesperado
+    v.g.position.set(v.x, Math.abs(Math.sin(t * 14 + v.ph)) * .1, v.z);
+    if (v.flee <= 0){ [v.tx, v.tz] = villagerSpot(v.I); v.wait = .5; }
+    return true;
+  }
+  return false;
+}
+// Cavaleiros prendem quem bate no Rei
+const arrest = {on:false, t:0, ks:[], grabbed:0, kg:null};
+function startArrest(kg){
+  if (arrest.on) return;
+  arrest.on = true; arrest.t = 0; arrest.grabbed = 0; arrest.kg = kg;
+  closeQuest(); closeTalk(); stopEmote(); if (shiftLock) setShiftLock(false);
+  beep(160, .12, 'square', .07, .6);
+  floatText('😠', kg.x, 5.4, kg.z, 'emo2');
+  floatText('GUARDAS!', kg.x, 4.8, kg.z, 'dmg');
+  toast('👑 Rei Cristóvão: GUARDAS! Prendam esse bagunceiro!', 3200);
+  [880, 660, 880, 660, 880, 660].forEach((f, j) => setTimeout(() => beep(f, .16, 'square', .05, 1), 200 + j * 180));
+  let ks = villagers.filter(v => v.hat === 'knight' && v.I === kg.K.I);
+  ks.sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z)); ks = ks.slice(0, 4);
+  ks.forEach((v, i) => { v.arr = {a:i / ks.length * Math.PI * 2 + .4}; v.down = 0; v.flee = 0; v.g.rotation.z = 0; });
+  arrest.ks = ks;
+}
+function updateArrest(dt, t){
+  if (!arrest.on) return;
+  arrest.t += dt;
+  let all = true;
+  for (const v of arrest.ks){
+    const tx = P.x + Math.sin(v.arr.a) * 1.25, tz = P.z + Math.cos(v.arr.a) * 1.25;
+    let dx = tx - v.x, dz = tz - v.z, d = Math.hypot(dx, dz);
+    if (arrest.t > 2.6 && d > .3){ v.x = tx; v.z = tz; d = 0; } // quem ficou para trás chega correndo
+    const sp = 9 * dt;
+    if (d > .15){ all = false; const k = Math.min(1, sp / d); v.x += dx * k; v.z += dz * k; v.face = Math.atan2(dx, dz); }
+    else v.face = Math.atan2(P.x - v.x, P.z - v.z);
+    let da = v.face - v.g.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); v.g.rotation.y += da * Math.min(1, dt * 12);
+    const run = d > .15, sw = run ? Math.sin(t * 15 + v.ph) * .9 : 0;
+    v.legs[0].rotation.x = sw; v.legs[1].rotation.x = -sw;
+    v.arms.forEach(a => { a.rotation.x = run ? -sw : -1.5; a.rotation.z = 0; }); // chegou: braços para a frente, agarrando
+    v.g.position.set(v.x, run ? Math.abs(Math.sin(t * 15 + v.ph)) * .12 : 0, v.z);
+  }
+  if (!arrest.grabbed && (all || arrest.t > 2.7)){
+    arrest.grabbed = arrest.t;
+    if (arrest.ks[0]) floatText('Peguei você!', arrest.ks[0].x, 3.4, arrest.ks[0].z, 'hi');
+    else floatText('Peguei você!', P.x, 3.6, P.z, 'hi');
+    beep(140, .2, 'square', .07, .7);
+  }
+  if (arrest.grabbed){
+    const k = arrest.t - arrest.grabbed;
+    P.y = Math.max(P.y, Math.min(.8, k * 1.2)); P.vy = 0; // os cavaleiros levantam você
+    player.rotation.z = Math.sin(t * 18) * .15; // esperneando
+    if (k > 1.3 && !arrest.flash){ arrest.flash = true; $('dive').classList.add('flash'); beep(520, .5, 'sine', .07, 2); }
+    if (k > 1.75){
+      $('dive').classList.remove('flash'); arrest.flash = false;
+      player.rotation.z = 0;
+      for (const v of arrest.ks){ delete v.arr; [v.x, v.z] = villagerSpot(v.I); [v.tx, v.tz] = [v.x, v.z]; v.wait = 2; v.g.position.set(v.x, 0, v.z); }
+      arrest.on = false; arrest.ks = [];
+      Object.assign(P, {x:0, y:0, z:8, vy:0, onGround:true}); cam.yaw = Math.PI; lastIsland = -1;
+      banner('Ilha Central', 'Os cavaleiros te levaram para a');
+      toast('🛡️ Expulso do castelo! Não se ataca o Rei.', 4000);
+    }
+  }
+}
+function updateFight(dt, t){ fightCd -= dt; updateArrest(dt, t); }
 
 // ---------- Física simples ----------
 function blocked(x, z, y){
@@ -4374,6 +4511,7 @@ addEventListener('keydown', e => {
   if (!mapEl.hidden && (e.code === 'Minus' || e.code === 'NumpadSubtract')) setMapZoom(-1);
   if (e.code === 'KeyG' && !e.repeat) toggleEmotes();
   if (e.code === 'KeyF' && !e.repeat) attack();
+  if (e.code === 'KeyR' && !e.repeat && !inArena) setFight(!fightOn);
   if (inArena && !e.repeat && /^(Digit|Numpad)[1-4]$/.test(e.code)) usePower(['fire', 'bolt', 'ice', 'heal'][+e.code.slice(-1) - 1]);
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -4406,7 +4544,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 canvas.addEventListener('pointerdown', e => {
   if (!playing) return;
   initAudio(); canvas.focus();
-  if (inArena && e.pointerType === 'mouse' && e.button === 0) attack();
+  if ((inArena || fightOn) && e.pointerType === 'mouse' && e.button === 0) attack();
   if (e.pointerType === 'touch') document.body.classList.add('touch');
   if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45 && stick.id === null){
     Object.assign(stick, {id:e.pointerId, ox:e.clientX, oy:e.clientY, x:0, y:0});
@@ -4433,6 +4571,7 @@ canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointerca
 canvas.addEventListener('wheel', e => { cam.dist = Math.min(24, Math.max(6, cam.dist + e.deltaY * 0.01)); e.preventDefault(); }, {passive:false});
 const jumpBtn = document.getElementById('jump');
 jumpBtn.addEventListener('pointerdown', e => { initAudio(); jumpBuf = 0.15; e.preventDefault(); e.stopPropagation(); });
+document.getElementById('fightBtn').addEventListener('click', () => { initAudio(); setFight(!fightOn); canvas.focus(); });
 document.getElementById('atk').addEventListener('pointerdown', e => { initAudio(); attack(); e.preventDefault(); e.stopPropagation(); });
 
 // ---------- Som ----------
@@ -5141,6 +5280,7 @@ function step(now){
   if (keys.KeyD || keys.ArrowRight) ix += 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (stick.id !== null){ ix += stick.x; iz -= stick.y; }
+  if (arrest.on){ ix = 0; iz = 0; jumpBuf = 0; }
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
@@ -5222,6 +5362,7 @@ function step(now){
   updatePets(dt, t);
   updateArena(dt, t);
   updateVillagers(dt, t);
+  updateFight(dt, t);
   updateMini(dt, t);
   updateElf(dt, t);
   updateSnow(dt, t);
