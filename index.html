@@ -230,6 +230,8 @@ body.alarm #alarm{animation:alarmBlink .45s steps(2) infinite}
 #mapBtn{background:#3ddc84;border-color:#1f9e58;color:#0d2a1a}
 .mapsheet{width:min(680px,100%)}
 .mapsheet h2{margin:0}
+.mapzoom{display:flex;gap:6px;margin-left:auto}
+.mapzoom .btn{width:44px;padding:6px 0;font-size:22px}
 #mapHint{margin:0 0 8px;font-size:15px;font-weight:800;color:var(--text)}
 #mapCv{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:14px;background:#1f6fb8;border:3px solid var(--line)}
 .maplegend{margin:8px 0 0;font-size:12px;font-weight:800;color:var(--muted);line-height:1.6}
@@ -362,10 +364,10 @@ body.touch .pw b{display:none}
 <div id="cross" aria-hidden="true"></div>
 <div id="dive" aria-hidden="true"></div>
 <div id="map" hidden role="dialog" aria-modal="true" aria-labelledby="mapTitle"><div class="sheet mapsheet">
-  <header><h2 id="mapTitle">Mapa</h2><button class="btn" id="closeMap" type="button">Fechar</button></header>
+  <header><h2 id="mapTitle">Mapa</h2><span class="mapzoom"><button class="btn" id="mapOut" type="button" aria-label="Afastar">−</button><button class="btn" id="mapIn" type="button" aria-label="Aproximar">+</button></span><button class="btn" id="closeMap" type="button">Fechar</button></header>
   <p id="mapHint"></p>
   <canvas id="mapCv" width="640" height="640" aria-label="Mapa do lugar onde você está"></canvas>
-  <p class="maplegend">🔺 você · 🚤 seu barco · 👑 rei · 🏪 barraca · 🌀 portal · 🚀 foguete · 🔒 trancada · <kbd>M</kbd> abre e fecha</p>
+  <p class="maplegend">🔺 você · 🔵 outros jogadores · ⚪ moradores · 💎 cristais · 🚤 seu barco · ⚓ chamar barco · 👑 rei · 🏪 barraca · 🌀 portal · 🚀 foguete · 🔒 trancada · <kbd>M</kbd> abre e fecha · <kbd>+</kbd> <kbd>−</kbd> ou a rodinha do mouse dão zoom</p>
 </div></div>
 <div id="cine" aria-hidden="true"><b id="cineTxt"></b></div>
 <div id="alarm" aria-hidden="true"></div>
@@ -3411,61 +3413,114 @@ function mapRealm(){
   if (STAD && inIsle(STAD, P.x, P.z)) return R2(STAD, 'Estádio de Futebol', [{...STAD.portal, ic:'🌀', t:'Voltar'}]);
   return null;
 }
+const MAP_ZOOMS = [1, 1.8, 3.2, 5];
+let mapZoom = 0;
+const ISLE_EMOJI = {'Ilha Central':'⭐', 'Ilha dos Portais':'🌀', 'Ilha do Castelo':'🏰', 'Campo Verde':'🌾', 'Dunas Douradas':'🏜️', 'Vale Gelado':'❄️', 'Cratera de Lava':'🌋', 'Praia do Sol':'🏖️'};
 function drawMap(){
   const W = mapCv.width, g = mapG, realm = mapRealm();
-  // ilhas a desenhar e limites
   const sea = [HUB, PORT, CASTLE].concat(ZONES.filter(I => !(I.sub || I.sky || I.forest || I.wreck || I.stadium || I.moon || I.mars || I.hole)));
   const isles = realm ? [realm.I] : sea;
   let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
   for (const I of isles){ x0 = Math.min(x0, I.cx - I.r); x1 = Math.max(x1, I.cx + I.r); z0 = Math.min(z0, I.cz - I.r); z1 = Math.max(z1, I.cz + I.r); }
-  const pad = realm ? 8 : 26, span = Math.max(x1 - x0, z1 - z0) + pad * 2, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, k = W / span;
+  const zoom = MAP_ZOOMS[mapZoom], pad = realm ? 8 : 26, span = (Math.max(x1 - x0, z1 - z0) + pad * 2) / zoom;
+  // com zoom o mapa centra em você
+  const cx = zoom > 1 ? P.x : (x0 + x1) / 2, cz = zoom > 1 ? P.z : (z0 + z1) / 2, k = W / span;
   const X = x => W / 2 + (x - cx) * k, Y = z => W / 2 + (z - cz) * k;
   const name = I => I === HUB ? 'Ilha Central' : I.name;
-  g.fillStyle = realm ? (inMoon || inHole ? '#0a0818' : inMars ? '#d9a070' : inSky ? '#bfe8ff' : under ? '#0b4a78' : '#1f6fb8') : '#2d8fdc';
-  g.fillRect(0, 0, W, W);
-  if (!realm){ g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1; for (let i = 0; i <= W; i += 40){ g.beginPath(); g.moveTo(i, 0); g.lineTo(i, W); g.moveTo(0, i); g.lineTo(W, i); g.stroke(); } }
   const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const onMap = (x, z, m = 30) => X(x) > -m && X(x) < W + m && Y(z) > -m && Y(z) < W + m;
+  // fundo: mar com ondinhas ou o céu do mundo especial
+  g.fillStyle = realm ? (inMoon || inHole ? '#0a0818' : inMars ? '#c98a5a' : inSky ? '#bfe8ff' : under ? '#0b4a78' : '#1f6fb8') : '#2a86d4';
+  g.fillRect(0, 0, W, W);
+  if (inMoon || inHole){ g.fillStyle = 'rgba(255,255,255,.7)'; for (let n = 0; n < 90; n++){ const sx = (n * 97.3) % W, sy = (n * 53.7 + n * n) % W; g.fillRect(sx, sy, 1.6, 1.6); } }
+  if (!realm){
+    g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = 1.5;
+    for (let n = 0; n < 70; n++){ const wx = ((n * 137.5) % 800) - 300 + cx * 0, wz = ((n * 71.3) % 700) - 200; if (!onMap(wx, wz)) continue; g.beginPath(); g.arc(X(wx), Y(wz), 5, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+  }
+  // ilhas: areia, espuma, grama
   for (const I of isles){
+    if (!onMap(I.cx, I.cz, (I.r + 10) * k)) continue;
     const zi = ZONES.indexOf(I), locked = zi >= 0 && zi >= S.unlocked;
-    g.beginPath(); g.arc(X(I.cx), Y(I.cz), (I.r + BEACH) * k, 0, Math.PI * 2); g.fillStyle = '#f3dfa2'; g.fill();
+    g.beginPath(); g.arc(X(I.cx), Y(I.cz), (I.r + BEACH + 1.5) * k, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.35)'; g.fill();
+    g.beginPath(); g.arc(X(I.cx), Y(I.cz), (I.r + BEACH) * k, 0, Math.PI * 2); g.fillStyle = I.beach !== undefined ? hex(I.beach) : '#f3dfa2'; g.fill();
     g.beginPath(); g.arc(X(I.cx), Y(I.cz), I.r * k, 0, Math.PI * 2);
     g.fillStyle = I === HUB ? '#9d8bd6' : I === PORT ? '#7fc4d6' : I === CASTLE ? '#6fbf4a' : I.ground !== undefined ? hex(I.ground) : '#7cc94f'; g.fill();
-    if (locked){ g.fillStyle = 'rgba(20,10,40,.45)'; g.fill(); }
-    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.25)'; g.stroke();
+    g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.2)'; g.stroke();
   }
-  const icon = (x, z, ic, size = 22) => { g.font = size + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ic, X(x), Y(z)); };
-  const tag = (x, z, txt, dy = 0, bg = 'rgba(29,22,48,.82)') => {
-    g.font = '900 15px Nunito, system-ui, sans-serif'; const w = g.measureText(txt).width + 14, px = X(x), py = Y(z) + dy;
-    g.fillStyle = bg; g.beginPath(); if (g.roundRect) g.roundRect(px - w / 2, py - 11, w, 22, 8); else g.rect(px - w / 2, py - 11, w, 22); g.fill();
+  // construções, árvores e pedras: tudo que tem colisão no chão
+  const inside = (x, z) => isles.some(I => Math.hypot(x - I.cx, z - I.cz) < I.r + BEACH + 2);
+  for (const c of colliders){
+    if (c.bottom > 1.5) continue;
+    const w = c.maxX - c.minX, d = c.maxZ - c.minZ; if (w > 60 || d > 60) continue;
+    const mx = (c.minX + c.maxX) / 2, mz = (c.minZ + c.maxZ) / 2; if (!inside(mx, mz) || !onMap(mx, mz)) continue;
+    const tall = c.top > 5 ? .62 : c.top > 2 ? .45 : .28;
+    g.fillStyle = `rgba(40,28,20,${tall})`; g.fillRect(X(c.minX), Y(c.minZ), Math.max(1.5, w * k), Math.max(1.5, d * k));
+  }
+  // cristais
+  for (const gm of gems){
+    if (!gm.active || !gm.mesh.visible || !inside(gm.x, gm.z) || !onMap(gm.x, gm.z)) continue;
+    const cc = gm.mesh.material.color; g.fillStyle = `rgb(${cc.r * 255 | 0},${cc.g * 255 | 0},${cc.b * 255 | 0})`;
+    const r = gm.golden ? 4 : 2.6, px = X(gm.x), py = Y(gm.z);
+    g.beginPath(); g.moveTo(px, py - r); g.lineTo(px + r, py); g.lineTo(px, py + r); g.lineTo(px - r, py); g.closePath(); g.fill();
+    g.lineWidth = .8; g.strokeStyle = 'rgba(0,0,0,.35)'; g.stroke();
+  }
+  // moradores
+  g.fillStyle = 'rgba(255,255,255,.9)';
+  for (const v of villagers){ if (!inside(v.x, v.z) || !onMap(v.x, v.z)) continue; g.beginPath(); g.arc(X(v.x), Y(v.z), 2.4, 0, Math.PI * 2); g.fill(); }
+  const icon = (x, z, ic, size = 22) => { if (!onMap(x, z)) return; g.font = size + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ic, X(x), Y(z)); };
+  const tag = (x, z, txt, dy = 0, bg = 'rgba(29,22,48,.82)', fs = 15) => {
+    if (!onMap(x, z, 120)) return;
+    g.font = `900 ${fs}px Nunito, system-ui, sans-serif`; const w = g.measureText(txt).width + 12, h = fs + 7, px = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, X(x))), py = Math.max(h / 2 + 4, Math.min(W - h / 2 - 4, Y(z) + dy));
+    g.fillStyle = bg; g.beginPath(); if (g.roundRect) g.roundRect(px - w / 2, py - h / 2, w, h, 7); else g.rect(px - w / 2, py - h / 2, w, h); g.fill();
     g.fillStyle = '#fff8ec'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, px, py + 1);
   };
-  // pontos importantes
-  for (const st of stalls) if (isles.some(I => inIsle(I, st.tx, st.tz))) icon(st.tx, st.tz, '🏪', 18);
-  if (realm) for (const e of realm.exits){ icon(e.x, e.z, e.ic, 26); tag(e.x, e.z, e.t, 24, 'rgba(61,220,132,.9)'); }
+  const small = zoom >= 1.8;
+  // barracas
+  for (const st of stalls) if (inside(st.tx, st.tz)){ icon(st.tx, st.tz, '🏪', 18); if (small) tag(st.tx, st.tz, st.N.name, 16, 'rgba(255,138,92,.9)', 11); }
+  if (realm) for (const e of realm.exits){ icon(e.x, e.z, e.ic, 26); tag(e.x, e.z, e.t, 24, 'rgba(61,220,132,.92)'); }
   else {
-    for (const kg of kings) icon(kg.x, kg.z, '👑', 24);
-    [SNOW_GATE, STAD && STAD.gate, RESTO.gate, SHRINK, INV.gate, ARENA_GATE, SKY && SKY.gate, SUB && SUB.gate].forEach(q => { if (q) icon(q.x, q.z, '🌀', 18); });
-    if (MOON) icon(MOON.gate.x, MOON.gate.z, '🚀', 24);
+    for (const kg of kings){ icon(kg.x, kg.z, '👑', 24); if (small) tag(kg.x, kg.z, 'Rei Cristóvão · missões', 18, 'rgba(199,154,18,.92)', 11); }
+    const POR = [[SNOW_GATE, '🌀', 'Montanha de Neve'], [STAD && STAD.gate, '🌀', 'Estádio'], [RESTO.gate, '🌀', 'Restaurante'], [SHRINK, '🌀', 'Encolher'], [INV.gate, '🌀', 'Mundo Invertido'], [ARENA_GATE, '⚔️', 'Arena'], [SKY && SKY.gate, '🌱', 'Pé de feijão: céu'], [SUB && SUB.gate, '🌀', 'Redemoinho: fundo do mar'], [MOON && MOON.gate, '🚀', 'Foguete'], [MARS && MARS.gate, '🔴', 'Marte'], [HOLE && HOLE.gate, '🕳️', 'Buraco Negro']];
+    for (const [q, ic, t] of POR){ if (!q) continue; icon(q.x, q.z, ic, 20); if (zoom >= 3) tag(q.x, q.z, t, 16, 'rgba(75,46,140,.88)', 12); }
     for (const q of myBoat.stops) icon(q.post.x, q.post.z, '⚓', 14);
     icon(myBoat.x, myBoat.z, '🚤', 24);
-    for (const I of isles){ const zi = ZONES.indexOf(I), locked = zi >= 0 && zi >= S.unlocked; tag(I.cx, I.cz, (locked ? '🔒 ' : '') + name(I), -(I.r * k) - 2); }
+    for (const I of isles){
+      const zi = ZONES.indexOf(I), locked = zi >= 0 && zi >= S.unlocked, nm = name(I);
+      tag(I.cx, I.cz, (locked ? '🔒 ' : (ISLE_EMOJI[nm] || '') + ' ') + nm + (locked ? ' · ' + fmt(I.price) : ''), -(I.r * k) - 4);
+    }
+  }
+  // outros jogadores (multiplayer)
+  if (typeof others !== 'undefined') for (const o of others.values()){
+    if (!onMap(o.x, o.z)) continue;
+    g.beginPath(); g.arc(X(o.x), Y(o.z), 6, 0, Math.PI * 2); g.fillStyle = '#4aa8ff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+    tag(o.x, o.z, o.name || 'Jogador', -16, 'rgba(31,111,184,.9)', 11);
   }
   // você: seta apontando para onde o boneco olha
   const px = X(P.x), py = Y(P.z), a = P.face;
   const tip = (r, ang) => [px + Math.sin(ang) * r, py + Math.cos(ang) * r];
+  const pulse = 18 + Math.sin(performance.now() / 200) * 4;
+  g.beginPath(); g.arc(px, py, pulse, 0, Math.PI * 2); g.fillStyle = 'rgba(255,59,92,.18)'; g.fill(); g.strokeStyle = 'rgba(255,59,92,.7)'; g.lineWidth = 2; g.stroke();
   g.beginPath(); g.moveTo(...tip(16, a)); g.lineTo(...tip(10, a + 2.5)); g.lineTo(...tip(4, a + Math.PI)); g.lineTo(...tip(10, a - 2.5)); g.closePath();
   g.fillStyle = '#ff3b5c'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#ffffff'; g.stroke();
-  const pulse = 18 + Math.sin(performance.now() / 200) * 4;
-  g.beginPath(); g.arc(px, py, pulse, 0, Math.PI * 2); g.strokeStyle = 'rgba(255,59,92,.6)'; g.lineWidth = 2; g.stroke();
-  // norte
-  g.fillStyle = 'rgba(29,22,48,.8)'; g.beginPath(); g.arc(W - 30, 30, 20, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#fff'; g.font = '900 16px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', W - 30, 31);
+  // rosa dos ventos e escala
+  const RX = W - 40, RY = 40;
+  g.fillStyle = 'rgba(29,22,48,.82)'; g.beginPath(); g.arc(RX, RY, 30, 0, Math.PI * 2); g.fill();
+  [[0, -1, 'N', '#ff5470'], [1, 0, 'L', '#fff8ec'], [0, 1, 'S', '#fff8ec'], [-1, 0, 'O', '#fff8ec']].forEach(([u, v, t, c]) => { g.fillStyle = c; g.font = '900 13px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, RX + u * 20, RY + v * 20 + 1); });
+  g.beginPath(); g.moveTo(RX, RY - 12); g.lineTo(RX + 4, RY); g.lineTo(RX, RY + 12); g.lineTo(RX - 4, RY); g.closePath(); g.fillStyle = '#ffcc33'; g.fill();
+  const meters = zoom >= 3 ? 10 : zoom >= 1.8 ? 25 : 50, bar = meters * k;
+  g.fillStyle = 'rgba(29,22,48,.82)'; g.fillRect(14, W - 34, bar + 70, 22);
+  g.fillStyle = '#fff8ec'; g.fillRect(20, W - 26, bar, 5); g.font = '900 12px Nunito, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(meters + ' m', 26 + bar, W - 23);
   // dica do topo
   const here = islandAt(P.x, P.z), hereName = realm ? realm.name : here === -1 ? 'Ilha Central' : here === -2 ? 'Ilha dos Portais' : here === -3 ? 'Ilha do Castelo' : here !== null ? ZONES[here].name : driving ? 'no mar, pilotando seu barco' : 'no mar';
-  $('mapHint').textContent = realm ? `Você está em: ${hereName}. A saída está marcada em verde.` : here === null ? `Você está ${hereName}. A seta vermelha é você.` : `Você está ${({'Campo Verde':'no', 'Vale Gelado':'no', 'Dunas Douradas':'nas'})[hereName] || 'na'} ${hereName}. A seta vermelha é você e aponta para onde você olha.`;
+  const gemsLeft = gems.filter(gm => gm.active && inside(gm.x, gm.z) && (realm || (here !== null && here >= 0 && gm.zone === here && !gm.realm))).length;
+  $('mapHint').textContent = realm ? `Você está em: ${hereName}. A saída está marcada em verde.` : here === null ? `Você está ${hereName}. A seta vermelha é você.` : `Você está ${({'Campo Verde':'no', 'Vale Gelado':'no', 'Dunas Douradas':'nas'})[hereName] || 'na'} ${hereName}. A seta vermelha é você e aponta para onde você olha.` + (gemsLeft ? ` Tem ${gemsLeft} cristais aqui agora.` : '');
 }
+function setMapZoom(d){ mapZoom = Math.max(0, Math.min(MAP_ZOOMS.length - 1, mapZoom + d)); document.getElementById('mapOut').disabled = mapZoom === 0; document.getElementById('mapIn').disabled = mapZoom === MAP_ZOOMS.length - 1; drawMap(); }
+document.getElementById('mapIn').addEventListener('click', () => setMapZoom(1));
+document.getElementById('mapOut').addEventListener('click', () => setMapZoom(-1));
+mapCv.addEventListener('wheel', e => { e.preventDefault(); setMapZoom(e.deltaY < 0 ? 1 : -1); }, {passive:false});
 function toggleMap(open = mapEl.hidden){
-  if (open){ if (shiftLock) setShiftLock(false); toggleShop(false); togglePets(false); toggleSkins(false); mapEl.hidden = false; drawMap(); $('closeMap').focus(); }
+  if (open){ if (shiftLock) setShiftLock(false); toggleShop(false); togglePets(false); toggleSkins(false); mapEl.hidden = false; setMapZoom(0); $('closeMap').focus(); }
   else if (!mapEl.hidden){ mapEl.hidden = true; canvas.focus(); }
 }
 document.getElementById('mapBtn').addEventListener('click', () => { initAudio(); toggleMap(); });
@@ -4099,6 +4154,8 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape'){ toggleShop(false); togglePets(false); toggleSkins(false); toggleMap(false); }
   if (e.code === 'KeyK') toggleSkins();
   if (e.code === 'KeyM' && !e.repeat) toggleMap();
+  if (!mapEl.hidden && (e.code === 'Equal' || e.code === 'NumpadAdd')) setMapZoom(1);
+  if (!mapEl.hidden && (e.code === 'Minus' || e.code === 'NumpadSubtract')) setMapZoom(-1);
   if (e.code === 'KeyG' && !e.repeat) toggleEmotes();
   if (e.code === 'KeyF' && !e.repeat) attack();
   if (inArena && !e.repeat && /^(Digit|Numpad)[1-4]$/.test(e.code)) usePower(['fire', 'bolt', 'ice', 'heal'][+e.code.slice(-1) - 1]);
