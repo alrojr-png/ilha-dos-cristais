@@ -4253,6 +4253,7 @@ function updateVillagers(dt, t){
 let fightOn = false, fightCd = 0;
 const OUCH = ['Ai!', 'Ui!', 'Ei!', 'Socorro!', 'Para com isso!', 'Ai, ai!', 'Mamãe!'];
 const KNIGHT_SAY = ['Sem bagunça!', 'Ei, respeito!', 'Cuidado, hein!', 'Eu sou da guarda!'];
+const KING_OOPS = ['Ai! Cuidado com essa espada, guarda! Foi sem querer, né?', 'Opa, guarda! Treinando perto do Rei de novo?', 'Ui! Tudo bem, meu fiel cavaleiro, acidentes acontecem.', 'Ei, guarda! Mais atenção nesse treino, hein!'];
 function setFight(on){
   fightOn = on;
   sword.visible = inArena || on;
@@ -4271,7 +4272,17 @@ function fightAttack(){
   for (const v of villagers){ if (v.arr) continue; const d = Math.hypot(v.x - P.x, v.z - P.z); if (d < Math.min(bd, 2.8)){ bd = d; best = v; kind = 'v'; } }
   if (!best) return;
   P.face = Math.atan2(best.x - P.x, best.z - P.z); player.rotation.y = P.face;
-  if (kind === 'king'){ startArrest(best); return; }
+  if (kind === 'king'){
+    // disfarce: vestido de cavaleiro, o Rei acha que foi um guarda que bateu sem querer
+    if (S.skin === 'cavaleiro'){
+      const fala = KING_OOPS[Math.floor(Math.random() * KING_OOPS.length)];
+      floatText('😅', best.x, 5.4, best.z, 'emo2');
+      toast('👑 Rei Cristóvão: ' + fala, 3000);
+      beep(330, .12, 'triangle', .05, .8);
+      return;
+    }
+    startArrest(best); return;
+  }
   hitVillager(best);
 }
 function hitVillager(v){
