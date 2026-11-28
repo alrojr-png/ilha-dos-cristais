@@ -4477,7 +4477,7 @@ function updateArrest(dt, t){
 // Cela com grades, companheiro de cela (Zé Grilo), guarda na porta. Pena de 30 s; depois a porta abre e o portal SAÍDA leva à Ilha Central.
 // Segredo: atrás da cama do Zé Grilo tem um tijolo solto (parede falsa) para fugir antes.
 const JAIL_TIME = 30;
-const jail = {t:0, open:false, escaped:false, why:'hit', talkT:0, line:0, door:null, doorCol:null, mate:null, out:false};
+const jail = {crumbs:[], t:0, open:false, escaped:false, why:'hit', talkT:0, line:0, door:null, doorCol:null, mate:null, out:false};
 {
   const I = PRISON, X = d => I.cx + d, Z = d => I.cz + d, STONE = 0x7a7f8c, DARK = 0x5a5f6a, H = 5;
   islandBase(I, 0x8a8f9c, 0x5a5f6a);
@@ -4514,9 +4514,9 @@ const jail = {t:0, open:false, escaped:false, why:'hit', talkT:0, line:0, door:n
   // janelinha com grades
   addBlock(X(-4.62), 3, Z(.5), .05, 1, 1.2, 0x9fdcff, false); for (let k = 0; k < 3; k++) addBlock(X(-4.64), 3, Z(.1 + k * .4), .05, 1, .06, DARK, false);
   // companheiro de cela: Zé Grilo, roupa listrada, sentado na cama
-  const g = new THREE.Group(); g.position.set(X(3.1), .5, Z(-2.4)); scene.add(g);
+  const g = new THREE.Group(); scene.add(g);
   for (let k = 0; k < 5; k++) part(1.06, .19, .56, k % 2 ? 0x1d1630 : 0xf4f4f4, 0, 1.05 + k * .19, 0, g);
-  [-1, 1].forEach(sd => { const l = part(.46, .5, .9, 0xf4f4f4, sd * .27, .7, .3, g); part(.46, .1, .92, 0x1d1630, sd * .27, .8, .3, g); part(.44, .6, .46, 0xf4f4f4, sd * .27, .2, .78, g); });
+  const legs = [-1, 1].map(sd => { const pv = new THREE.Group(); pv.position.set(sd * .27, .97, 0); g.add(pv); part(.46, .97, .5, 0xf4f4f4, 0, -.485, 0, pv); part(.47, .12, .51, 0x1d1630, 0, -.3, 0, pv); part(.47, .12, .51, 0x1d1630, 0, -.7, 0, pv); return pv; });
   const head = new THREE.Group(); head.position.set(0, 2.05, 0); g.add(head);
   part(.78, .74, .74, 0xe8b48a, 0, .37, 0, head);
   part(.12, .16, .05, 0x1d1630, -.17, .43, .38, head); part(.12, .16, .05, 0x1d1630, .17, .43, .38, head);
@@ -4524,7 +4524,8 @@ const jail = {t:0, open:false, escaped:false, why:'hit', talkT:0, line:0, door:n
   part(.86, .26, .84, 0x1d1630, 0, .82, 0, head); part(.88, .1, .86, 0xf4f4f4, 0, .74, 0, head); // touca listrada
   const arms = [-1, 1].map(sd => { const pv = new THREE.Group(); pv.position.set(sd * .7, 1.9, 0); g.add(pv); part(.36, .45, .42, 0xf4f4f4, 0, -.22, 0, pv); part(.38, .1, .44, 0x1d1630, 0, -.3, 0, pv); part(.34, .5, .38, 0xe8b48a, 0, -.68, 0, pv); return pv; });
   const nm = label('Zé Grilo', '#f4f4f4', '#1d1630', 512); nm.scale.multiplyScalar(.75); nm.position.set(0, 3.5, 0); g.add(nm);
-  jail.mate = {g, head, arms, x:X(3.1), z:Z(-2.4)};
+  jail.mate = {g, head, arms, legs, x:X(3.1), y:0, z:Z(-2.4), home:{x:X(3.1), z:Z(-2.4)}, mode:'cell', path:[], face:0, walk:0, saidHi:false};
+  zeSit();
   // guarda na porta (de fora)
   const gd = new THREE.Group(); gd.position.set(X(5.8), 0, Z(5.6)); gd.rotation.y = -2.4; scene.add(gd);
   [-1, 1].forEach(sd => part(.46, .97, .5, 0x3a3f4a, sd * .27, .485, 0, gd));
@@ -4546,10 +4547,55 @@ const MATE_LINES = [
   'Os guardas abrem a porta quando o tempo acaba. Paciência, amigo!',
   'Quando sair, manda um abraço pra minha mãe lá na Ilha Central!',
 ];
+
+// Zé Grilo: sentado na cela, seguindo você na fuga, ou livre na Ilha Central
+function zeSit(){
+  const M = jail.mate; M.mode = 'cell'; M.path = []; M.x = M.home.x; M.z = M.home.z;
+  M.g.position.set(M.x, -.17, M.z); M.g.rotation.set(0, 0, 0); M.face = 0;
+  M.legs.forEach(l => l.rotation.x = -1.5);
+}
+function updateZe(dt, t, d){
+  const M = jail.mate;
+  const lookAt = (x, z) => { const want = Math.max(-1.1, Math.min(1.1, Math.atan2(x - M.x, z - M.z) - M.g.rotation.y)); M.head.rotation.y += (Math.atan2(Math.sin(want), Math.cos(want)) - M.head.rotation.y) * Math.min(1, dt * 5); };
+  if (M.mode === 'cell'){
+    lookAt(d < 9 ? P.x : M.x + Math.sin(t * .5) * 3, d < 9 ? P.z : M.z + 3);
+    M.arms[1].rotation.x = jail.talkT > 4.2 && inPrison ? -2.4 + Math.sin(t * 8) * .3 : Math.sin(t * 1.3) * .1;
+    M.g.position.y = -.17 + Math.abs(Math.sin(t * 1.6)) * .03;
+    M.legs[0].rotation.x = -1.5 + Math.sin(t * 2) * .12; M.legs[1].rotation.x = -1.5 - Math.sin(t * 2) * .12; // balança as pernas
+    return;
+  }
+  let walking = false;
+  if (M.mode === 'follow'){
+    const pd = Math.hypot(P.x - M.x, P.z - M.z);
+    while (M.path.length && Math.hypot(M.path[0].x - M.x, M.path[0].z - M.z) < .25) M.path.shift();
+    if (M.path.length && pd > 1.8){
+      const c = M.path[0], dx = c.x - M.x, dz = c.z - M.z, dd = Math.hypot(dx, dz), sp = Math.min(dd, (pd > 6 ? 9 : 6.5) * dt);
+      M.x += dx / dd * sp; M.z += dz / dd * sp; M.y += (Math.max(0, c.y) - M.y) * Math.min(1, dt * 10);
+      M.face = Math.atan2(dx, dz); walking = true;
+    }
+  } else if (M.mode === 'free'){
+    // livre na Ilha Central: fica feliz perto do farol, acena quando você chega
+    const pd = Math.hypot(P.x - M.x, P.z - M.z);
+    if (pd < 9) M.face = Math.atan2(P.x - M.x, P.z - M.z);
+    if (pd < 4 && !M.saidHi && playing && !inPrison){ M.saidHi = true; floatText('Valeu, parceiro!', M.x, 3.4, M.z, 'hi'); toast('🗨️ Zé Grilo: Agora sou um cidadão exemplar... acho. Hehe!', 3500); }
+    if (pd > 14) M.saidHi = false;
+  }
+  let da = M.face - M.g.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); M.g.rotation.y += da * Math.min(1, dt * 10);
+  M.head.rotation.y *= .8;
+  const sw = walking ? Math.sin(t * 13) * .75 : 0;
+  M.legs[0].rotation.x = sw; M.legs[1].rotation.x = -sw;
+  const happy = M.mode === 'free' && Math.hypot(P.x - M.x, P.z - M.z) < 6;
+  M.arms[0].rotation.x = walking ? -sw : happy ? -2.8 + Math.sin(t * 9) * .3 : 0;
+  M.arms[1].rotation.x = walking ? sw : happy ? -2.8 - Math.sin(t * 9) * .3 : 0;
+  M.g.position.set(M.x, M.y + (walking ? Math.abs(Math.sin(t * 13)) * .08 : happy ? Math.abs(Math.sin(t * 6)) * .25 : 0), M.z);
+}
 function goPrison(why){
   jail.t = JAIL_TIME; jail.open = false; jail.escaped = false; jail.out = false; jail.why = why; jail.line = 0; jail.talkT = 1.2;
   jail.door.position.y = 0; jail.doorCol.bottom = 0; jail.doorCol.top = 5;
   inPrison = true; if (heroFly) setHeroFly(false);
+  const M = jail.mate, wasFree = M.mode === 'free';
+  zeSit(); jail.crumbs = [];
+  if (wasFree) jail.again = true;
   Object.assign(P, {x:PRISON.cx - 1, y:0, z:PRISON.cz + 1, vy:0, onGround:true}); P.face = Math.PI * .75; cam.yaw = 0; cam.pitch = .75; cam.dist = 11;
   banner('Prisão do Reino', '⛓️ Os cavaleiros te levaram para a');
   toast(why === 'monster' ? '⛓️ Monstros não chegam perto do Rei! Fique quietinho na cela...' : '⛓️ Preso por bater no Rei! Espere a pena acabar...', 4000);
@@ -4557,18 +4603,20 @@ function goPrison(why){
 }
 function leavePrison(){
   inPrison = false; $('jailChip').hidden = true;
+  const M = jail.mate, withZe = M.mode === 'follow' && Math.hypot(M.x - PRISON.exit.x, M.z - PRISON.exit.z) < 9;
+  if (withZe){
+    M.mode = 'free'; M.x = 2.6; M.z = 10.5; M.y = 0; M.path = []; M.saidHi = false; M.face = Math.PI;
+    setTimeout(() => toast('🗨️ Zé Grilo: LIVRE! Valeu, parceiro! Nunca vou esquecer o que você fez!', 4500), 900);
+  } else if (M.mode === 'follow'){ zeSit(); setTimeout(() => toast('🛡️ O guarda pegou o Zé Grilo de volta para a cela...', 3500), 900); }
   Object.assign(P, {x:0, y:0, z:8, vy:0, onGround:true}); cam.yaw = Math.PI; lastIsland = -1;
-  banner('Ilha Central', jail.escaped && !jail.open ? '🏃 Fuga perfeita! Você chegou na' : 'Livre! Você voltou para a');
+  banner('Ilha Central', withZe ? '🏃 Você e o Zé Grilo fugiram para a' : jail.escaped && !jail.open ? '🏃 Fuga perfeita! Você chegou na' : 'Livre! Você voltou para a');
   [523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .14, 'triangle', .06, 1.3), j * 90));
 }
 function updatePrison(dt, t){
   const M = jail.mate;
   // Zé Grilo: olha para você, balança as pernas, conversa quando você chega perto
   const d = Math.hypot(P.x - M.x, P.z - M.z);
-  const want = d < 9 ? Math.max(-1, Math.min(1, Math.atan2(P.x - M.x, P.z - M.z))) : Math.sin(t * .5) * .4;
-  M.head.rotation.y += (want - M.head.rotation.y) * Math.min(1, dt * 5);
-  M.arms[1].rotation.x = jail.talkT > 4.2 && inPrison ? -2.4 + Math.sin(t * 8) * .3 : Math.sin(t * 1.3) * .1;
-  M.g.position.y = .5 + Math.abs(Math.sin(t * 1.6)) * .03;
+  updateZe(dt, t, d);
   if (!inPrison) return;
   if (!jail.open){
     jail.t -= dt;
@@ -4582,20 +4630,27 @@ function updatePrison(dt, t){
     }
   }
   if (jail.open && jail.door.position.y < 4.6) jail.door.position.y = Math.min(4.6, jail.door.position.y + dt * 3);
-  if (d < 6.5){
+  if (d < 6.5 && M.mode === 'cell'){
     jail.talkT -= dt;
     if (jail.talkT <= 0 && jail.line < MATE_LINES.length * 3){
-      const L = MATE_LINES[jail.line % MATE_LINES.length]; jail.line++; jail.talkT = 5.2;
+      let L = MATE_LINES[jail.line % MATE_LINES.length]; jail.line++; jail.talkT = 5.2;
+      if (jail.again){ jail.again = false; jail.line = 1; L = 'Me pegaram de novo! Fui comer um pudim da cozinha do Rei, hehe. Bora fugir de novo?'; }
       toast('🗨️ Zé Grilo: ' + (typeof L === 'function' ? L(jail.why) : L), 4800);
       beep(420, .05, 'square', .02, 1.1);
     }
   }
+  const lc = jail.crumbs[jail.crumbs.length - 1];
+  if (!lc || Math.hypot(P.x - lc.x, P.z - lc.z) > .35){ jail.crumbs.push({x:P.x, y:P.y, z:P.z}); if (jail.crumbs.length > 200) jail.crumbs.shift(); if (M.mode === 'follow') M.path.push({x:P.x, y:P.y, z:P.z}); }
   // fugiu pelo tijolo solto?
   const insideCell = Math.abs(P.x - PRISON.cx) < 4 && Math.abs(P.z - PRISON.cz) < 4;
   if (!insideCell && !jail.open && !jail.escaped){
     jail.escaped = true;
-    toast('🏃 Você fugiu pelo tijolo solto! Corra para a SAÍDA antes que o guarda veja!', 4000);
-    floatText('Ei! Volta aqui!', jail.guard.x, 3.6, jail.guard.z, 'hi');
+    toast('🗨️ Zé Grilo: ME ESPERA, PARCEIRO! Eu vou junto! Corre pra SAÍDA!', 4000);
+    floatText('Ei! Vocês dois! Volta aqui!', jail.guard.x, 3.6, jail.guard.z, 'hi');
+    // ele sai da cama e segue exatamente o caminho que você fez
+    const cr = jail.crumbs; let i0 = 0, bd = 1e9;
+    cr.forEach((c, i) => { const dd = Math.hypot(c.x - M.x, c.z - M.z); if (dd < bd){ bd = dd; i0 = i; } });
+    M.mode = 'follow'; M.path = cr.slice(i0); M.y = 0;
     [659, 784, 988].forEach((f, j) => setTimeout(() => beep(f, .1, 'square', .05, 1.2), j * 70));
   }
   if (P.y < 1 && Math.hypot(P.x - PRISON.exit.x, P.z - PRISON.exit.z) < 2) leavePrison();
