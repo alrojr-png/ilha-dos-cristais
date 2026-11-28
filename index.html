@@ -221,6 +221,8 @@ body.cutscene #cine::before,body.cutscene #cine::after{height:12vh}
 body.cutscene .hud,body.cutscene #talkBtn,body.cutscene #boatBtn{display:none!important}
 #cineTxt{font-family:var(--display);font-weight:400;font-size:clamp(34px,7vw,64px);letter-spacing:1px;color:#fff;text-shadow:0 4px 0 #3a1d7a,0 0 26px rgba(255,138,184,.8);opacity:0;transform:scale(.7);transition:opacity .4s,transform .5s cubic-bezier(.3,1.6,.5,1)}
 #cineTxt.show{opacity:1;transform:scale(1)}
+#cineSub{position:absolute;left:50%;bottom:15vh;transform:translateX(-50%);width:min(760px,90vw);margin:0;text-align:center;font:900 clamp(16px,2.6vw,22px)/1.35 var(--body);color:#fff;text-shadow:0 2px 6px #000,0 0 2px #000;opacity:0;transition:opacity .35s}
+#cineSub.show{opacity:1}
 #game.flipIn{animation:flipIn 1.6s ease-in-out forwards}
 #game.flipped{transform:rotate(180deg)}
 #game.flipOut{animation:flipOut 1.6s ease-in-out forwards}
@@ -392,7 +394,7 @@ body.touch .pw b{display:none}
   <canvas id="mapCv" width="640" height="640" aria-label="Mapa do lugar onde você está"></canvas>
   <p class="maplegend">🔺 você · 🔵 outros jogadores · ⚪ moradores · 💎 cristais · 🚤 seu barco · ⚓ chamar barco · 👑 rei · 🏪 barraca · 🌀 portal · 🚀 foguete · 🔒 trancada · <kbd>M</kbd> abre e fecha · <kbd>+</kbd> <kbd>−</kbd> ou a rodinha do mouse dão zoom</p>
 </div></div>
-<div id="cine" aria-hidden="true"><b id="cineTxt"></b></div>
+<div id="cine" aria-hidden="true"><b id="cineTxt"></b><p id="cineSub"></p></div>
 <div id="alarm" aria-hidden="true"></div>
 <div id="intro">
   <div>
@@ -561,7 +563,7 @@ const fmt = n => {
   return (n/1e9).toFixed(1).replace('.', ',') + ' bi';
 };
 
-const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0, found:[], secret:null});
+const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0, found:[], secret:null, crowned:false});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
 // Contas: ficam na nuvem do jogo (db "contas/<nome>": hash da senha + save), então funcionam em qualquer PC.
@@ -3328,7 +3330,7 @@ function buildKing(K){
     return pv;
   });
   const l = label(K.name, '#ffcc33', '#3a2a00', 640); l.position.set(0, 4.6, .45); g.add(l);
-  kings.push({K, g, k, head, arms, x, z, rot, greeted:false, ph:R() * 6});
+  kings.push({K, g, k, head, arms, lbl:l, x, z, rot, greeted:false, ph:R() * 6});
 }
 KINGS.forEach(buildKing);
 function updateKings(dt, t){
@@ -3341,6 +3343,9 @@ function updateKings(dt, t){
     kg.arms[1].rotation.x = near ? -2.4 + Math.sin(t * 6) * .35 : -.5 + Math.sin(t * 1.2 + kg.ph) * .08;
     kg.arms[0].rotation.x = Math.sin(t * 1.2 + kg.ph) * .06;
     kg.head.rotation.z = Math.sin(t * .9 + kg.ph) * .05;
+    if (coron.on && coron.kg === kg) continue;
+    if (S.crowned){ if (near && !kg.greeted && !driving){ kg.greeted = true; openQuest(kg); } if (d > 12) kg.greeted = false; if (questKing === kg && d > 9) closeQuest(); continue; }
+    if (near && S.level >= LV_MAX && playing && !arrest.on && !driving && !diving && !inPrison){ startCoronation(kg); continue; }
     if (near && S.skin === 'monstro' && playing && !arrest.on && !driving && !diving){ startArrest(kg, 'monster'); continue; }
     if (near && !kg.greeted && !driving){ kg.greeted = true; openQuest(kg); floatText('👑', kg.x, 5.4, kg.z, 'emo2'); [392, 523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .06, 1.2), j * 110)); }
     if (d > 12) kg.greeted = false;
@@ -3446,6 +3451,7 @@ function renderQuest(){
   const D = ensureDaily(), all = D.q.every(q => q.got), ready = D.q.some(q => !q.got && q.n >= qN(q));
   $('questTxt').textContent = all ? 'Você fez todas as missões de hoje! Muito bem, aventureiro. Volte amanhã que eu tenho mais!'
     : ready ? 'Ótimo trabalho! Pegue sua recompensa aqui embaixo.'
+    : S.crowned ? `Majestade, o reino precisa de você! Hoje são 3 missões (+${QUEST_XP} XP) e 3 desafios (+${BIG_XP} XP):`
     : `Bem-vindo ao meu castelo! Hoje tenho 3 missões (+${QUEST_XP} XP) e 3 desafios mais difíceis (+${BIG_XP} XP):`;
   $('questList').innerHTML = D.q.map((q, i) => {
     const Q = QUESTS[q.id], N = qN(q), done = q.n >= N;
@@ -3457,7 +3463,8 @@ function renderQuest(){
 }
 function openQuest(kg){
   if (!shopEl.hidden || !petsEl.hidden || !skinsEl.hidden || !talkEl.hidden) return;
-  questKing = kg; questTab = 'q'; document.querySelectorAll('#questTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === 'q')); renderQuest(); questEl.hidden = false;
+  questKing = kg; questTab = 'q';
+  $('questName').textContent = S.crowned ? '📜 Missões do Reino' : 'Rei Cristóvão'; $('questFace').textContent = S.crowned ? '📜' : '👑'; document.querySelectorAll('#questTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === 'q')); renderQuest(); questEl.hidden = false;
 }
 function closeQuest(){ if (questEl.hidden) return; questEl.hidden = true; questKing = null; canvas.focus(); }
 questEl.addEventListener('click', e => {
@@ -4223,6 +4230,7 @@ const LOOKS = [
   {I:CASTLE, n:4, hats:['knight']}, // guardas do Rei
   {I:INV, n:7, hats:['none', 'cap', 'beanie', 'bun'], tops:[0x9a6bff, 0x3ddc84, 0xff5a8a, 0x4ae0c8, 0xffd23f], bottoms:[0x2a1050, 0x4a3a6a, 0x2b4c7e]},
 ];
+const ROYAL_HI = ['Viva o Rei!', 'Bom dia, Majestade!', 'Salve, Vossa Alteza!', 'Que honra, o Rei!', 'Longa vida ao Rei!'];
 const HI = ['Oi!', 'Olá!', 'E aí!', 'Bom dia!', 'Tudo bem?', 'Boa sorte!', 'Que dia lindo!', 'Achou muitos cristais?'];
 const villagers = [];
 function villagerSpot(I){
@@ -4283,7 +4291,7 @@ function updateVillagers(dt, t){
     let walking = false;
     if (near){
       v.face = Math.atan2(P.x - v.x, P.z - v.z);
-      if (playing && t > v.hiT){ v.hiT = t + 30; floatText(HI[Math.floor(Math.random() * HI.length)], v.x, 3.3 * v.s, v.z, 'hi'); }
+      if (playing && t > v.hiT){ v.hiT = t + 30; floatText((S.crowned ? ROYAL_HI : HI)[Math.floor(Math.random() * (S.crowned ? ROYAL_HI : HI).length)], v.x, 3.3 * v.s, v.z, 'hi'); }
     } else if (v.wait > 0) v.wait -= dt;
     else {
       const dx = v.tx - v.x, dz = v.tz - v.z, d = Math.hypot(dx, dz);
@@ -4348,7 +4356,7 @@ function fightAttack(){
   beep(700, .08, 'sawtooth', .035, .5);
   const fx = Math.sin(P.face), fz = Math.cos(P.face);
   let best = null, bd = 3.2, kind = null;
-  for (const kg of kings){ const d = Math.hypot(kg.x - P.x, kg.z - P.z); if (d < bd){ bd = d; best = kg; kind = 'king'; } }
+  if (!S.crowned) for (const kg of kings){ const d = Math.hypot(kg.x - P.x, kg.z - P.z); if (d < bd){ bd = d; best = kg; kind = 'king'; } }
   for (const v of villagers){ if (v.arr) continue; const d = Math.hypot(v.x - P.x, v.z - P.z); if (d < Math.min(bd, 2.8)){ bd = d; best = v; kind = 'v'; } }
   if (!best) return;
   P.face = Math.atan2(best.x - P.x, best.z - P.z); player.rotation.y = P.face;
@@ -4655,7 +4663,111 @@ function updatePrison(dt, t){
   }
   if (P.y < 1 && Math.hypot(P.x - PRISON.exit.x, P.z - PRISON.exit.z) < 2) leavePrison();
 }
-function updateFight(dt, t){ fightCd -= dt; updateArrest(dt, t); updatePrison(dt, t); }
+
+// ---------- Nível máximo: o Rei Cristóvão passa a coroa ----------
+// No nível 10.000, chegar perto do Rei começa a cena: ele fica velhinho, entrega a coroa e vira uma alminha que sobe ao céu.
+// Você vira o Rei: coroa na cabeça, trono com as missões, túmulo em homenagem ao Rei Cristóvão. Fica salvo (S.crowned).
+const coron = {on:false, t:0, kg:null, step:0, crownFly:null, spirit:null, hinted:false};
+let crownShown = false;
+function makeCrown(){
+  const g = new THREE.Group(), GOLD = 0xffcc33;
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(.42, .46, .22, 10), mat(GOLD)); g.add(band);
+  for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2, c = new THREE.Mesh(new THREE.ConeGeometry(.08, .28, 4), mat(GOLD)); c.position.set(Math.cos(a) * .4, .24, Math.sin(a) * .4); g.add(c); }
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(.1, 0), new THREE.MeshBasicMaterial({color:0x34f0b0})); gem.position.set(0, 0, .45); g.add(gem);
+  const top = new THREE.Mesh(new THREE.OctahedronGeometry(.11, 0), new THREE.MeshBasicMaterial({color:0xff5a8a})); top.position.y = .42; g.add(top);
+  return g;
+}
+const myCrown = makeCrown(); myCrown.position.y = 3.25; myCrown.visible = false; player.add(myCrown);
+let tomb = null;
+function applyCrown(){
+  crownShown = !!S.crowned;
+  myCrown.visible = crownShown;
+  for (const kg of kings){
+    kg.k.visible = !crownShown; kg.lbl.visible = !crownShown;
+    if (crownShown){ const nm = 'Trono do Rei ' + (ACC || 'você'); if (!kg.lbl2 || kg.lbl2.nm !== nm){ if (kg.lbl2) kg.g.remove(kg.lbl2); kg.lbl2 = label('👑 ' + nm, '#ffcc33', '#3a2a00', 900); kg.lbl2.nm = nm; kg.lbl2.position.copy(kg.lbl.position); kg.g.add(kg.lbl2); } }
+    if (kg.lbl2) kg.lbl2.visible = crownShown;
+  }
+  if (crownShown && !tomb && kings[0]){
+    // túmulo com flores ao lado do trono
+    const kg = kings[0], ox = Math.cos(kg.rot) * 4.2, oz = -Math.sin(kg.rot) * 4.2;
+    tomb = new THREE.Group(); tomb.position.set(kg.x + ox, 0, kg.z + oz); tomb.rotation.y = kg.rot; scene.add(tomb);
+    part(1.4, 1.3, .35, 0x9aa0ab, 0, .65, 0, tomb);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.7, .7, .35, 20), mat(0x9aa0ab)); cap.rotation.x = Math.PI / 2; cap.position.y = 1.3; tomb.add(cap);
+    part(.5, .1, .05, 0xffcc33, 0, 1.45, .19, tomb); part(.1, .3, .05, 0xffcc33, 0, 1.45, .19, tomb);
+    part(1.8, .08, 1.2, 0x5aa04a, 0, .04, .7, tomb);
+    [[-.5, .9, 0xff5a8a], [0, 1.05, 0xffd23f], [.5, .9, 0xb07cff], [-.2, .6, 0xffffff], [.3, .55, 0xff5a8a]].forEach(([x, z, c]) => { part(.05, .35, .05, 0x3f9e3a, x, .2, z, tomb); const f = new THREE.Mesh(new THREE.SphereGeometry(.11, 8, 6), mat(c)); f.position.set(x, .42, z); tomb.add(f); });
+    const l = label('Rei Cristóvão, o Sábio 💐', '#e8e8f0', '#2a2145', 900); l.scale.multiplyScalar(.6); l.position.set(0, 2.5, 0); tomb.add(l);
+  }
+  if (tomb) tomb.visible = crownShown;
+}
+function cineSay(txt){ const el = $('cineSub'); el.textContent = txt; el.classList.add('show'); beep(380, .05, 'square', .02, 1.1); }
+function startCoronation(kg){
+  coron.on = true; coron.t = 0; coron.kg = kg; coron.step = 0;
+  closeQuest(); closeTalk(); stopEmote(); if (shiftLock) setShiftLock(false); if (heroFly) setHeroFly(false); if (fightOn) setFight(false);
+  document.body.classList.add('cutscene');
+  // você fica de frente para o Rei
+  const fx = Math.sin(kg.rot), fz = Math.cos(kg.rot);
+  Object.assign(P, {x:kg.x + fx * 4, z:kg.z + fz * 4, y:0, vy:0}); P.face = Math.atan2(kg.x - P.x, kg.z - P.z); player.rotation.y = P.face;
+  cam.yaw = Math.atan2(fx, fz) + .55; cam.pitch = .28; cam.dist = 9;
+}
+function updateCoronation(dt, t){
+  if (!coron.on){
+    if (!S.crowned && S.level >= LV_MAX && playing && !coron.hinted){ coron.hinted = true; setTimeout(() => toast('👑 O Rei Cristóvão quer falar com você! Vá até o castelo.', 5000), 2500); }
+    if (myCrown.visible) myCrown.rotation.y += dt * .8;
+    return;
+  }
+  const kg = coron.kg, k = kg.k, T = (coron.t += dt);
+  const at = (s, fn) => { if (coron.step === s && T >= [0, 3.6, 7.4, 10.2, 12.6, 15.4, 18.6][s]){ coron.step++; fn(); } };
+  at(0, () => { cineSay('Rei Cristóvão: Você chegou ao nível 10.000... Eu estava esperando por você.'); kg.k.rotation.y = 0; });
+  at(1, () => { cineSay('Rei Cristóvão: *cof cof* Estou velhinho demais... são 120 anos cuidando deste reino...'); [300, 260, 300, 240].forEach((f, j) => setTimeout(() => beep(f, .12, 'square', .04, .8), j * 200)); });
+  at(2, () => {
+    cineSay('Rei Cristóvão: Agora é a sua vez. Cuide bem do reino... A coroa é sua!');
+    coron.crownFly = makeCrown(); scene.add(coron.crownFly);
+    const hp = new THREE.Vector3(); kg.head.getWorldPosition(hp); coron.from = hp.add(new THREE.Vector3(0, 1, 0));
+    [523, 659, 784].forEach((f, j) => setTimeout(() => beep(f, .2, 'sine', .05, 1.6), j * 150));
+  });
+  at(3, () => { cineSay('O Rei Cristóvão fechou os olhos e descansou em paz...'); [392, 349, 330, 262].forEach((f, j) => setTimeout(() => beep(f, .45, 'sine', .05, .8), j * 380)); });
+  at(4, () => {
+    $('cineSub').classList.remove('show');
+    const tx = $('cineTxt'); tx.textContent = 'Adeus, Rei Cristóvão 😢'; tx.classList.add('show');
+    // alminha com auréola subindo
+    const sp = new THREE.Group(), gm = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.75, depthWrite:false});
+    const b = new THREE.Mesh(boxGeo, gm); b.scale.set(1, 1.5, .6); b.position.y = 1.2; sp.add(b);
+    const h = new THREE.Mesh(boxGeo, gm); h.scale.set(.75, .7, .7); h.position.y = 2.3; sp.add(h);
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(.38, .06, 8, 24), new THREE.MeshBasicMaterial({color:0xffe27a, transparent:true})); halo.rotation.x = Math.PI / 2; halo.position.y = 2.95; sp.add(halo);
+    [-1, 1].forEach(sd => { const w = new THREE.Mesh(boxGeo, gm); w.scale.set(.9, .6, .08); w.position.set(sd * .75, 1.6, -.35); w.rotation.z = -sd * .5; sp.add(w); });
+    sp.position.set(kg.x, .5, kg.z); scene.add(sp); coron.spirit = {g:sp, mats:[gm, halo.material]};
+    k.visible = false;
+  });
+  at(5, () => {
+    S.crowned = true; applyCrown(); save();
+    const tx = $('cineTxt'); tx.textContent = 'VIDA LONGA AO REI ' + (ACC || 'você').toUpperCase() + '! 👑';
+    cineSay('Os cavaleiros se ajoelham. Agora o reino é seu!');
+    const fl = $('dive'); fl.classList.add('flash', 'skyf'); setTimeout(() => fl.classList.remove('flash', 'skyf'), 350);
+    [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, j) => setTimeout(() => beep(f, .2, 'triangle', .07, 1.2), j * 140));
+    for (const v of villagers) if (v.I === kg.K.I) setTimeout(() => floatText('Viva o Rei!', v.x, 3.4 * v.s, v.z, 'hi'), Math.random() * 1500);
+    if (coron.crownFly){ scene.remove(coron.crownFly); coron.crownFly = null; }
+  });
+  at(6, () => {
+    coron.on = false; document.body.classList.remove('cutscene');
+    $('cineTxt').classList.remove('show'); $('cineSub').classList.remove('show');
+    if (coron.spirit){ scene.remove(coron.spirit.g); coron.spirit = null; }
+    k.rotation.set(0, 0, 0); k.position.y = .5;
+    banner('Rei ' + (ACC || 'você'), '👑 Você agora é o');
+    toast('👑 Você é o novo Rei! As missões agora ficam no seu trono, no castelo.', 5000);
+    kg.greeted = true;
+  });
+  // animações contínuas
+  if (coron.step >= 2 && coron.step <= 4){ k.rotation.x = Math.min(.35, k.rotation.x + dt * .2); k.position.y = .5 + Math.sin(t * 9) * .02; } // corcunda, tremendo
+  if (coron.step === 4){ k.rotation.x = Math.max(-1.35, k.rotation.x - dt * .9); k.position.y = Math.max(.1, k.position.y - dt * .2); } // deita no trono
+  if (coron.crownFly){ // coroa voa da cabeça dele para a sua
+    const kk = Math.min(1, (T - 7.4) / 2.2), e = kk * kk * (3 - 2 * kk), to = new THREE.Vector3(P.x, P.y + 3.25, P.z);
+    coron.crownFly.position.lerpVectors(coron.from, to, e); coron.crownFly.position.y += Math.sin(kk * Math.PI) * 2; coron.crownFly.rotation.y += dt * 4;
+    if (kk >= 1){ myCrown.visible = true; coron.crownFly.visible = false; }
+  }
+  if (coron.spirit){ const g = coron.spirit.g, life = T - 12.6; g.position.y += dt * 1.6; g.rotation.y += dt * .6; coron.spirit.mats.forEach(m => m.opacity = Math.max(0, .8 - life / 3.4)); }
+}
+function updateFight(dt, t){ fightCd -= dt; updateArrest(dt, t); updatePrison(dt, t); updateCoronation(dt, t); }
 
 // ---------- Física simples ----------
 function blocked(x, z, y){
@@ -4911,6 +5023,7 @@ function levelUp(from){
 }
 function hud(){
   $('flyBtn').hidden = !isHero();
+  if (!!S.crowned !== crownShown) applyCrown();
   hudLvl();
   $('coinTxt').textContent = fmt(S.coins);
   const cap = bagCap(S.lv.bag);
@@ -5117,10 +5230,13 @@ function setOther(peer){
     o = Object.assign(a, {sk, x, y, z, tx:x, ty:y, tz:z, f:0, tf:0, walk:0, name:'', tag:null});
     others.set(peer.peer, o);
   }
-  if (o.name !== name || o.tagSk !== sk){
+  const cr = !!pr.cr;
+  if (cr && !o.crownM){ o.crownM = makeCrown(); o.crownM.position.y = 3.25; o.g.add(o.crownM); }
+  if (o.crownM) o.crownM.visible = cr;
+  if (o.name !== name || o.tagSk !== sk || o.tagCr !== cr){ o.tagCr = cr;
     if (o.tag) o.g.remove(o.tag);
     const vip = SKINS.find(k => k.id === sk).only;
-    o.tag = vip ? label('👑 ' + name + ' · Criador', '#ffcc33', '#2a1650', 768) : label(name, '#2a2145', '#ffffff', 512);
+    o.tag = vip ? label('👑 ' + name + (cr ? ' · Rei e Criador' : ' · Criador'), '#ffcc33', '#2a1650', 900) : cr ? label('👑 Rei ' + name, '#ffcc33', '#3a2a00', 640) : label(name, '#2a2145', '#ffffff', 512);
     o.tag.scale.multiplyScalar(.7); o.tag.position.y = vip ? 4.6 : 3.7; o.g.add(o.tag); o.name = name; o.tagSk = sk;
   }
   o.tx = x; o.ty = y; o.tz = z; o.tf = num(pr.f, -10, 10) || 0;
@@ -5151,7 +5267,7 @@ async function startMulti(){
 function sendPresence(force){
   if (!net) return;
   const r = v => Math.round(v * 100) / 100;
-  const pr = {x:r(P.x), y:r(P.y), z:r(P.z), f:r(P.face), sk:S.skin, n:ACC || 'Visitante'};
+  const pr = {x:r(P.x), y:r(P.y), z:r(P.z), f:r(P.face), sk:S.skin, n:ACC || 'Visitante', cr:S.crowned ? 1 : 0};
   const j = JSON.stringify(pr);
   if (!force && j === netLast) return;
   netLast = j; net.presence(pr).catch(() => {});
@@ -5231,7 +5347,7 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1, keep = {found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {crowned:S.crowned, found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars || inHole) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
@@ -5572,7 +5688,7 @@ function step(now){
   if (keys.KeyD || keys.ArrowRight) ix += 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (stick.id !== null){ ix += stick.x; iz -= stick.y; }
-  if (arrest.on || (shark.on && shark.fly)){ ix = 0; iz = 0; jumpBuf = 0; }
+  if (arrest.on || coron.on || (shark.on && shark.fly)){ ix = 0; iz = 0; jumpBuf = 0; }
   const mag = Math.min(1, Math.hypot(ix, iz));
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   let mx = 0, mz = 0;
