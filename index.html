@@ -190,7 +190,7 @@ body.touch #talk small{display:none}
 .float.hi{color:#fff;font-size:20px;animation-duration:1.6s}
 /* Arena de batalha */
 #battle{top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none;text-align:center;background:color-mix(in srgb,var(--ink) 80%,transparent);border:2px solid var(--line);border-radius:14px;padding:6px 16px 8px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
-body.arena #battle{display:block}
+body.arena #battle,body.raid #battle{display:block}
 #battle b{font-family:var(--display);font-weight:400;font-size:22px;display:block;letter-spacing:.5px}
 .hpbar{width:200px;height:14px;border-radius:7px;background:var(--panel-2);overflow:hidden;margin:4px auto 2px}
 .hpbar i{display:block;height:100%;width:100%;background:var(--ok);transition:width .15s,background .3s}
@@ -199,7 +199,7 @@ body.arena #battle{display:block}
 #battle small{display:block;font-size:12px;font-weight:800;color:var(--muted)}
 @media (max-width:700px){#battle{top:auto;bottom:calc(170px + env(safe-area-inset-bottom,0px))}.hpbar{width:150px}}
 #atk{display:none;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;right:calc(118px + env(safe-area-inset-right,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px));width:80px;height:80px;border-radius:50%;font-size:14px;padding:0;background:var(--bad);border-color:#b3263f}
-body.touch.arena #atk,body.touch.fight #atk{display:block}
+body.touch.arena #atk,body.touch.fight #atk,body.touch.raid #atk{display:block}
 #flyBtn{background:#2b6cd4;border-color:#1a3f80;color:#fff}
 #flyBtn[hidden]{display:none}
 #flyBtn[aria-pressed="true"]{background:#ffd23f;border-color:#c79a12;color:#3a2a00;box-shadow:0 0 0 3px #2b6cd4,0 4px 0 rgba(0,0,0,.4)}
@@ -563,7 +563,7 @@ const fmt = n => {
   return (n/1e9).toFixed(1).replace('.', ',') + ' bi';
 };
 
-const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0, found:[], secret:null, crowned:false});
+const fresh = () => ({coins:0, bag:0, bagVal:0, lv:{bag:0,speed:0,jump:0,magnet:0}, unlocked:1, rebirths:0, pets:[], equip:[], nid:1, skins:['classico'], skin:'classico', level:1, xp:0, daily:null, codes:{}, qdone:0, str:0, found:[], secret:null, crowned:false, raids:0});
 let S = fresh();
 const SAVE_KEY = 'ilha-dos-cristais-v1';
 // Contas: ficam na nuvem do jogo (db "contas/<nome>": hash da senha + save), então funcionam em qualquer PC.
@@ -2345,6 +2345,7 @@ const ET = {
   goblin:{name:'Goblin',   hp:6,  sp:4.2, dmg:7, rew:12,  s:.9},
   ogro:  {name:'Ogro',     hp:16, sp:2.7, dmg:12, rew:40,  s:1.5},
   rei:   {name:'Rei Ogro', hp:60, sp:2.4, dmg:18, rew:250, s:2.2},
+  trevas:{name:'Senhor das Trevas', hp:110, sp:2.6, dmg:22, rew:2500, s:3.2},
 };
 const SLIME_C = [0x6cd94f, 0x4ac8ff, 0xff7ac8, 0xffb347];
 function buildFoe(type){
@@ -2355,7 +2356,7 @@ function buildFoe(type){
     part(.2, .28, .05, 0x1d1630, -.3, .72, .71, g); part(.2, .28, .05, 0x1d1630, .3, .72, .71, g);
     part(.4, .08, .05, 0x1d1630, 0, .45, .71, g);
   } else {
-    const C = {goblin:[0x7fbf4f, 0x8a5a3b, 0x5a3d22], ogro:[0x8a7fae, 0x6b4430, 0x4a3020], rei:[0xc0504d, 0x6b3fc0, 0x2b1d55]}[type];
+    const C = {goblin:[0x7fbf4f, 0x8a5a3b, 0x5a3d22], ogro:[0x8a7fae, 0x6b4430, 0x4a3020], rei:[0xc0504d, 0x6b3fc0, 0x2b1d55], trevas:[0x5a3a7a, 0x2a1050, 0x1d1630]}[type];
     [-1, 1].forEach(sd => { const p = new THREE.Group(); p.position.set(sd * .27, .97, 0); g.add(p); part(.46, .97, .5, C[2], 0, -.485, 0, p); o.legs.push(p); });
     part(1.05, .95, .55, C[1], 0, 1.45, 0, g);
     part(.78, .74, .74, C[0], 0, 2.32, 0, g);
@@ -2364,6 +2365,11 @@ function buildFoe(type){
     part(.34, .06, .05, 0x1d1630, 0, 2.12, .38, g);
     if (type === 'goblin'){ part(.34, .16, .1, C[0], -.52, 2.42, 0, g); part(.34, .16, .1, C[0], .52, 2.42, 0, g); }
     else { part(.08, .16, .06, 0xffffff, -.14, 2.2, .39, g); part(.08, .16, .06, 0xffffff, .14, 2.2, .39, g); }
+    if (type === 'trevas'){
+      [-1, 1].forEach(sd => { const h = new THREE.Mesh(new THREE.ConeGeometry(.12, .6, 6), mat(0x111118)); h.position.set(sd * .32, 2.95, 0); h.rotation.z = -sd * .5; g.add(h); });
+      [-1, 1].forEach(sd => { const e = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({color:0xff2f3a})); e.scale.set(.18, .13, .04); e.position.set(sd * .17, 2.38, .4); g.add(e); });
+      part(1.3, 1.9, .08, 0x111118, 0, 1.3, -.42, g); part(1.4, .2, .6, 0x3a2a55, 0, 1.95, -.1, g);
+    }
     if (type === 'rei'){ part(.86, .2, .86, 0xffcc33, 0, 2.78, 0, g); [[.33,.33],[-.33,.33],[.33,-.33],[-.33,-.33]].forEach(([x, z]) => part(.14, .22, .14, 0xffcc33, x, 2.97, z, g)); }
     [-1, 1].forEach(sd => { const p = new THREE.Group(); p.position.set(sd * .7, 1.9, 0); g.add(p); part(.36, .45, .42, C[1], 0, -.22, 0, p); part(.34, .5, .38, C[0], 0, -.68, 0, p); o.arms.push(p); });
     part(.2, .9, .2, 0x6b4a2b, 0, -1.2, 0, o.arms[1]); part(.42, .5, .42, 0x5a3d22, 0, -1.7, 0, o.arms[1]);
@@ -4354,6 +4360,7 @@ function fightAttack(){
   if (!fightOn || !playing || fightCd > 0 || diving || driving || arrest.on || flipping) return;
   fightCd = .38; B.swing = .28;
   beep(700, .08, 'sawtooth', .035, .5);
+  if (RAID.on && raidAttack()) return;
   const fx = Math.sin(P.face), fz = Math.cos(P.face);
   let best = null, bd = 3.2, kind = null;
   if (!S.crowned) for (const kg of kings){ const d = Math.hypot(kg.x - P.x, kg.z - P.z); if (d < bd){ bd = d; best = kg; kind = 'king'; } }
@@ -4767,7 +4774,155 @@ function updateCoronation(dt, t){
   }
   if (coron.spirit){ const g = coron.spirit.g, life = T - 12.6; g.position.y += dt * 1.6; g.rotation.y += dt * .6; coron.spirit.mats.forEach(m => m.opacity = Math.max(0, .8 - life / 3.4)); }
 }
-function updateFight(dt, t){ fightCd -= dt; updateArrest(dt, t); updatePrison(dt, t); updateCoronation(dt, t); }
+
+// ---------- Invasões de monstros (depois de virar Rei) ----------
+// De tempos em tempos monstros atacam uma ilha do reino. Feixe vermelho no céu mostra onde. O Rei tem que ir lá e derrotar todos.
+// A cada 3 invasões vem o chefão: Senhor das Trevas.
+const RAID = {on:false, isle:null, name:'', foes:[], next:25, hp:100, max:100, inv:0, regen:0, beam:null, shown:'', lastIsle:null, remindT:0, near:false};
+const raidIsles = () => [HUB, PORT, CASTLE].concat(ZONES.filter((Z, i) => i < S.unlocked && !(Z.sub || Z.sky || Z.forest || Z.wreck || Z.stadium || Z.moon || Z.mars || Z.hole)));
+const isleNm = I => I === HUB ? 'Ilha Central' : I.name;
+const raidBeam = (() => {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 160, 16, 1, true), new THREE.MeshBasicMaterial({color:0xff2f3a, transparent:true, opacity:.28, side:THREE.DoubleSide, depthWrite:false, fog:false}));
+  b.position.y = 80; g.add(b);
+  const l = label('⚠️ MONSTROS!', '#ff2f3a', '#ffffff', 640); l.scale.multiplyScalar(3); l.position.y = 26; l.material.fog = false; g.add(l);
+  g.visible = false; scene.add(g); return g;
+})();
+function startRaid(){
+  const list = raidIsles().filter(I => I !== RAID.lastIsle);
+  const I = list[Math.floor(Math.random() * list.length)] || HUB, c = (S.raids || 0) + 1, boss = c % 3 === 0;
+  RAID.on = true; RAID.isle = I; RAID.lastIsle = I; RAID.name = isleNm(I); RAID.hp = RAID.max; RAID.shown = ''; RAID.remindT = 40; RAID.near = false; RAID.wasBoss = false;
+  const types = [];
+  if (boss){ types.push('trevas'); for (let k = 0; k < 3 + Math.floor(c / 3); k++) types.push(Math.random() < .5 ? 'goblin' : 'ogro'); }
+  else for (let k = 0, n = Math.min(4 + c, 12); k < n; k++){ const r = Math.random(); types.push(c >= 4 && r < .08 ? 'rei' : r < .3 + c * .03 ? 'ogro' : r < .7 ? 'goblin' : 'slime'); }
+  const pw = Math.max(1, atkPow());
+  for (const type of types){
+    const o = buildFoe(type), T = ET[type];
+    let x = I.cx, z = I.cz;
+    for (let t = 0; t < 40; t++){ const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (I.r - 4); x = I.cx + Math.cos(a) * d; z = I.cz + Math.sin(a) * d; if (!occupied(x, z, .8 * T.s) && Math.hypot(x - P.x, z - P.z) > 12) break; }
+    o.g.position.set(x, 0, z); scene.add(o.g);
+    const bg = new THREE.Sprite(barBgMat), fg = new THREE.Sprite(barHpMat);
+    bg.center.set(0, .5); fg.center.set(0, .5); bg.renderOrder = 10; fg.renderOrder = 11; scene.add(bg, fg);
+    // a vida acompanha a força do Rei: sempre precisa de alguns golpes
+    const hp = T.hp * pw * .6 * (1 + .08 * c);
+    RAID.foes.push(Object.assign(o, {type, T, x, z, y:0, hp, max:hp, kx:0, kz:0, atk:1.5, sw:0, ph:Math.random() * 6, bg, fg, dying:0, face:0, tx:x, tz:z}));
+  }
+  raidBeam.position.set(I.cx, 0, I.cz); raidBeam.visible = true;
+  banner(boss ? 'O SENHOR DAS TREVAS chegou!' : 'Monstros atacando!', '⚠️ ' + RAID.name);
+  toast(`📯 Mensageiro: Majestade! ${boss ? 'O Senhor das Trevas e seu exército' : types.length + ' monstros'} estão atacando a ${RAID.name}! Siga o feixe vermelho no céu!`, 6000);
+  [220, 196, 220, 196, 262].forEach((f, j) => setTimeout(() => beep(f, .3, 'sawtooth', .06, 1), j * 260));
+}
+function raidHud(){
+  const alive = RAID.foes.filter(e => !e.dying).length, boss = RAID.foes.some(e => e.type === 'trevas' && !e.dying);
+  const key = `${Math.ceil(RAID.hp)}|${alive}|${boss}`;
+  if (key === RAID.shown) return; RAID.shown = key;
+  $('waveTxt').textContent = '⚔️ Invasão: ' + RAID.name;
+  const pc = Math.max(0, RAID.hp / RAID.max * 100);
+  $('hpBar').style.width = pc + '%'; $('hpBar').classList.toggle('low', pc < 35);
+  $('hpTxt').textContent = `Vida do Rei ${Math.ceil(Math.max(0, RAID.hp))}/${RAID.max}`;
+  $('foesTxt').textContent = (boss ? '😈 Senhor das Trevas + ' : '') + `${alive} monstro${alive > 1 ? 's' : ''}`;
+}
+function raidHurt(dmg){
+  RAID.hp -= dmg; RAID.inv = .45; RAID.regen = 4; RAID.shown = '';
+  const h = $('hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 120);
+  beep(140, .18, 'square', .06, .6);
+  if (RAID.hp <= 0){
+    RAID.hp = RAID.max;
+    if (heroFly) setHeroFly(false);
+    Object.assign(P, {x:CASTLE.spawn.x, y:0, z:CASTLE.spawn.z, vy:0}); cam.yaw = Math.PI; lastIsland = -3;
+    banner('Os cavaleiros te salvaram!', 'O Rei desmaiou...');
+    toast(`🛡️ Você se recuperou no castelo. Os monstros ainda estão na ${RAID.name}!`, 4500);
+  }
+}
+function raidAttack(){
+  const fx = Math.sin(P.face), fz = Math.cos(P.face);
+  let best = null, bd = 4.5;
+  for (const e of RAID.foes){ if (e.dying) continue; const d = Math.hypot(e.x - P.x, e.z - P.z); if (d < bd){ bd = d; best = e; } }
+  if (!best) return false;
+  P.face = Math.atan2(best.x - P.x, best.z - P.z); player.rotation.y = P.face;
+  const ffx = Math.sin(P.face), ffz = Math.cos(P.face);
+  let hit = false;
+  for (const e of RAID.foes){
+    if (e.dying) continue;
+    const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz);
+    if (d > 2.5 + .45 * e.T.s || (d > 1.2 && (dx * ffx + dz * ffz) / d < .25)) continue;
+    hitFoe(e, atkPow(), ffx, ffz, 10); hit = true;
+    if (isHero()) floatText(['POW!', 'BAM!', 'KAPOW!'][Math.floor(Math.random() * 3)], e.x, 3.4 * e.T.s, e.z, 'dmg');
+  }
+  RAID.shown = '';
+  return hit || bd < 4.5;
+}
+function endRaid(){
+  const c = (S.raids || 0) + 1;
+  S.raids = c;
+  const bonus = Math.round((30 + 15 * c) * coinScale() * (RAID.wasBoss ? 3 : 1));
+  S.coins += bonus; hud(); pulseCoins(); save();
+  RAID.on = false; raidBeam.visible = false; document.body.classList.remove('raid');
+  banner(`🛡️ ${RAID.name} está salva!`, `Vitória do Rei! +${fmt(bonus)} moedas`);
+  toast(`👑 Invasões vencidas: ${c}. O reino agradece, Majestade!`, 4500);
+  [523, 659, 784, 1047, 1319].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .07, 1.2), j * 100));
+  for (const v of villagers) if (v.I === RAID.isle) setTimeout(() => floatText(ROYAL_HI[Math.floor(Math.random() * ROYAL_HI.length)], v.x, 3.3 * v.s, v.z, 'hi'), Math.random() * 1500);
+  RAID.foes = []; RAID.next = 120 + Math.random() * 60;
+}
+function updateRaid(dt, t){
+  if (!S.crowned) return;
+  const free = playing && !inSpecialWorld() && !coron.on && !arrest.on && !diving && !flipping;
+  if (!RAID.on){ if (free){ RAID.next -= dt; if (RAID.next <= 0) startRaid(); } return; }
+  const I = RAID.isle, there = free && inIsle(I, P.x, P.z, 8);
+  document.body.classList.toggle('raid', there);
+  if (there && !RAID.near){ RAID.near = true; if (!fightOn) setFight(true); toast('⚔️ Defenda a ilha! F ou clique para atacar.', 3000); }
+  if (!there){ RAID.near = false; RAID.remindT -= dt; if (RAID.remindT <= 0 && free){ RAID.remindT = 45; toast(`⚠️ Ainda tem monstros na ${RAID.name}! Siga o feixe vermelho.`, 3500); } }
+  RAID.wasBoss = RAID.wasBoss || RAID.foes.some(e => e.type === 'trevas');
+  RAID.inv -= dt; RAID.regen -= dt;
+  if (RAID.regen <= 0 && RAID.hp < RAID.max){ RAID.hp = Math.min(RAID.max, RAID.hp + dt * 5); RAID.shown = ''; }
+  const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+  for (const e of RAID.foes){
+    if (e.dying > 0){
+      e.dying -= dt; e.g.scale.setScalar(e.T.s * Math.max(.01, e.dying / .35)); e.g.position.y += dt * 3;
+      e.bg.visible = e.fg.visible = false;
+      if (e.dying <= 0) removeFoe(e);
+      continue;
+    }
+    if (Math.abs(e.x - P.x) > 160 || Math.abs(e.z - P.z) > 160){ e.bg.visible = e.fg.visible = false; continue; }
+    e.bg.visible = e.fg.visible = true;
+    const pdx = P.x - e.x, pdz = P.z - e.z, pd = Math.hypot(pdx, pdz) || 1, reach = .9 + .55 * e.T.s;
+    const chase = there && pd < 30 && P.y < 4;
+    let tx = e.tx, tz = e.tz;
+    if (chase){ tx = P.x; tz = P.z; }
+    else if (Math.hypot(e.tx - e.x, e.tz - e.z) < 1){ const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (I.r - 4); e.tx = I.cx + Math.cos(a) * d; e.tz = I.cz + Math.sin(a) * d; }
+    const dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz) || 1, sp = e.T.sp * (chase ? 1 : .5);
+    let vx = 0, vz = 0;
+    if (!chase || d > reach * .85){ vx = dx / d * sp; vz = dz / d * sp; }
+    for (const o of RAID.foes){ if (o === e || o.dying) continue; const ox = e.x - o.x, oz = e.z - o.z, od = Math.hypot(ox, oz), min = .6 * (e.T.s + o.T.s); if (od < min && od > .001){ vx += ox / od * (min - od) * 6; vz += oz / od * (min - od) * 6; } }
+    const kd = Math.pow(.004, dt); e.kx *= kd; e.kz *= kd;
+    const nx = e.x + (vx + e.kx) * dt, nz = e.z + (vz + e.kz) * dt, rad = .35 * e.T.s;
+    if (!occupied(nx, e.z, rad)) e.x = nx; else if (!chase){ e.tx = e.x; e.tz = e.z; }
+    if (!occupied(e.x, nz, rad)) e.z = nz;
+    const cd = Math.hypot(e.x - I.cx, e.z - I.cz), lim = I.r - 1;
+    if (cd > lim){ e.x = I.cx + (e.x - I.cx) / cd * lim; e.z = I.cz + (e.z - I.cz) / cd * lim; }
+    e.face = Math.atan2(chase ? pdx : dx, chase ? pdz : dz);
+    const moving = Math.hypot(vx, vz) > .3;
+    e.y = e.type === 'slime' ? Math.abs(Math.sin(t * 6 + e.ph)) * .6 : 0;
+    e.g.position.set(e.x, e.y, e.z); e.g.rotation.y = e.face;
+    if (e.type === 'slime') e.g.scale.set(e.T.s * (1 + (.6 - e.y) * .12), e.T.s * (1 - (.6 - e.y) * .15), e.T.s * (1 + (.6 - e.y) * .12));
+    const sw = moving ? Math.sin(t * 9 + e.ph) * .7 : 0;
+    e.legs.forEach((l, k) => l.rotation.x = k ? -sw : sw);
+    if (e.arms.length){ e.arms[0].rotation.x = -sw; e.sw = Math.max(0, e.sw - dt); e.arms[1].rotation.x = e.sw > 0 ? -2.6 + (1 - e.sw / .3) * 2.8 : sw; }
+    e.atk -= dt;
+    if (chase && pd < reach && Math.abs(P.y - e.y) < 2.5 && e.atk <= 0 && RAID.inv <= 0){ e.atk = 1.4; e.sw = .3; raidHurt(e.T.dmg); }
+    // moradores fogem dos monstros
+    if (Math.random() < dt * 2) for (const v of villagers) if (v.I === I && !v.arr && !(v.down > 0) && Math.hypot(v.x - e.x, v.z - e.z) < 4){ v.flee = 1.5; if (Math.random() < .3) floatText('Socorro!', v.x, 3.3 * v.s, v.z, 'hi'); }
+    const w = .9 + e.T.s * .6, top = (e.type === 'slime' ? 1.6 : 3.1) * e.T.s + .4;
+    e.bg.position.set(e.x - rx * w / 2, top, e.z - rz * w / 2); e.bg.scale.set(w, .2, 1);
+    e.fg.position.copy(e.bg.position); e.fg.scale.set(w * Math.max(0, e.hp / e.max), .2, 1);
+  }
+  RAID.foes = RAID.foes.filter(e => !e.gone);
+  raidBeam.children[0].material.opacity = there ? .05 : .2 + Math.sin(t * 4) * .1;
+  raidBeam.children[1].visible = !there;
+  if (there) raidHud();
+  if (!RAID.foes.length) endRaid();
+}
+function updateFight(dt, t){ fightCd -= dt; updateArrest(dt, t); updatePrison(dt, t); updateCoronation(dt, t); updateRaid(dt, t); }
 
 // ---------- Física simples ----------
 function blocked(x, z, y){
@@ -5347,7 +5502,7 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1, keep = {crowned:S.crowned, found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {raids:S.raids, crowned:S.crowned, found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars || inHole) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
