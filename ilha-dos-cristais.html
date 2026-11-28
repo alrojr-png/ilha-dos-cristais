@@ -91,6 +91,30 @@ body.intro .hud,body.intro #map,body.intro #talkBtn,body.intro #talk,body.intro 
 #rocketName{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.5px}
 #rocketMenu small{display:block;margin-top:8px;text-align:right;font-size:11px;font-weight:800;color:var(--muted)}
 body.touch #rocketMenu small{display:none}
+#ending{position:fixed;inset:0;z-index:40;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(60,10,30,.55) 0%,rgba(8,4,16,.96) 100%);opacity:0;transition:opacity 1.4s;overflow:hidden}
+#ending.on{opacity:1}
+#ending[hidden],#ending [hidden]{display:none}
+#ending h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(38px,9vw,92px);line-height:1;color:var(--text);text-shadow:0 6px 0 #5b4a8f,0 10px 30px rgba(0,0,0,.6)}
+#ending h1 span{color:var(--gem)}
+#ending .endsub{margin:14px auto 30px;max-width:34ch;font-size:clamp(16px,2.6vw,20px);font-weight:800;color:var(--muted)}
+#ending .endbtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+#ending .endbtns .btn{font-size:18px;padding:14px 22px}
+#endWin,#endScene{width:min(640px,100%)}
+#endCred{position:absolute;inset:0;overflow:hidden}
+#endCred .roll{position:absolute;left:0;right:0;top:100%;padding:0 24px;animation:roll 26s linear forwards}
+#endCred h2{font-family:var(--display);font-weight:400;font-size:clamp(26px,5vw,40px);color:var(--gem);margin:46px 0 8px}
+#endCred p{margin:4px 0;font-size:clamp(16px,2.6vw,21px);font-weight:800;color:var(--text)}
+#endCred .big{font-family:var(--display);font-weight:400;font-size:clamp(40px,9vw,80px);color:var(--text);margin-bottom:20px}
+@keyframes roll{to{transform:translateY(calc(-100% - 100vh))}}
+.endskip{position:absolute;right:16px;bottom:16px;z-index:2}
+#endScene .stage{font-size:clamp(54px,12vw,110px);min-height:1.3em;line-height:1.2;transition:opacity .3s}
+#endScene .line{margin:18px auto 0;max-width:30ch;min-height:3.2em;font-size:clamp(17px,2.8vw,23px);font-weight:800;color:var(--text);text-shadow:0 2px 8px #000}
+#endScene .stage.shake{animation:eshake .25s 4}
+@keyframes eshake{25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+#endScene .tbc{font-family:var(--display);font-weight:400;font-size:clamp(30px,7vw,62px);color:#ff5470;margin:18px 0 26px}
+#ending.flash::after{content:"";position:absolute;inset:0;background:#fff;pointer-events:none;animation:eflash .5s forwards}
+@keyframes eflash{to{opacity:0}}
+@media (prefers-reduced-motion:reduce){#endCred .roll{animation-duration:40s}#endScene .stage.shake{animation:none}}
 #intro{position:fixed;inset:0;z-index:20;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(29,22,48,.25) 0%,rgba(29,22,48,.72) 100%);transition:opacity .5s}
 #intro.out{opacity:0;pointer-events:none}
 #intro .logo{display:block;width:clamp(64px,12vw,96px);margin:0 auto 6px;animation:float 2.6s ease-in-out infinite}
@@ -390,6 +414,25 @@ body.touch .pw b{display:none}
 </div></div>
 <div id="cine" aria-hidden="true"><b id="cineTxt"></b><p id="cineSub"></p></div>
 <div id="alarm" aria-hidden="true"></div>
+<div id="ending" hidden role="dialog" aria-modal="true" aria-labelledby="endTitle">
+  <div id="endWin">
+    <h1 id="endTitle">Você zerou a<br>Ilha dos <span>Cristais!</span></h1>
+    <p class="endsub">Depois de 100 golpes, o monstro cansou de brincar... e você não regenerou mais. Mas toda lenda pode voltar.</p>
+    <div class="endbtns"><button class="btn" id="endPost" type="button">🎬 Ver cena pós-créditos</button><button class="btn go" id="endRevive" type="button">✨ Renascer</button></div>
+  </div>
+  <div id="endCred" hidden><div class="roll">
+    <p class="big">Ilha dos Cristais</p>
+    <h2>Criador da Ilha</h2><p>👑 altor</p>
+    <h2>Programação</h2><p>Claude</p>
+    <h2>Monstros da Arena</h2><p>Geleca</p><p>Goblin</p><p>Ogro</p><p>Rei Ogro</p><p>Senhor das Trevas</p>
+    <h2>Moradores</h2><p>Dona Cida · Seu Tonico · Zuleica</p><p>Pingo · Brasa · Capitão Coral</p><p>Vovó Nimbus · Treinador Bíceps</p><p>Rei Cristóvão e os cavaleiros</p><p>Zé Grilo (agora cidadão exemplar... será?)</p>
+    <h2>Pets</h2><p>Todos os bichinhos que saíram dos ovos</p>
+    <h2>Testado por</h2><p>Você! 💎</p>
+    <h2>&nbsp;</h2><p class="big">Obrigado por jogar!</p>
+    <p>Fique até o fim...</p>
+  </div><button class="btn endskip" id="endSkip" type="button">Pular ⏭</button></div>
+  <div id="endScene" hidden><div class="stage" id="esStage"></div><p class="line" id="esLine"></p><div id="esEnd" hidden><p class="tbc">CONTINUA...</p><div class="endbtns"><button class="btn go" id="endRevive2" type="button">✨ Renascer</button></div></div></div>
+</div>
 <div id="intro">
   <div>
     <svg class="logo" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3l9 9-9 15-9-15z" fill="#34f0b0" stroke="#108a63" stroke-width="2" stroke-linejoin="round"/><path d="M6 12h18M15 3l-3 9 3 15 3-15z" stroke="#108a63" stroke-width="1.4" fill="none"/></svg>
@@ -2426,7 +2469,11 @@ function goArena(on){
     fx.classList.remove('flash'); setTimeout(() => fx.classList.remove('arenaf'), 450); diving = false;
   }, 500);
 }
+const ENDING = {on:false, timers:[]};
 function hurt(dmg){
+  if (ENDING.on) return;
+  S.hits = (S.hits || 0) + 1;
+  if (S.hits >= 100){ finalBlow(); return; }
   B.hp -= dmg; B.inv = .45; B.regen = 4;
   const h = $('hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 120);
   beep(140, .18, 'square', .06, .6);
@@ -2452,6 +2499,63 @@ function hitFoe(e, dmg, fx, fz, push){
     arenaFx.cheer = 1.4;
   }
 }
+// ---------- Final do jogo (100 golpes) ----------
+function finalBlow(){
+  ENDING.on = true; B.hp = 0; B.regen = Infinity; B.next = 0; save();
+  const killer = B.foes.filter(e => !e.dying).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
+  if (killer){ killer.sw = .3; floatText('Agora é pra valer! 😈', killer.x, 3.6 * killer.T.s, killer.z, 'hi'); }
+  const h = $('hurt'); h.classList.add('on');
+  beep(90, 1.2, 'sawtooth', .1, .3); setTimeout(() => beep(60, 1.6, 'square', .08, .2), 300);
+  banner('Você não regenerou...', '💀 Golpe final!');
+  B.shown = ''; battleHud();
+  ENDING.timers.push(setTimeout(() => {
+    h.classList.remove('on'); clearFoes(); clearPowers();
+    const el = $('ending'); el.hidden = false; showEndPart('endWin');
+    void el.offsetWidth; el.classList.add('on');
+    [392, 523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .3, 'triangle', .08, 1.1), 600 + j * 180));
+  }, 2600));
+}
+function showEndPart(id){ ['endWin', 'endCred', 'endScene'].forEach(k => $(k).hidden = k !== id); }
+function endClear(){ ENDING.timers.forEach(clearTimeout); ENDING.timers = []; }
+function endCredits(){
+  endClear(); showEndPart('endCred');
+  const r = $('endCred').querySelector('.roll'); r.style.animation = 'none'; void r.offsetWidth; r.style.animation = '';
+  [262, 330, 392, 523].forEach((f, j) => setTimeout(() => beep(f, .5, 'triangle', .05, 1), j * 400));
+  ENDING.timers.push(setTimeout(endScene, 26500));
+}
+function endScene(){
+  endClear(); showEndPart('endScene'); $('esEnd').hidden = true;
+  const st = $('esStage'), ln = $('esLine'); st.textContent = ''; ln.textContent = '';
+  const steps = [
+    [0,     '🌙🏟️', 'Mais tarde, na Arena de Batalha vazia...'],
+    [3200,  '😵👑', 'Você continua caído no chão, com a sua coroa do lado...'],
+    [6400,  '👣🦗', 'Passinhos... alguém vem chegando na ponta dos pés.'],
+    [9200,  '🦗😮', 'Zé Grilo: “Opa! Olha só quem tá aqui... meu velho companheiro de cela!”'],
+    [12600, '🦗👀👑', 'Zé Grilo: “E essa coroa brilhante aí... tá dando sopa, né?”'],
+    [16000, '🦗👑💨', 'Ele pega a sua coroa e sai correndo! Zé Grilo: “Valeu, parceiro! Hehehe!”', 1],
+    [19500, '😵❓', '“Cidadão exemplar”, é? Sei...']
+  ];
+  steps.forEach(([t, em, tx, fx]) => ENDING.timers.push(setTimeout(() => {
+    st.style.opacity = 0;
+    setTimeout(() => { st.textContent = em; ln.textContent = tx; st.style.opacity = 1; st.classList.toggle('shake', !!fx); }, 300);
+    beep(fx ? 110 : 330, .25, fx ? 'sawtooth' : 'triangle', .05, fx ? .5 : 1);
+  }, t)));
+  ENDING.timers.push(setTimeout(() => {
+    $('esEnd').hidden = false; beep(70, 1.4, 'sawtooth', .09, .25);
+    const el = $('ending'); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 600);
+  }, 22500));
+}
+function endRevive(){
+  endClear(); S.hits = 0; ENDING.on = false; save();
+  const el = $('ending'); el.classList.remove('on');
+  setTimeout(() => { el.hidden = true; showEndPart('endWin'); }, 900);
+  if (inArena) goArena(false); else setArena(false);
+  setTimeout(() => { banner('Você renasceu!', '✨ A lenda continua'); [523, 659, 784, 1047].forEach((f, j) => setTimeout(() => beep(f, .16, 'triangle', .07, 1.2), j * 100)); }, 700);
+}
+document.getElementById('endPost').addEventListener('click', endCredits);
+document.getElementById('endSkip').addEventListener('click', endScene);
+document.getElementById('endRevive').addEventListener('click', endRevive);
+document.getElementById('endRevive2').addEventListener('click', endRevive);
 // ---------- Poderes ----------
 const POW = {fire:{cd:1.5, name:'Bola de fogo'}, bolt:{cd:6, name:'Raio'}, ice:{cd:12, name:'Congelar'}, heal:{cd:15, name:'Cura'}};
 B.pw = {fire:0, bolt:0, ice:0, heal:0};
@@ -2585,8 +2689,8 @@ function updateArena(dt, t){
   arenaFx.cheer = Math.max(0, arenaFx.cheer - dt);
   for (const c of arenaFx.crowd) c.g.position.y = c.base + Math.abs(Math.sin(t * (arenaFx.cheer ? 9 : 2) + c.ph)) * (arenaFx.cheer ? .5 : .08);
   B.cd -= dt; B.inv -= dt; B.regen -= dt;
-  if (B.regen <= 0 && B.hp < B.max) B.hp = Math.min(B.max, B.hp + dt * 5);
-  if (!B.foes.length){
+  if (!ENDING.on && B.regen <= 0 && B.hp < B.max) B.hp = Math.min(B.max, B.hp + dt * 5);
+  if (!B.foes.length && !ENDING.on){
     if (B.next > 0){ B.next -= dt; if (B.next <= 0) spawnWave(); }
     else if (B.wave > 0){
       const bonus = Math.round(B.wave * 20 * coinScale());
@@ -5028,6 +5132,7 @@ addEventListener('keydown', e => {
   initAudio();
   if (e.target.closest && (e.target.closest('#cheat') || e.target.closest('#login'))) return;
   if (!loginEl.hidden || flipping) return;
+  if (ENDING.on) return;
   if (!playing){ if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space'){ e.preventDefault(); play(); } return; }
   if (!talkEl.hidden){
     const n = {Digit1:'sell', Digit2:'shop', Digit3:'pets', Digit4:'skins', Digit5:'bye', Numpad1:'sell', Numpad2:'shop', Numpad3:'pets', Numpad4:'skins', Numpad5:'bye', Escape:'bye'}[e.code];
@@ -5496,7 +5601,7 @@ $('ups').addEventListener('click', e => {
 });
 $('rebBtn').addEventListener('click', () => {
   if (S.coins < rebirthCost(S.rebirths) || S.unlocked < ZONES.length) return;
-  const r = S.rebirths + 1, keep = {raids:S.raids, crowned:S.crowned, found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
+  const r = S.rebirths + 1, keep = {raids:S.raids, crowned:S.crowned, found:S.found, secret:S.secret, pets:S.pets, equip:S.equip, nid:S.nid, skins:S.skins, skin:S.skin, level:S.level, xp:S.xp, daily:S.daily, codes:S.codes, qdone:S.qdone, hits:S.hits}; S = fresh(); Object.assign(S, keep); S.rebirths = r; save();
   if (inArena) setArena(false); if (inSky) setSky(false); if (inForest) setForest(false); if (inElf) setElf(false); if (inSnow) setSnow(false); if (inInv) setInv(false); if (inMoon || inMars || inHole) setSpace('earth'); inResto = false; if (under) setUnder(false); inMini = false;
   Object.assign(P, {x:0, y:0, z:8, vy:0}); toggleShop(false); hud();
   banner(`Cristais valem ${multOf(r)}x`, 'Você renasceu!'); beep(330, .4, 'triangle', .09, 3);
