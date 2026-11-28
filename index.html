@@ -5320,6 +5320,7 @@ function pulseCoins(){ const c = $('coins'); c.classList.remove('pulse'); void c
 // ---------- Códigos secretos (5 toques rápidos no contador de moedas) ----------
 // cada código: max = quantas vezes pode usar; run = o que ele dá
 const CODES = {
+  zerar: {max:999, run:() => { S.hits = 99; return ['Golpe 99 de 100!', 'Vá para a arena: o próximo golpe é o final']; }},
   pailindo: {max:2, run:() => { const g = Math.max(1000, Math.round(S.coins * .1)); S.coins += g; return ['+' + fmt(g) + ' moedas!', 'Código secreto: +10%']; }},
 };
 const cheatEl = $('cheat'), cheatIn = $('cheatIn');
